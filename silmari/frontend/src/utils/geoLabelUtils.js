@@ -6,6 +6,7 @@ export const SIDO_LABEL_POSITIONS = {
   인천: [37.48, 126.68],
   광주: [35.16, 126.85],
   대전: [36.35, 127.38],
+  세종: [36.48, 127.29],
   울산: [35.54, 129.25],
   경기: [37.75, 127.15],
   강원: [37.75, 128.35],
@@ -132,15 +133,13 @@ export function getLabelLatLng(feature, shortLabel, currentKey) {
 }
 
 /** 화면 픽셀 기준 라벨 표시 여부 */
-export function shouldShowPermanentLabel(featureLayer, map, currentKey) {
-  if (currentKey === "root") return true
+export function shouldShowPermanentLabel(featureLayer, map, currentKey, { isActive = false } = {}) {
+  if (currentKey === "root" || isActive) return true
 
   const bounds = featureLayer.getBounds()
   const nw = map.latLngToContainerPoint(bounds.getNorthWest())
   const se = map.latLngToContainerPoint(bounds.getSouthEast())
-  const width = Math.abs(se.x - nw.x)
-  const height = Math.abs(se.y - nw.y)
-  const minSide = Math.min(width, height)
+  const minSide = Math.min(Math.abs(se.x - nw.x), Math.abs(se.y - nw.y))
 
-  return minSide >= (currentKey === "root" ? 28 : 42)
+  return minSide >= 18
 }

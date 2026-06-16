@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import MapDrilldown from "../components/MapDrilldown"
 import AlertMessageCard from "../components/AlertMessageCard"
@@ -119,10 +119,10 @@ export default function Dashboard() {
 
   const handleSearch = () => loadList({ refresh: true })
 
-  const handleMapRegionSelect = (filter) => {
+  const handleMapRegionSelect = useCallback((filter) => {
     setMapFilter(filter || { level: "nation" })
     setSelectedRegion(regionFilterLabel(filter) || "전국")
-  }
+  }, [setSelectedRegion])
 
   const handleSelectAlert = (alert) => {
     setSelectedAlert(alert)

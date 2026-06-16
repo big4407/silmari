@@ -38,7 +38,7 @@
 }
 
 .map-region-label--active {
-  background: rgba(37, 99, 235, 0.88);
+  background: rgba(234, 88, 12, 0.92);
   color: #fff;
 }
 
@@ -54,8 +54,8 @@
 }
 
 .map-region-tooltip--active {
-  background: #3b82f6 !important;
-  border-color: #2563eb !important;
+  background: #ea580c !important;
+  border-color: #c2410c !important;
   color: #fff !important;
 }
 

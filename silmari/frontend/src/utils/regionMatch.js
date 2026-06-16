@@ -41,13 +41,26 @@ export function alertMatchesFilter(rcptnRgnNm, mapFilter) {
   if (!text || !mapFilter || mapFilter.level === "nation") return true
 
   const sidoTerms = SIDO_SEARCH_TERMS[mapFilter.sidoLabel || mapFilter.label] || [mapFilter.label]
+  if (!sidoTerms.some(term => text.includes(term))) return false
 
   if (mapFilter.level === "sido") {
-    return sidoTerms.some(term => text.includes(term))
+    return true
   }
 
   if (mapFilter.level === "gu") {
-    return text.includes(mapFilter.label) && sidoTerms.some(term => text.includes(term))
+    const label = mapFilter.label.replace(/\s/g, "")
+    const textNorm = text.replace(/\s/g, "")
+    if (textNorm.includes(label)) return true
+
+    const cityGu = label.match(/^(.+시)(.+[구군])$/)
+    if (cityGu && textNorm.includes(cityGu[1]) && textNorm.includes(cityGu[2])) {
+      return true
+    }
+
+    const city = label.match(/^(.+시)/)?.[1]
+    if (city && textNorm.includes(city)) return true
+
+    return text.includes(mapFilter.label)
   }
 
   return true
@@ -61,6 +74,31 @@ export function filterAlertsByRegion(alerts, mapFilter) {
 export function countAlertsForSido(alerts, sidoLabel) {
   const filter = { level: "sido", label: sidoLabel }
   return filterAlertsByRegion(alerts, filter).length
+}
+
+function isSidoUnit(name, matchedSido) {
+  const sidoTerms = SIDO_SEARCH_TERMS[matchedSido.label] || [matchedSido.label]
+  return sidoTerms.some(term => name.includes(term.replace(/도$|특별.*$|광역.*$/, "")))
+}
+
+/** rcptn_rgn_nm에서 시·군·구 추출 (북구 단독 매칭 방지) */
+function extractSubRegion(text, matchedSido) {
+  const cityGuMatches = [...text.matchAll(/([가-힣]+시)\s*([가-힣]+[구군])/g)]
+    .filter(([, city]) => !isSidoUnit(city, matchedSido))
+
+  if (cityGuMatches.length > 0) {
+    const first = cityGuMatches[0]
+    return `${first[1]} ${first[2]}`
+  }
+
+  const cityMatches = [...text.matchAll(/([가-힣]+(?:시|군))/g)]
+    .map(m => m[1])
+    .filter(name => !isSidoUnit(name, matchedSido))
+  if (cityMatches.length > 0) {
+    return cityMatches[cityMatches.length - 1]
+  }
+
+  return null
 }
 
 /** 안내문자 rcptn_rgn_nm → 지도 포커스 정보 */
@@ -78,24 +116,42 @@ export function resolveAlertMapFocus(rcptnRgnNm) {
   }
   if (!matchedSido) return null
 
+  const path = ["root", matchedSido.id]
   const sidoData = REGION_DATA[matchedSido.id]
+
   if (sidoData?.regions) {
     for (const gu of sidoData.regions) {
       if (text.includes(gu.label)) {
         return {
-          path: ["root", matchedSido.id],
+          path,
           selectedLabel: gu.label,
-          center: [gu.lat, gu.lng],
-          zoom: 13,
+          mapFilter: buildMapFilter(gu, path),
         }
       }
     }
   }
 
+  const subRegion = extractSubRegion(text, matchedSido)
+  if (subRegion) {
+    return {
+      path,
+      selectedLabel: subRegion,
+      mapFilter: {
+        level: "gu",
+        label: subRegion,
+        sidoId: matchedSido.id,
+        sidoLabel: matchedSido.label,
+      },
+    }
+  }
+
   return {
-    path: ["root", matchedSido.id],
+    path,
     selectedLabel: matchedSido.label,
-    center: [matchedSido.lat, matchedSido.lng],
-    zoom: sidoData?.zoom || 10,
+    mapFilter: {
+      level: "sido",
+      label: matchedSido.label,
+      sidoId: matchedSido.id,
+    },
   }
 }

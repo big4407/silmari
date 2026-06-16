@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react"
+import { useState, useCallback, useMemo, useRef } from "react"
 import { buildMapFilter } from "../utils/regionMatch"
 
 export const REGION_DATA = {
@@ -13,6 +13,7 @@ export const REGION_DATA = {
       { id: "28", label: "인천", lat: 37.4563, lng: 126.7052 },
       { id: "29", label: "광주", lat: 35.1595, lng: 126.8526 },
       { id: "30", label: "대전", lat: 36.3504, lng: 127.3845 },
+      { id: "36", label: "세종", lat: 36.48, lng: 127.289 },
       { id: "31", label: "울산", lat: 35.5384, lng: 129.3114 },
       { id: "41", label: "경기", lat: 37.4138, lng: 127.5183 },
       { id: "42", label: "강원", lat: 37.8228, lng: 128.1555 },
@@ -80,6 +81,14 @@ export const REGION_DATA = {
       { id: "2615", label: "기장군", lat: 35.2446, lng: 129.2223 },
     ],
   },
+  "36": {
+    label: "세종",
+    center: [36.48, 127.289],
+    zoom: 11,
+    regions: [
+      { id: "36010", label: "세종시", lat: 36.48, lng: 127.289 },
+    ],
+  },
 }
 
 const SIDO_ONLY_ZOOM = 9
@@ -90,6 +99,9 @@ export default function useMapDrilldown(onRegionSelect) {
   const [selectedRegion, setSelectedRegion] = useState("전국")
   const [sidoFocus, setSidoFocus] = useState(null)
   const [guFocus, setGuFocus] = useState(null)
+
+  const onRegionSelectRef = useRef(onRegionSelect)
+  onRegionSelectRef.current = onRegionSelect
 
   const currentKey = path[path.length - 1]
   const drillData = REGION_DATA[currentKey] || REGION_DATA.root
@@ -126,13 +138,32 @@ export default function useMapDrilldown(onRegionSelect) {
   const applyFocus = useCallback((focus) => {
     if (!focus?.path) return
     setSidoFocus(null)
+    setGuFocus(null)
     setPath(focus.path)
     setSelectedRegion(focus.selectedLabel || "전국")
 
+    if (focus.mapFilter) {
+      onRegionSelectRef.current?.(focus.mapFilter)
+      if (focus.path.length > 1) {
+        const sidoId = focus.path[1]
+        const gu = REGION_DATA[sidoId]?.regions?.find(r => r.label === focus.selectedLabel)
+        if (gu) {
+          setGuFocus(gu)
+        } else if (focus.mapFilter.level === "gu") {
+          setGuFocus({
+            id: `geo-${focus.selectedLabel}`,
+            label: focus.selectedLabel,
+            lat: null,
+            lng: null,
+          })
+        }
+      }
+      return
+    }
+
     const lastKey = focus.path[focus.path.length - 1]
     if (lastKey === "root") {
-      setGuFocus(null)
-      onRegionSelect?.({ level: "nation" })
+      onRegionSelectRef.current?.({ level: "nation" })
       return
     }
 
@@ -140,14 +171,13 @@ export default function useMapDrilldown(onRegionSelect) {
     const gu = REGION_DATA[sidoId]?.regions?.find(r => r.label === focus.selectedLabel)
     if (gu) {
       setGuFocus(gu)
-      onRegionSelect?.(buildMapFilter(gu, focus.path))
+      onRegionSelectRef.current?.(buildMapFilter(gu, focus.path))
       return
     }
 
-    setGuFocus(null)
     const sido = REGION_DATA.root.regions.find(r => r.id === sidoId)
-    if (sido) onRegionSelect?.(buildMapFilter(sido, focus.path))
-  }, [onRegionSelect])
+    if (sido) onRegionSelectRef.current?.(buildMapFilter(sido, focus.path))
+  }, [])
 
   const selectRegion = useCallback((region) => {
     const isSido = REGION_DATA.root.regions.some(r => r.id === region.id)
@@ -159,7 +189,7 @@ export default function useMapDrilldown(onRegionSelect) {
       const nextPath = [...path, region.id]
       setPath(nextPath)
       setSelectedRegion(region.label)
-      onRegionSelect?.(buildMapFilter(region, nextPath))
+      onRegionSelectRef.current?.(buildMapFilter(region, nextPath))
       return
     }
 
@@ -167,7 +197,7 @@ export default function useMapDrilldown(onRegionSelect) {
       setSidoFocus(null)
       setGuFocus(region)
       setSelectedRegion(region.label)
-      onRegionSelect?.(buildMapFilter(region, path))
+      onRegionSelectRef.current?.(buildMapFilter(region, path))
       return
     }
 
@@ -176,9 +206,9 @@ export default function useMapDrilldown(onRegionSelect) {
       setSidoFocus(region)
       setGuFocus(null)
       setSelectedRegion(region.label)
-      onRegionSelect?.(buildMapFilter(region, ["root", region.id]))
+      onRegionSelectRef.current?.(buildMapFilter(region, ["root", region.id]))
     }
-  }, [path, onRegionSelect])
+  }, [path])
 
   const navigateTo = useCallback((index) => {
     const crumb = breadcrumbs[index]
@@ -189,7 +219,7 @@ export default function useMapDrilldown(onRegionSelect) {
       setSidoFocus(null)
       setGuFocus(null)
       setSelectedRegion("전국")
-      onRegionSelect?.({ level: "nation" })
+      onRegionSelectRef.current?.({ level: "nation" })
       return
     }
 
@@ -200,7 +230,7 @@ export default function useMapDrilldown(onRegionSelect) {
       setSidoFocus(sido)
       setGuFocus(null)
       setSelectedRegion(sido.label)
-      onRegionSelect?.(buildMapFilter(sido, ["root", sido.id]))
+      onRegionSelectRef.current?.(buildMapFilter(sido, ["root", sido.id]))
       return
     }
 
@@ -209,7 +239,7 @@ export default function useMapDrilldown(onRegionSelect) {
       if (!gu) return
       setGuFocus(gu)
       setSelectedRegion(gu.label)
-      onRegionSelect?.(buildMapFilter(gu, path))
+      onRegionSelectRef.current?.(buildMapFilter(gu, path))
       return
     }
 
@@ -222,16 +252,16 @@ export default function useMapDrilldown(onRegionSelect) {
     const label = REGION_DATA[crumb.key]?.label || crumb.label
     setSelectedRegion(label)
     const sido = REGION_DATA.root.regions.find(r => r.id === crumb.key)
-    onRegionSelect?.(sido ? buildMapFilter(sido, newPath) : { level: "nation" })
-  }, [path, breadcrumbs, onRegionSelect])
+    onRegionSelectRef.current?.(sido ? buildMapFilter(sido, newPath) : { level: "nation" })
+  }, [path, breadcrumbs])
 
   const resetMap = useCallback(() => {
     setPath(["root"])
     setSidoFocus(null)
     setGuFocus(null)
     setSelectedRegion("전국")
-    onRegionSelect?.({ level: "nation" })
-  }, [onRegionSelect])
+    onRegionSelectRef.current?.({ level: "nation" })
+  }, [])
 
   return {
     path,
