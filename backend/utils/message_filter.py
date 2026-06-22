@@ -12,6 +12,12 @@ MISSING_PERSON_KEYWORDS = [
     "찾고",
 ]
 
+# 제외 키워드
+EXCLUDE_KEYWORDS = [
+    "물놀이",
+    "수상안전",
+]
+
 
 def is_missing_person_message(
     msg_cn: str,
@@ -20,8 +26,12 @@ def is_missing_person_message(
     """
     메시지를 받아서 실종자 문자인지 판단하는 함수
     """
-    # 재해구분명이 기타가 아닐 경우 
+    # 재해구분명이 기타가 아닐 경우
     if dst_se_nm != MISSING_PERSON_DISASTER_TYPE:
+        return False
+
+    # 제외 키워드가 하나라도 들어가면 실종자 문자가 아니라고 판단
+    if any(keyword in msg_cn for keyword in EXCLUDE_KEYWORDS):
         return False
 
     # 키워드가 하나라도 들어가는 경우 실종자 문자라고 판단
