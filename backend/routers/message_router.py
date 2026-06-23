@@ -42,7 +42,7 @@ async def collect_messages(
     )
 
 
-@router.post("/manual_input", status_code=201, summary="문자 수동 등록")
+@router.post("/manual_input", status_code=201, summary="문자 수동 등록, crt_dt(생성일시), reg_ymd(등록일자), mdfcn_ymd(수정일자)는 지정하지 않을 시 기본값, sn은 중복될시 오류 발생")
 def manual_input(
     message_data: MessageCreate,
     service: MessageService = Depends(get_message_service),
