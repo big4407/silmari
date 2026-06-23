@@ -3,10 +3,12 @@ from sqlalchemy.orm import Session
 from backend.clients.disaster_message_client import DisasterMessageClient
 from backend.models.message_model import Message
 from backend.repositories.message_repository import MessageRepository
+from backend.schemas.message_schema import MessageCreate, MessageResponse
 from backend.utils.datetime_parser import parse_date, parse_datetime
 from backend.utils.message_filter import is_missing_person_message
 
-# api로부터 메시지를 받아오는 서비스단
+
+# api로부터 메시지를 받아오거나, 수동으로 입력하는 서비스단
 class MessageService:
     def __init__(self, db: Session):
         self.db = db
@@ -76,3 +78,20 @@ class MessageService:
             "saved_count": saved_count,
             "skipped_duplicate_count": skipped_duplicate_count,
         }
+
+    def manual_input_message(self, message_data: MessageCreate) -> MessageResponse:
+        """
+        수동으로 문자를 입력하는 서비스 함수
+        """
+        message = self.repository.insert(
+            sn=message_data.sn,
+            crt_dt=message_data.crt_dt,
+            msg_cn=message_data.msg_cn,
+            rcptn_rgn_nm=message_data.rcptn_rgn_nm,
+            emrg_step_nm=message_data.emrg_step_nm,
+            dst_se_nm=message_data.dst_se_nm,
+            reg_ymd=message_data.reg_ymd,
+            mdfcn_ymd=message_data.mdfcn_ymd,
+        )
+
+        return MessageResponse.model_validate(message)
