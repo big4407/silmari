@@ -3,9 +3,15 @@ from sqlalchemy.orm import Session
 from backend.clients.disaster_message_client import DisasterMessageClient
 from backend.models.message_model import Message
 from backend.repositories.message_repository import MessageRepository
-from backend.schemas.message_schema import MessageCreate, MessageResponse
+from backend.schemas.message_schema import (
+    MessageCreate,
+    MessageResponse,
+    MessageListResponse,
+)
 from backend.utils.datetime_parser import parse_date, parse_datetime
 from backend.utils.message_filter import is_missing_person_message
+
+from fastapi import HTTPException
 
 
 # api로부터 메시지를 받아오거나, 수동으로 입력하는 서비스단
@@ -14,6 +20,16 @@ class MessageService:
         self.db = db
         self.client = DisasterMessageClient()
         self.repository = MessageRepository(db)
+
+    def _get_or_404(self, sn: str):
+        """
+        문자를 sn으로 조회하고 없으면 404 예외를 발생시킵니다.
+        """
+        message = self.repository.find_by_sn(sn)
+        if not message:
+            raise HTTPException(status_code=404, detail="문자를 찾을 수 없습니다.")
+
+        return message
 
     async def collect_messages(
         self,
@@ -95,3 +111,31 @@ class MessageService:
         )
 
         return MessageResponse.model_validate(message)
+
+    def get_message(self, sn: str) -> MessageResponse:
+        message = self._get_or_404(sn)
+        return MessageResponse.model_validate(message)
+
+    # services/message_service.py
+
+    def get_message_list(
+        self,
+        page: int,
+        per_page: int,
+        search: str | None,
+        order_by: str,
+    ) -> MessageListResponse:
+
+        messages, total = self.repository.find_all(
+            page=page,
+            per_page=per_page,
+            search=search,
+            order_by=order_by,
+        )
+
+        return MessageListResponse(
+            items=[MessageResponse.model_validate(message) for message in messages],
+            total=total,
+            page=page,
+            size=per_page,
+        )
