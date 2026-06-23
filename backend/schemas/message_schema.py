@@ -4,15 +4,28 @@ from pydantic import BaseModel, Field
 
 # Message의 CRUD에 관한 schema
 
+
 class MessageCreate(BaseModel):
     sn: str = Field(max_length=22)
-    crt_dt: datetime
+    crt_dt: datetime = datetime.now()
     msg_cn: str
     rcptn_rgn_nm: str | None = None
     emrg_step_nm: str | None = Field(default=None, max_length=100)
     dst_se_nm: str | None = Field(default=None, max_length=100)
-    reg_ymd: date | None = None
-    mdfcn_ymd: date | None = None
+    reg_ymd: date | None = date.today()
+    mdfcn_ymd: date | None = date.today()
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "sn": "000001",
+                "msg_cn": "메시지 내용",
+                "rcptn_rgn_nm": "",
+                "emrg_step_nm": "",
+                "dst_se_nm": "",
+            }
+        }
+    }
 
 
 class MessageUpdate(BaseModel):
