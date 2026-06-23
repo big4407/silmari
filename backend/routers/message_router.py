@@ -2,7 +2,10 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from backend.db.database import get_db
-from backend.schemas.message_schema import MessageCollectResponse
+from backend.schemas.message_schema import (
+    MessageCollectResponse,
+    MessageCreate,
+)
 from backend.services.sms_receiver import MessageService
 
 
@@ -37,3 +40,11 @@ async def collect_messages(
         crt_dt=crt_dt,
         rgn_nm=rgn_nm,
     )
+
+
+@router.post("/manual_input", status_code=201, summary="문자 수동 등록")
+def manual_input(
+    message_data: MessageCreate,
+    service: MessageService = Depends(get_message_service),
+):
+    return service.manual_input_message(message_data=message_data)
