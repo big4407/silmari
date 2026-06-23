@@ -16,6 +16,7 @@ MISSING_PERSON_KEYWORDS = [
 EXCLUDE_KEYWORDS = [
     "물놀이",
     "수상안전",
+    "보호장비",
 ]
 
 
