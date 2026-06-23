@@ -10,7 +10,7 @@ if not cap.isOpened():
     exit()
 
 save_dir = "data/results/frames"
-os.makedirs(save_dir, exist_ok=True)
+save_dir.mkdir(parents=True, exist_ok=True)
 
 fps = cap.get(cv2.CAP_PROP_FPS)
 width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
