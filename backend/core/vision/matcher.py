@@ -8,7 +8,7 @@ import os
 image_dir = Path("data/results/unique_persons")
 image_dir.mkdir(parents=True, exist_ok=True)
 texts = [
-    "a person wearing a white shirt and gray shorts"
+    "a person wearing white shirt and gray pants"
 ]
 image_paths = []
 for ext in ["*.jpg"]:

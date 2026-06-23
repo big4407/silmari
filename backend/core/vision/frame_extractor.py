@@ -1,15 +1,15 @@
 import os
 import cv2
 from pathlib import Path
-cap = cv2.VideoCapture('data/CCTV/lo_e1281_c1.mp4')
-video_path = Path("data/CCTV/lo_e1281_c1.mp4")
+cap = cv2.VideoCapture('data/CCTV/output_video_1_1_1.mp4')
+video_path = Path("data/CCTV/output_video_1_1_1.mp4")
 video_name = video_path.stem
 
 if not cap.isOpened():
     print("오류: 영상을 열지 못했습니다.")
     exit()
 
-save_dir = "data/results/frames"
+save_dir = Path("data/results/frames")
 save_dir.mkdir(parents=True, exist_ok=True)
 
 fps = cap.get(cv2.CAP_PROP_FPS)
