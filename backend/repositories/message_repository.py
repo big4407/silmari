@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from backend.models.message_model import Message
 
 from datetime import datetime, date
-
+from sqlalchemy import desc, asc
 
 class MessageRepository:
     def __init__(self, db: Session):
@@ -42,3 +42,33 @@ class MessageRepository:
         self.db.commit()  # 데이터베이스에 영구 반영
         self.db.refresh(message)  # id가 존재하는 Post 객체
         return message
+
+    def find_all(
+        self,
+        page: int,
+        per_page: int,
+        search: str | None = None,
+        order_by: str = "latest",
+    ) -> tuple[list[Message], int]:
+        query = self.db.query(Message)
+
+        if search:
+            query = query.filter(
+                Message.msg_cn.like(f"%{search}%")
+            )
+
+        total = query.count()
+
+        if order_by == "oldest":
+            query = query.order_by(asc(Message.crt_dt))
+        else:
+            query = query.order_by(desc(Message.crt_dt))
+
+        messages = (
+            query
+            .offset((page - 1) * per_page)
+            .limit(per_page)
+            .all()
+        )
+
+        return messages, total
