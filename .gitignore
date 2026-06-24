@@ -52,6 +52,8 @@ Thumbs.db
 **/resource/*
 
 
+
+
 # =========================
 # 마이그레이션 파일
 # =========================
@@ -59,3 +61,13 @@ Thumbs.db
 **/migrations/*
 !**/migrations/__init__.py
 db.sqlite3
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,30 @@
+services:
+  db:
+    image: mariadb:11.4
+    container_name: silmari-mariadb
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: silmari
+      MARIADB_USER: silmari
+      MARIADB_PASSWORD: silmari_password
+      MARIADB_ROOT_PASSWORD: root_password_change_me
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+  api:
+    build: .
+    container_name: silmari-auth-api
+    restart: unless-stopped
+    depends_on:
+      - db
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: mysql+pymysql://silmari:silmari_password@db:3306/silmari
+    ports:
+      - "8000:8000"
+
+volumes:
+  mariadb_data:
