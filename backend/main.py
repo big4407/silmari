@@ -5,14 +5,22 @@ from api.routes import alert, cctv, result, disaster_alerts
 from services.storage import ensure_dirs
 from db.database import init_db
 
+from backend.db.database import Base, engine
+from backend.routers import message_router
+
 app = FastAPI(title="실마리 (Silmari) API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+Base.metadata.create_all(bind=engine)
+
+app.include_router(message_router.router)
 
 app.include_router(alert.router, prefix="/api/alert", tags=["alert"])
 app.include_router(cctv.router, prefix="/api/cctv", tags=["cctv"])
@@ -24,6 +32,9 @@ app.include_router(alert.router, prefix="/api/sms", tags=["legacy"])
 app.include_router(cctv.router, prefix="/api/video", tags=["legacy"])
 app.include_router(result.router, prefix="/api/missing", tags=["legacy"])
 
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
 
 @app.on_event("startup")
 def startup():
