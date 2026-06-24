@@ -24,10 +24,6 @@ export default function DashboardLayout() {
               <Link to="/login" className="dashboard-layout__util-link">
                 로그인
               </Link>
-              <span className="dashboard-layout__util-divider" aria-hidden="true" />
-              <button type="button" className="dashboard-layout__util-link">
-                도움말
-              </button>
             </div>
           </div>
         </div>

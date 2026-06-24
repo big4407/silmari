@@ -2,6 +2,8 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  width: 100%;
+  max-width: 100%;
   background: var(--color-bg);
   overflow: hidden;
 }
@@ -168,11 +170,12 @@
 
 /* ── Sidebar ── */
 .sidebar {
-  width: var(--sidebar-width);
+  width: clamp(280px, 32vw, var(--sidebar-width));
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
   background: var(--color-surface);
 }
 
