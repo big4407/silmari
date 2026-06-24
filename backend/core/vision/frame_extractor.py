@@ -25,12 +25,11 @@ def extract_frames(
     cap.release()
 
 def frame_extract(
-        video_path:str
-)
-if __name__ == "__main__":
-    cap = cv2.VideoCapture('data/CCTV/output_video_1_1_1.mp4')
-    video_path = Path("data/CCTV/output_video_1_1_1.mp4")
-    video_name = video_path.stem
+        video_path:str, every_nth: int = 5
+):
+    cap = cv2.VideoCapture(video_path)
+    path = Path(video_path)
+    video_name = path.stem
 
     if not cap.isOpened():
         print("오류: 영상을 열지 못했습니다.")
@@ -49,7 +48,7 @@ if __name__ == "__main__":
     positions = [
         i * int(fps)
         for i in range(int(total_frame / fps))
-        if i % 5 == 0
+        if i % every_nth == 0
     ]
 
     saved_count = 0
@@ -72,3 +71,6 @@ if __name__ == "__main__":
     cap.release()
 
     print(f"저장된 프레임 수: {saved_count}")
+    
+if __name__ == "__main__":
+    frame_extract("data\CCTV\output_video_1_1_1.mp4")

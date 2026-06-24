@@ -66,9 +66,8 @@ def detect_persons(frame, conf_threshold: float = 0.85):
 
     return detections
 
-if __name__ == "__main__":
-        
-    image_dir = Path("data/results/frames")
+def person_detect(frame_path:str):
+    image_dir = Path(frame_path)
     save_dir = Path("data/results/detected")
 
     save_dir.mkdir(parents=True, exist_ok=True)
@@ -118,3 +117,6 @@ if __name__ == "__main__":
             )
         annotated_save_path = annotated_dir / image_path.name
         cv2.imwrite(str(annotated_save_path), frame)
+        
+if __name__ == "__main__":
+    person_detect("data/results/frames")
