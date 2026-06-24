@@ -1,0 +1,38 @@
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
+import AppLayout from "./components/AppLayout"
+import DashboardLayout from "./components/DashboardLayout"
+import Landing from "./pages/Landing"
+import Login from "./pages/Login"
+import Signup from "./pages/Signup"
+import Dashboard from "./pages/Dashboard"
+import ChatbotPage from "./pages/ChatbotPage"
+import SearchHistory from "./pages/SearchHistory"
+import CCTVUpload from "./pages/CCTVUpload"
+import SearchResults from "./pages/SearchResults"
+import "./App.css"
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+
+        <Route element={<DashboardLayout />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard/chatbot" element={<ChatbotPage />} />
+          <Route path="/dashboard/history" element={<SearchHistory />} />
+          <Route path="/search-results" element={<SearchResults />} />
+        </Route>
+
+        <Route element={<AppLayout />}>
+          <Route path="/cctv" element={<CCTVUpload />} />
+        </Route>
+
+        <Route path="/alert" element={<Navigate to="/cctv" replace />} />
+        <Route path="/result" element={<Navigate to="/search-results" replace />} />
+      </Routes>
+    </BrowserRouter>
+  )
+}
