@@ -1,11 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routes import alert, cctv, result, disaster_alerts
-from services.storage import ensure_dirs
-from db.database import init_db
+from backend.api.routes import alert, cctv, result, disaster_alerts
+from backend.services.storage import ensure_dirs
 
-from backend.db.database import Base, SessionLocal, engine
+from backend.db.database import Base, SessionLocal, engine, get_db
 from backend.routers import message_router
 
 from contextlib import asynccontextmanager
@@ -75,7 +74,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(
-    title=settings.app_name,
+    title="Silmari Auth API",
     version="1.1.0",
     description="Silmari RBAC authentication and approval workflow API",
     lifespan=lifespan,
@@ -115,7 +114,7 @@ def health_check():
 @app.on_event("startup")
 def startup():
     ensure_dirs()
-    init_db()
+    get_db()
 
 
 @app.get("/")

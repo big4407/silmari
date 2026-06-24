@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, DateTime, Text, Float, create_en
 from sqlalchemy.orm import declarative_base, sessionmaker, Mapped, mapped_column, relationship
 from datetime import datetime
 
-from utils.config import DATABASE_URL
+from backend.utils.config import DATABASE_URL
 
 import enum
 import uuid

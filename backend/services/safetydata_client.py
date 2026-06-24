@@ -7,7 +7,7 @@ from typing import Optional
 
 import httpx
 
-from utils.config import BASE_DIR, SAFETYDATA_API_URL, SAFETYDATA_SERVICE_KEY
+from backend.utils.config import BASE_DIR, SAFETYDATA_API_URL, SAFETYDATA_SERVICE_KEY
 
 _CACHE: dict = {}
 CACHE_TTL_SEC = 900

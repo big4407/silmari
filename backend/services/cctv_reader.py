@@ -1,4 +1,4 @@
-from services.storage import scan_cctv_by_region
+from backend.services.storage import scan_cctv_by_region
 
 
 def list_cctv_files(region_code: str) -> list[str]:

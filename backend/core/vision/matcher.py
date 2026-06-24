@@ -3,8 +3,8 @@ from typing import Optional
 
 import cv2
 
-from core.vision.feature_extractor import compare_face
-from core.vision.person_detector import check_color_in_region, detect_persons
+from backend.core.vision.feature_extractor import compare_face
+from backend.core.vision.person_detector import check_color_in_region, detect_persons
 
 # matcher파일 동일인물 검증 기능으로 분리된 이미지를 text query문과 비교해서 점수를 뽑아내 상위 5명을 가져온다.
 from fashion_clip.fashion_clip import FashionCLIP

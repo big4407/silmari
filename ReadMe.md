@@ -25,7 +25,9 @@ cd backend
 uvicorn main:app --reload
 
 # 방법 2: 새로 설치
+torchreid 주석 처리후
 pip install -r requirements.txt
+python -m pip install --no-build-isolation "git+https://github.com/KaiyangZhou/deep-person-reid.git@f8cd150fdf77e8d9e1ed143b7f308c2c609ded50"
 uvicorn main:app --reload
 ```
 

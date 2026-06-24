@@ -6,7 +6,7 @@ from typing import Optional
 import cv2
 import numpy as np
 
-from utils.config import RESULTS_DIR
+from backend.utils.config import RESULTS_DIR
 
 SEGMENT_GAP_SEC = 2.0
 BBOX_PADDING = 0.15
