@@ -28,10 +28,13 @@ function getFeatureCenter(layer) {
   return layer.getBounds().getCenter()
 }
 
-function createLabelIcon(text, isActive, permanent) {
+function createLabelIcon(shortLabel, count, isActive, permanent) {
+  const countHtml = count > 0
+    ? `<span class="map-region-label__count">${count}</span>`
+    : ""
   return L.divIcon({
     className: "",
-    html: `<span class="map-region-label ${isActive ? "map-region-label--active" : ""} ${permanent ? "" : "map-region-label--hover"}">${text}</span>`,
+    html: `<span class="map-region-label ${isActive ? "map-region-label--active" : ""} ${count > 0 ? "map-region-label--has-count" : ""} ${permanent ? "" : "map-region-label--hover"}"><span class="map-region-label__name">${shortLabel}</span>${countHtml}</span>`,
     iconSize: [0, 0],
     iconAnchor: [0, 0],
   })
@@ -86,21 +89,23 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
   const updateLayerPresentation = useCallback((map, geojson, key, selected) => {
     clearLabelMarkers()
 
-    featureMetaRef.current.forEach(({ featureLayer, feature, region, shortLabel, labelText, geoName }) => {
+    featureMetaRef.current.forEach(({ featureLayer, feature, region, shortLabel, labelText, geoName, alertCount }) => {
       const isActive = isRegionSelected(selected, region.label, geoName, shortLabel)
       const displayLabel = getDisplayLabel(selected, shortLabel, geoName)
-      const displayText = labelText.replace(shortLabel, displayLabel)
       const idx = geojson.features.indexOf(feature)
-      featureLayer.setStyle(getRegionStyle({ isActive, colorIndex: idx }))
+      featureLayer.setStyle(getRegionStyle({ isActive, colorIndex: idx, alertCount }))
 
       const labelLatLng = getLabelLatLng(feature, shortLabel, key)
-      const showPermanent = labelLatLng
-        ? shouldShowPermanentLabel(featureLayer, map, key, { isActive })
-        : false
+      const count = alertCount || 0
+      const showPermanent = labelLatLng && (
+        isActive
+        || count > 0
+        || (key !== "root" && shouldShowPermanentLabel(featureLayer, map, key, { isActive }))
+      )
 
       if (labelLatLng && showPermanent) {
         const labelMarker = L.marker(labelLatLng, {
-          icon: createLabelIcon(displayText, isActive, true),
+          icon: createLabelIcon(displayLabel, alertCount || 0, isActive, true),
           interactive: false,
         }).addTo(map)
         labelMarkersRef.current.push(labelMarker)
@@ -108,7 +113,7 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
 
       const tooltip = featureLayer.getTooltip()
       if (tooltip) {
-        tooltip.setContent(displayText)
+        tooltip.setContent(labelText)
       }
     })
   }, [])
@@ -116,8 +121,8 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
   const fitMapToLayer = useCallback((map, layer, key) => {
     if (!layer.getBounds().isValid()) return
     map.fitBounds(layer.getBounds(), {
-      padding: [24, 24],
-      maxZoom: key === "root" ? 8 : 11,
+      padding: [8, 8],
+      maxZoom: key === "root" ? 9 : 11,
       animate: false,
     })
     requestAnimationFrame(() => map.invalidateSize())
@@ -177,7 +182,10 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
           ? isRegionSelected(selected, region.label, geoName, shortLabel)
           : false
         const idx = geojson.features.indexOf(feature)
-        return getRegionStyle({ isActive, colorIndex: idx })
+        const count = key === "root" && region
+          ? countAlertsForSido(alerts, region.label)
+          : 0
+        return getRegionStyle({ isActive, colorIndex: idx, alertCount: count })
       },
       onEachFeature: (feature, featureLayer) => {
         const region = findRegionForFeature(feature, key)
@@ -195,13 +203,14 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
           shortLabel,
           labelText,
           geoName,
+          alertCount: count,
         })
 
         featureLayer.bindTooltip(labelText, {
           permanent: false,
           sticky: true,
           direction: "top",
-          className: "map-region-tooltip",
+          className: `map-region-tooltip${count > 0 ? " map-region-tooltip--has-count" : ""}`,
           opacity: 1,
         })
 
@@ -240,7 +249,7 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
 
     const map = L.map(mapRef.current, {
       center: [36.2, 127.8],
-      zoom: 7,
+      zoom: 8,
       zoomControl: true,
       maxBounds: KOREA_BOUNDS,
       maxBoundsViscosity: 1.0,
@@ -290,24 +299,35 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
     applyFocusRef.current(focusTarget)
   }, [focusTarget?.key])
 
+  useEffect(() => {
+    const map = mapInstanceRef.current
+    if (!map || !mapRef.current) return
+
+    const observer = new ResizeObserver(() => {
+      map.invalidateSize()
+    })
+    observer.observe(mapRef.current)
+    return () => observer.disconnect()
+  }, [])
+
   return (
     <div className="map-container">
       <div className="map-header">
-        <h2>지도</h2>
+        <span className="map-header__title">지역 지도</span>
         <div className="map-header__controls">
           <div className="map-breadcrumb">
             {breadcrumbs.map((crumb, i) => (
               <span key={crumb.key}>
-                {i > 0 && <span> › </span>}
+                {i > 0 && <span className="map-breadcrumb__sep"> › </span>}
                 {i < breadcrumbs.length - 1 ? (
-                  <button onClick={() => navigateTo(i)}>{crumb.label}</button>
+                  <button type="button" onClick={() => navigateTo(i)}>{crumb.label}</button>
                 ) : (
                   <strong>{crumb.label}</strong>
                 )}
               </span>
             ))}
           </div>
-          <button className="map-reset-btn" onClick={resetMap}>전국 보기</button>
+          <button type="button" className="map-reset-btn" onClick={resetMap}>전국 보기</button>
         </div>
       </div>
       <div className="map-body">

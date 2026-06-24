@@ -24,10 +24,10 @@ export const GEO_SIDO_CODE_MAP = {
 }
 
 const REGION_COLORS = [
-  "#dbeafe", "#e0f2fe", "#dcfce7", "#fef3c7", "#ede9fe",
-  "#fce7f3", "#ccfbf1", "#ffedd5", "#ecfccb", "#f3e8ff",
-  "#fee2e2", "#e0e7ff", "#d1fae5", "#fde68a", "#fae8ff",
-  "#bfdbfe", "#fecdd3",
+  "#9eb8d4", "#c5daf0", "#7da4c4", "#d8eaf8", "#8aaccc",
+  "#b4cfe8", "#e4f0fa", "#6d96b8", "#cddff2", "#a0bcd8",
+  "#d0e6f6", "#88a8c8", "#bdd4ee", "#eef6fc", "#7898b4",
+  "#b0cce4", "#dcecf8",
 ]
 
 let municipalitiesCache = null
@@ -71,12 +71,13 @@ export function getRegionColor(index) {
   return REGION_COLORS[index % REGION_COLORS.length]
 }
 
-export function getRegionStyle({ isActive, colorIndex }) {
+export function getRegionStyle({ isActive, colorIndex, alertCount = 0 }) {
+  const hasAlerts = alertCount > 0
   return {
-    fillColor: isActive ? "#fb923c" : getRegionColor(colorIndex),
-    fillOpacity: isActive ? 0.85 : 0.62,
-    color: isActive ? "#ea580c" : "#cbd5e1",
-    weight: isActive ? 2 : 0.7,
+    fillColor: isActive ? "#4d9de0" : hasAlerts ? "#7eb3e0" : getRegionColor(colorIndex),
+    fillOpacity: isActive ? 0.92 : hasAlerts ? 0.88 : 0.78,
+    color: isActive ? "#003876" : hasAlerts ? "#004ea2" : "#5a7088",
+    weight: isActive ? 2.5 : hasAlerts ? 2 : 1.3,
   }
 }
 

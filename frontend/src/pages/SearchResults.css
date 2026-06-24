@@ -1,7 +1,7 @@
 .search-page {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 48px);
+  height: 100%;
   font-family: "Pretendard", "Noto Sans KR", sans-serif;
   background: #f5f6f8;
 }

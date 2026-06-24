@@ -9,6 +9,13 @@ function formatDate(crtDt) {
   return s
 }
 
+function tagVariant(name) {
+  if (!name) return "default"
+  if (/실종|긴급|수색/.test(name)) return "urgent"
+  if (/안전|예방/.test(name)) return "info"
+  return "default"
+}
+
 export default function AlertMessageCard({ alert, index, selected, onClick }) {
   if (!alert) {
     return (
@@ -18,8 +25,8 @@ export default function AlertMessageCard({ alert, index, selected, onClick }) {
     )
   }
 
-  const preview = alert.msg_cn?.length > 80
-    ? `${alert.msg_cn.slice(0, 80)}…`
+  const preview = alert.msg_cn?.length > 100
+    ? `${alert.msg_cn.slice(0, 100)}…`
     : alert.msg_cn
 
   return (
@@ -28,15 +35,29 @@ export default function AlertMessageCard({ alert, index, selected, onClick }) {
       className={`alert-card ${selected ? "alert-card--selected" : ""}`}
       onClick={() => onClick?.(alert)}
     >
-      <div className="alert-card__label">안내문자 {index + 1}</div>
-      <div className="alert-card__meta">
-        {alert.emrg_step_nm && <span>{alert.emrg_step_nm}</span>}
-        {alert.dst_se_nm && <span>{alert.dst_se_nm}</span>}
+      <div className="alert-card__head">
+        <span className="alert-card__index">#{index + 1}</span>
+        <span className="alert-card__date">
+          {formatDate(alert.crt_dt || alert.reg_ymd)}
+        </span>
       </div>
+      {(alert.emrg_step_nm || alert.dst_se_nm) && (
+        <div className="alert-card__meta">
+          {alert.emrg_step_nm && (
+            <span className={`alert-card__tag alert-card__tag--${tagVariant(alert.emrg_step_nm)}`}>
+              {alert.emrg_step_nm}
+            </span>
+          )}
+          {alert.dst_se_nm && (
+            <span className={`alert-card__tag alert-card__tag--${tagVariant(alert.dst_se_nm)}`}>
+              {alert.dst_se_nm}
+            </span>
+          )}
+        </div>
+      )}
       <p className="alert-card__text">{preview}</p>
       <div className="alert-card__footer">
-        <span>{alert.rcptn_rgn_nm || "-"}</span>
-        <span>{formatDate(alert.crt_dt || alert.reg_ymd)}</span>
+        <span className="alert-card__region">{alert.rcptn_rgn_nm || "지역 미상"}</span>
       </div>
     </button>
   )
