@@ -59,3 +59,8 @@ Thumbs.db
 **/migrations/*
 !**/migrations/__init__.py
 db.sqlite3
+
+*.mp3
+*.mp4
+*.jpg
+*.json
