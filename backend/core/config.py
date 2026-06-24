@@ -1,5 +1,7 @@
-from pydantic_settings import BaseSettings
+from functools import lru_cache
 
+from pydantic import Field, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     DB_HOST: str
