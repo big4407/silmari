@@ -4,8 +4,9 @@ import torch.nn.functional as F
 import os
 import shutil
 import json
-if __name__ == "__main__":
-    image_dir = Path("data/results/detected")
+
+def check_same_person(detected_path:str):
+    image_dir = Path(detected_path)
     save_dir = Path("data/results/unique_persons")
     save_dir.mkdir(parents=True, exist_ok=True)
     json_path = save_dir / "group_data.json"
@@ -75,3 +76,7 @@ if __name__ == "__main__":
             ensure_ascii=False,
             indent=4
         )
+
+
+if __name__ == "__main__":
+    check_same_person("data/results/detected")
