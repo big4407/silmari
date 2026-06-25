@@ -67,6 +67,7 @@ def detect_persons(frame, conf_threshold: float = 0.85):
     return detections
 
 def person_detect(frame_path:str):
+    "폴더 path를 주면 해당 폴더의 모든 frame에 대해 사람 식별함"
     image_dir = Path(frame_path)
     save_dir = Path("data/results/detected")
 
