@@ -15,16 +15,11 @@ router = APIRouter()
 async def analyze_video(
     sms_text: str = Form(...),
     video: UploadFile = File(...),
-    reference_photo: Optional[UploadFile] = File(None),
     region: Optional[str] = Form(None),
 ):
     file_id, video_path = save_upload(video.file, video.filename)
 
-    ref_path = None
-    if reference_photo:
-        _, ref_path = save_upload(reference_photo.file, f"ref_{reference_photo.filename}")
-
-    result = run_detection_pipeline(video_path, sms_text.strip(), ref_path)
+    result = run_detection_pipeline(video_path, sms_text.strip())
     search_result_id = None
 
     if result["detections"]:
@@ -55,7 +50,6 @@ async def analyze_video(
             search_result_id = record.id
 
     remove_file(video_path)
-    remove_file(ref_path)
 
     return {
         **result,

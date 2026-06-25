@@ -10,7 +10,6 @@ export default function CCTVUpload() {
     alertText, setAlertText, selectedRegion, setActiveSearch,
   } = useDetectionStore()
   const [videoFile, setVideoFile] = useState(null)
-  const [photoFile, setPhotoFile] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -26,7 +25,6 @@ export default function CCTVUpload() {
       const formData = new FormData()
       formData.append("sms_text", alertText)
       formData.append("video", videoFile)
-      if (photoFile) formData.append("reference_photo", photoFile)
       if (selectedRegion && selectedRegion !== "전국") {
         formData.append("region", selectedRegion)
       }
@@ -66,9 +64,6 @@ export default function CCTVUpload() {
 
       <label className="form-page__label">CCTV 영상</label>
       <input type="file" accept="video/*" onChange={e => setVideoFile(e.target.files[0])} />
-
-      <label className="form-page__label">실종자 사진 (선택)</label>
-      <input type="file" accept="image/*" onChange={e => setPhotoFile(e.target.files[0])} />
 
       {error && <p className="form-page__error">{error}</p>}
 

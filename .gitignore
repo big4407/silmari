@@ -29,6 +29,7 @@ venv/
 .env/
 .venv/
 .venv-*/
+.venv-root-install-test/
 **/.venv-install-test/
 .env
 

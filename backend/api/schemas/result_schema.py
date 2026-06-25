@@ -9,7 +9,6 @@ class DetectionItem(BaseModel):
     confidence: float
     timestamp_sec: float
     color_ratio: float = 0.0
-    face_similarity: float = 0.0
     image_base64: str
     bbox: List[int] = []
 
@@ -17,5 +16,4 @@ class DetectionItem(BaseModel):
 class AnalysisResult(BaseModel):
     sms_info: AlertInfo
     total_detections: int
-    face_recognition_used: bool
     detections: List[DetectionItem]
