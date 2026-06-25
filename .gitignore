@@ -28,6 +28,8 @@ __pycache__/
 venv/
 .env/
 .venv/
+.venv-*/
+**/.venv-install-test/
 .env
 
 # =========================
