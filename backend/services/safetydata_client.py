@@ -7,11 +7,11 @@ from typing import Optional
 
 import httpx
 
-from backend.utils.config import BASE_DIR, SAFETYDATA_API_URL, SAFETYDATA_SERVICE_KEY
+from backend.core.config import settings, BACKEND_DIR
 
 _CACHE: dict = {}
 CACHE_TTL_SEC = 900
-CACHE_DIR = BASE_DIR / "data" / "alerts_cache"
+CACHE_DIR = BACKEND_DIR / "data" / "alerts_cache"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -130,7 +130,7 @@ async def fetch_disaster_alerts(
     force_refresh: bool = False,
     cache_only: bool = False,
 ) -> dict:
-    if not SAFETYDATA_SERVICE_KEY or not SAFETYDATA_API_URL:
+    if not settings.SAFETYDATA_SERVICE_KEY or not settings.SAFETYDATA_API_URL:
         return {"items": [], "total_count": 0, "error": "API 키 또는 URL이 설정되지 않았습니다."}
 
     end_ymd = end_dt.strip() if end_dt else datetime.now().strftime("%Y%m%d")
@@ -170,7 +170,7 @@ async def fetch_disaster_alerts(
         async with httpx.AsyncClient(timeout=timeout) as client:
             for page in range(1, max_pages + 1):
                 params = {
-                    "serviceKey": SAFETYDATA_SERVICE_KEY,
+                    "serviceKey": settings.SAFETYDATA_SERVICE_KEY,
                     "returnType": "json",
                     "numOfRows": page_size,
                     "pageNo": page,
@@ -179,7 +179,7 @@ async def fetch_disaster_alerts(
                 if rgn_nm and rgn_nm != "전국":
                     params["rgnNm"] = rgn_nm
 
-                res = await client.get(SAFETYDATA_API_URL, params=params)
+                res = await client.get(settings.SAFETYDATA_API_URL, params=params)
                 api_calls += 1
                 res.raise_for_status()
                 data = res.json()

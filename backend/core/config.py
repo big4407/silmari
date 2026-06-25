@@ -1,51 +1,53 @@
+# core/config.py
 from functools import lru_cache
+from pathlib import Path
 
-from pydantic import Field, model_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# core/config.py -> backend -> 프로젝트 루트
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
 class Settings(BaseSettings):
-    DB_HOST: str
-    DB_PORT: int
-    DB_NAME: str
-    DB_USER: str
-    DB_PASSWORD: str
-    DB_CHARSET: str = "utf8mb4"
-
-    DISASTER_API_BASE_URL: str
-    DISASTER_API_PATH: str
-    DISASTER_API_SERVICE_KEY: str
-
-    @property
-    def database_url(self) -> str:
-        return (
-            f"mysql+pymysql://"
-            f"{self.DB_USER}:{self.DB_PASSWORD}"
-            f"@{self.DB_HOST}:{self.DB_PORT}"
-            f"/{self.DB_NAME}"
-            f"?charset={self.DB_CHARSET}"
-        )
-
-    @property
-    def disaster_api_url(self) -> str:
-        return f"{self.DISASTER_API_BASE_URL}{self.DISASTER_API_PATH}"
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-
-
-settings = Settings()
-
-
-class MemberSettings(BaseSettings):
-    """Application settings loaded from environment variables or a local .env file."""
-
-    app_name: str = "Silmari Auth API"
+    # --- 앱 / 환경 ---
+    app_name: str = "Silmari API"
     environment: str = "development"
 
-    # Example: mysql+pymysql://root:password@localhost:3307/silmari_auth?charset=utf8mb4
-    database_url: str = "sqlite:///./silmari_auth.db"
+    # --- DB (MySQL) ---
+    DB_HOST: str = "localhost"
+    DB_PORT: int = 3306
+    DB_NAME: str = "silmari"
+    DB_USER: str = "root"
+    DB_PASSWORD: str = ""
+    DB_CHARSET: str = "utf8mb4"
 
+    # 로컬 개발 시 SQLite 등으로 강제 override 하고 싶을 때만 사용
+    DATABASE_URL_OVERRIDE: str | None = None
+
+    # --- 재난문자 API ---
+    DISASTER_API_BASE_URL: str = ""
+    DISASTER_API_PATH: str = ""
+    DISASTER_API_SERVICE_KEY: str = ""
+
+    # --- 외부 API 키 (utils/config.py 에서 흡수) ---
+    SAFE182_API_KEY: str | None = None
+    SAFE182_ESNTL_ID: str | None = None
+    # SAFETYDATA_SERVICE_KEY 없으면 YOUR_API_KEY 로 폴백
+    SAFETYDATA_SERVICE_KEY: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("SAFETYDATA_SERVICE_KEY", "YOUR_API_KEY"),
+    )
+    SAFETYDATA_API_URL: str = "https://www.safetydata.go.kr/V2/api/DSSP-IF-00247"
+
+    # --- 파일 경로 (기본값 유지 + .env 로 override 가능) ---
+    upload_dir: Path = PROJECT_ROOT / "data" / "uploads"
+    yolo_model_path: Path = PROJECT_ROOT / "data" / "yolo" / "yolov8n.pt"
+    cctv_data_dir: Path = PROJECT_ROOT / "data" / "CCTV"
+    results_dir: Path = PROJECT_ROOT / "data" / "results"
+
+    # --- JWT / 인증 (MemberSettings에서 흡수) ---
     jwt_secret_key: str = Field(
         default="replace-me-in-production-with-a-long-random-secret",
         min_length=32,
@@ -56,15 +58,10 @@ class MemberSettings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
 
-    # The first administrator can be created at startup.
+    # --- bootstrap admin ---
     bootstrap_admin_username: str | None = None
     bootstrap_admin_email: str | None = None
     bootstrap_admin_password: str | None = None
-
-    # DEVELOPMENT / TEST ONLY.
-    # When true, the bootstrap admin receives a random unknown password and can obtain a
-    # local token through POST /api/v1/auth/dev/bootstrap-login. This is blocked outside
-    # development and test environments.
     bootstrap_admin_no_password: bool = False
 
     model_config = SettingsConfigDict(
@@ -73,28 +70,47 @@ class MemberSettings(BaseSettings):
         extra="ignore",
     )
 
-    @model_validator(mode="after")
-    def validate_development_bootstrap_mode(self) -> "Settings":
-        self.environment = self.environment.strip().lower()
+    @property
+    def database_url(self) -> str:
+        if self.DATABASE_URL_OVERRIDE:
+            return self.DATABASE_URL_OVERRIDE
+        return (
+            f"mysql+pymysql://{self.DB_USER}:{self.DB_PASSWORD}"
+            f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+            f"?charset={self.DB_CHARSET}"
+        )
 
+    @property
+    def disaster_api_url(self) -> str:
+        return f"{self.DISASTER_API_BASE_URL}{self.DISASTER_API_PATH}"
+
+    @field_validator("SAFETYDATA_API_URL")
+    @classmethod
+    def _normalize_safetydata_url(cls, v: str) -> str:
+        # 쿼리스트링 제거 + 상대경로면 host 보정
+        if v and "?" in v:
+            v = v.split("?")[0]
+        if v and not v.startswith("http"):
+            v = f"https://www.safetydata.go.kr{v}"
+        return v
+
+    @model_validator(mode="after")
+    def validate_dev_bootstrap(self) -> "Settings":
+        self.environment = self.environment.strip().lower()
         if self.bootstrap_admin_no_password:
             if self.environment not in {"development", "test"}:
-                raise ValueError(
-                    "BOOTSTRAP_ADMIN_NO_PASSWORD는 development 또는 test 환경에서만 사용할 수 있습니다."
-                )
+                raise ValueError("BOOTSTRAP_ADMIN_NO_PASSWORD는 development/test에서만 사용 가능합니다.")
             if self.bootstrap_admin_password:
-                raise ValueError(
-                    "BOOTSTRAP_ADMIN_NO_PASSWORD=true일 때 BOOTSTRAP_ADMIN_PASSWORD는 비워 두십시오."
-                )
-            if not self.bootstrap_admin_username or not self.bootstrap_admin_email:
-                raise ValueError(
-                    "비밀번호 없는 개발용 bootstrap을 사용하려면 BOOTSTRAP_ADMIN_USERNAME과 "
-                    "BOOTSTRAP_ADMIN_EMAIL이 필요합니다."
-                )
-
+                raise ValueError("no_password 모드에서는 BOOTSTRAP_ADMIN_PASSWORD를 비워두세요.")
+            if not (self.bootstrap_admin_username and self.bootstrap_admin_email):
+                raise ValueError("no_password bootstrap에는 username/email이 필요합니다.")
         return self
 
 
 @lru_cache
-def get_settings() -> MemberSettings:
-    return MemberSettings()
+def get_settings() -> Settings:
+    return Settings()
+
+
+# 기존 `from backend.core.config import settings` 호환용
+settings = get_settings()

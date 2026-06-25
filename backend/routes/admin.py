@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from backend.api.deps import require_roles
+from backend.deps import require_roles
 from backend.core.security import utc_now
 from backend.db.database import get_db
 from backend.db.models import ApprovalStatus, User, UserRole

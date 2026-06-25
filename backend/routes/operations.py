@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from backend.api.deps import require_roles
+from backend.deps import require_roles
 from backend.db.models import User, UserRole
 
 router = APIRouter(prefix="/operations", tags=["Protected example"])

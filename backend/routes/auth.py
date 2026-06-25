@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from backend.api.deps import get_current_session_id, get_current_user
+from backend.deps import get_current_session_id, get_current_user
 from backend.core.config import get_settings
 from backend.core.security import hash_password
 from backend.db.database import get_db

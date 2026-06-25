@@ -1,5 +1,4 @@
 from collections.abc import Callable
-from datetime import timezone
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -8,15 +7,9 @@ from sqlalchemy.orm import Session
 from backend.core.security import decode_token, utc_now
 from backend.db.database import get_db
 from backend.db.models import ApprovalStatus, AuthSession, User, UserRole
+from backend.utils.timeutils import as_utc
 
 bearer_scheme = HTTPBearer(auto_error=False)
-
-
-def _as_utc(value):
-    if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
-
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
@@ -31,7 +24,7 @@ def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
     session = db.get(AuthSession, payload["sid"])
-    if session is None or session.revoked_at is not None or _as_utc(session.expires_at) <= utc_now():
+    if session is None or session.revoked_at is not None or as_utc(session.expires_at) <= utc_now():
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="로그인 세션이 종료되었습니다.")
 
     user = db.get(User, payload["sub"])

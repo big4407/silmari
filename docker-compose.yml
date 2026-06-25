@@ -1,23 +1,35 @@
-version: "3.8"
-
 services:
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+  db:
+    image: mysql:8.0
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
     ports:
-      - "8000:8000"
+      - "3306:3306" # 호스트에서 직접 붙어볼 때만 필요
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: { context: ., dockerfile: backend/Dockerfile }
+    ports: ["8000:8000"]
     volumes:
       - ./data:/app/data
       - ./models:/app/models
-    env_file:
-      - ./backend/.env
+    env_file: [.env]
+    depends_on:
+      db:
+        condition: service_healthy
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    ports:
-      - "5173:5173"
-    depends_on:
-      - backend
+    build: { context: ./frontend, dockerfile: Dockerfile }
+    ports: ["5173:5173"]
+    depends_on: [backend]
+
+volumes:
+  mysql_data:

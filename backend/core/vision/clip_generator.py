@@ -6,7 +6,7 @@ from typing import Optional
 import cv2
 import numpy as np
 
-from backend.utils.config import RESULTS_DIR
+from backend.core.config import settings
 
 SEGMENT_GAP_SEC = 2.0
 BBOX_PADDING = 0.15
@@ -192,8 +192,8 @@ def generate_clips_for_result(
     file_key: str,
 ) -> dict:
     """탐지 구간별 bbox 클립 생성 및 썸네일 저장."""
-    clips_dir = os.path.join(RESULTS_DIR, "clips")
-    thumbs_dir = os.path.join(RESULTS_DIR, "thumbnails")
+    clips_dir = os.path.join(settings.results_dir, "clips")
+    thumbs_dir = os.path.join(settings.results_dir, "thumbnails")
     os.makedirs(clips_dir, exist_ok=True)
     os.makedirs(thumbs_dir, exist_ok=True)
 
