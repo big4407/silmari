@@ -4,17 +4,17 @@ import os
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
-from services.sms_receiver import fetch_missing_persons, fetch_missing_persons_dummy
-from services.cctv_reader import list_cctv_files
-from db.crud import (
+from backend.services.sms_receiver import fetch_missing_persons, fetch_missing_persons_dummy
+from backend.services.cctv_reader import list_cctv_files
+from backend.db.crud import (
     get_detection_results,
     get_search_results,
     get_search_result_by_id,
     delete_search_result,
     delete_search_results,
 )
-from services.storage import remove_file
-from utils.config import RESULTS_DIR
+from backend.services.storage import remove_file
+from backend.utils.config import RESULTS_DIR
 
 router = APIRouter()
 

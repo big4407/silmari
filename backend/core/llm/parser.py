@@ -1,6 +1,6 @@
 import re
 
-from api.schemas.alert_schema import AlertInfo
+from backend.api.schemas.alert_schema import AlertInfo
 
 
 def parse_alert_text(text: str) -> AlertInfo:

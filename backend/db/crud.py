@@ -1,7 +1,7 @@
 import json
 from typing import Optional
 
-from db.models import DetectionRecord, SearchResult, SessionLocal
+from backend.db.models import DetectionRecord, SearchResult, SessionLocal
 
 
 def save_detection_result(alert_text: str, video_filename: str, result_json: str):

@@ -1,6 +1,6 @@
-from core.llm.chain import run_alert_parse_chain
-from core.vision.frame_extractor import extract_frames
-from core.vision.matcher import match_persons_in_frame
+from backend.core.llm.chain import run_alert_parse_chain
+from backend.core.vision.frame_extractor import extract_frames
+from backend.core.vision.matcher import match_persons_in_frame
 from typing import Optional
 
 
