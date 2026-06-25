@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query
 
-from services.safetydata_client import fetch_disaster_alerts
+from backend.services.safetydata_client import fetch_disaster_alerts
 
 router = APIRouter()
 

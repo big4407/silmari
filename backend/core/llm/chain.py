@@ -1,4 +1,4 @@
-from core.llm.parser import parse_alert_text
+from backend.core.llm.parser import parse_alert_text
 
 # TODO: LangChain 체인 / 에이전트로 교체
 

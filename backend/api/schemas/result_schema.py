@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import List, Optional
 
-from api.schemas.alert_schema import AlertInfo
+from backend.api.schemas.alert_schema import AlertInfo
 
 
 class DetectionItem(BaseModel):

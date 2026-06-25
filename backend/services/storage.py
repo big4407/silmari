@@ -3,7 +3,7 @@ import shutil
 import uuid
 from pathlib import Path
 
-from utils.config import UPLOAD_DIR, CCTV_DATA_DIR, RESULTS_DIR
+from backend.utils.config import UPLOAD_DIR, CCTV_DATA_DIR, RESULTS_DIR
 
 
 def ensure_dirs():

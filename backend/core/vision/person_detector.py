@@ -5,7 +5,7 @@ from ultralytics import YOLO
 import cv2
 import numpy as np
 
-from utils.config import YOLO_MODEL_PATH
+from backend.utils.config import YOLO_MODEL_PATH
 
 _model_path = Path(YOLO_MODEL_PATH)
 model = YOLO(str(_model_path) if _model_path.exists() else "yolov8n.pt")

@@ -3,10 +3,10 @@ import uuid
 from fastapi import APIRouter, UploadFile, File, Form
 from typing import Optional
 
-from core.pipeline import run_detection_pipeline
-from core.vision.clip_generator import generate_clips_for_result
-from db.crud import create_search_result
-from services.storage import save_upload, remove_file
+from backend.core.pipeline import run_detection_pipeline
+from backend.core.vision.clip_generator import generate_clips_for_result
+from backend.db.crud import create_search_result
+from backend.services.storage import save_upload, remove_file
 
 router = APIRouter()
 

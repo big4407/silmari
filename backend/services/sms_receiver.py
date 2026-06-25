@@ -1,6 +1,6 @@
 import httpx
 
-from utils.config import API_KEY, ESNTL_ID
+from backend.utils.config import API_KEY, ESNTL_ID
 
 BASE_URL = "https://www.safe182.go.kr/api/lcm/findChildList.do"
 
@@ -66,6 +66,6 @@ def fetch_missing_persons_dummy() -> list:
 
 async def receive_alert(text: str) -> dict:
     """안전안내문자 수신 처리 (추후 Webhook/SMS 연동)"""
-    from core.llm.chain import run_alert_parse_chain
+    from backend.core.llm.chain import run_alert_parse_chain
 
     return run_alert_parse_chain(text).model_dump()

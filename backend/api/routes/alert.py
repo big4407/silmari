@@ -1,8 +1,8 @@
 from fastapi import APIRouter
 
-from api.schemas.alert_schema import AlertRequest, AlertInfo
-from core.llm.chain import run_alert_parse_chain
-from services.sms_receiver import receive_alert
+from backend.api.schemas.alert_schema import AlertRequest, AlertInfo
+from backend.core.llm.chain import run_alert_parse_chain
+from backend.services.sms_receiver import receive_alert
 
 router = APIRouter()
 
