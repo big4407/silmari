@@ -139,3 +139,10 @@ class MessageService:
             page=page,
             size=per_page,
         )
+
+    def delete_message(self, sn: str) -> None:
+        """
+        sn을 받아서 메시지를 삭제하는 함수
+        """
+        message = self._get_or_404(sn)
+        self.repository.delete(message)
