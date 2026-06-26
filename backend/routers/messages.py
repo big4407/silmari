@@ -10,6 +10,8 @@ from backend.schemas.message_schema import (
 )
 from backend.services.message_service import MessageService
 
+from datetime import date
+
 
 # Service 객체를 Depends로 주입하기 위해 생성한 함수
 def get_message_service(db: Session = Depends(get_db)) -> MessageService:
@@ -68,11 +70,16 @@ def get_message(
 def get_list(
     page: int = Query(1, ge=1, description="페이지번호"),
     per_page: int = Query(10, ge=1, le=100, description="페이지당 항목 수"),
-    search: str | None = Query(None, description="검색어"),
+    search_content: str | None = Query(None, description="검색어"),
+    start_date: date | None = Query(None, description="시작일"),
+    end_date: date | None = Query(None, description="종료일"),
+    region: str | None = Query(None, description="지역"),
     order_by: str = Query("latest", description="정렬 기준 (기본값 : latest)"),
     service: MessageService = Depends(get_message_service),
 ):
-    return service.get_message_list(page, per_page, search, order_by)
+    return service.get_message_list(
+        page, per_page, search_content, start_date, end_date, region, order_by
+    )
 
 
 @router.delete("/{sn}", status_code=204, summary="문자 삭제")
