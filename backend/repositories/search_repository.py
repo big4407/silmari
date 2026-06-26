@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from backend.models.search_model import Search
+from backend.db.models import Search
 
 from datetime import datetime, date
 from sqlalchemy import desc, asc
