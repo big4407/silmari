@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from backend.models.message_model import Message
+from backend.db.models import Message
 
 from datetime import datetime, date
 from sqlalchemy import desc, asc

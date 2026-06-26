@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 
-from backend.clients.disaster_message_client import DisasterMessageClient
-from backend.models.message_model import Message
+from backend.services.disaster_message_client import DisasterMessageClient
+from backend.db.models import Message
 from backend.repositories.message_repository import MessageRepository
 from backend.schemas.message_schema import (
     MessageCreate,

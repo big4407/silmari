@@ -1,14 +1,14 @@
 import httpx
 
-from backend.utils.config import API_KEY, ESNTL_ID
+from backend.core.config import settings
 
 BASE_URL = "https://www.safe182.go.kr/api/lcm/findChildList.do"
 
 
 async def fetch_missing_persons(name: str = None, age: int = None) -> list:
     params = {
-        "esntlId": ESNTL_ID,
-        "authKey": API_KEY,
+        "esntlId": settings.SAFE182_ESNTL_ID,
+        "authKey": settings.SAFE182_API_KEY,
         "rowSize": 50,
         "page": 1,
     }

@@ -4,9 +4,9 @@ from ultralytics import YOLO
 import cv2
 import numpy as np
 
-from backend.utils.config import YOLO_MODEL_PATH
+from backend.core.config import settings
 
-_model_path = Path(YOLO_MODEL_PATH)
+_model_path = Path(settings.yolo_model_path)
 model = YOLO(str(_model_path) if _model_path.exists() else "yolov8n.pt")
 
 COLOR_RANGES = {

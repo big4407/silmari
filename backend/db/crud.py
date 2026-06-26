@@ -1,7 +1,9 @@
+# db/crud.py
 import json
 from typing import Optional
 
-from backend.db.models import DetectionRecord, SearchResult, SessionLocal
+from backend.db.database import SessionLocal      
+from backend.db.models import DetectionRecord, SearchResult
 
 
 def save_detection_result(alert_text: str, video_filename: str, result_json: str):

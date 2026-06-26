@@ -16,7 +16,7 @@ if TEST_DB.exists():
     TEST_DB.unlink()
 
 os.environ["ENVIRONMENT"] = "test"
-os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB.as_posix()}"
+os.environ["DATABASE_URL_OVERRIDE"] = f"sqlite:///{TEST_DB.as_posix()}"
 os.environ["JWT_SECRET_KEY"] = "test-only-jwt-secret-key-at-least-thirty-two-characters"
 os.environ["BOOTSTRAP_ADMIN_USERNAME"] = "bootstrap_admin"
 os.environ["BOOTSTRAP_ADMIN_EMAIL"] = "bootstrap_admin@silmari.local"
