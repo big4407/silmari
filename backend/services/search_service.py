@@ -1,3 +1,5 @@
+from sqlalchemy.orm import Session
+
 from backend.repositories.search_repository import SearchRepository
 from backend.schemas.search_schema import (
     SearchCreate,
@@ -7,11 +9,12 @@ from backend.schemas.search_schema import (
 
 
 class SearchService:
-    def __init__(self, repository: SearchRepository):
-        self.repository = repository
+    def __init__(self, db: Session):
+        self.db = db
+        self.repository = SearchRepository(db)
 
     def create_search(self, search_data: SearchCreate) -> SearchDetail:
-        search = self.repository.insert(search_data)
+        search = self.repository.save(search_data)
 
         # 나중에 분석 실행 기능 추가
         # self.analysis_service.run(search_id=search.id)
