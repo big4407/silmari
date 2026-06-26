@@ -15,15 +15,9 @@ from backend.core.security import (
     verify_password,
 )
 from backend.db.models import ApprovalStatus, AuthSession, User
+from backend.utils.timeutils import as_utc
 
 settings = get_settings()
-
-
-def _as_utc(value):
-    if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
-
 
 def authenticate_user(db: Session, username: str, password: str) -> User | None:
     user = db.scalar(select(User).where(User.username == username))
@@ -67,7 +61,7 @@ def rotate_refresh_token(db: Session, refresh_token: str) -> dict:
     session = db.get(AuthSession, payload["sid"])
     if session is None:
         raise ValueError("로그인 세션을 찾을 수 없습니다.")
-    if session.revoked_at is not None or _as_utc(session.expires_at) <= utc_now():
+    if session.revoked_at is not None or as_utc(session.expires_at) <= utc_now():
         raise ValueError("만료되었거나 로그아웃된 세션입니다.")
     if not hmac.compare_digest(session.refresh_token_hash, sha256(refresh_token)):
         raise ValueError("이미 사용되었거나 유효하지 않은 refresh token입니다.")

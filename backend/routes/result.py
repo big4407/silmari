@@ -14,7 +14,7 @@ from backend.db.crud import (
     delete_search_results,
 )
 from backend.services.storage import remove_file
-from backend.utils.config import RESULTS_DIR
+from backend.core.config import settings
 
 router = APIRouter()
 
@@ -100,11 +100,11 @@ def search_result_detail(result_id: int):
 
 def _remove_result_media(record) -> None:
     if record.thumbnail_filename:
-        remove_file(os.path.join(RESULTS_DIR, "thumbnails", record.thumbnail_filename))
+        remove_file(os.path.join(settings.results_dir, "thumbnails", record.thumbnail_filename))
     for clip in json.loads(record.clips_json or "[]"):
         filename = clip.get("filename")
         if filename:
-            remove_file(os.path.join(RESULTS_DIR, "clips", filename))
+            remove_file(os.path.join(settings.results_dir, "clips", filename))
 
 
 @router.delete("/search/{result_id}")
@@ -134,7 +134,7 @@ def delete_search_results_endpoint(
 
 @router.get("/media/thumbnails/{filename}")
 def get_thumbnail(filename: str):
-    path = os.path.join(RESULTS_DIR, "thumbnails", filename)
+    path = os.path.join(settings.results_dir, "thumbnails", filename)
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="썸네일 없음")
     return FileResponse(path, media_type="image/jpeg")
@@ -142,7 +142,7 @@ def get_thumbnail(filename: str):
 
 @router.get("/media/clips/{filename}")
 def get_clip(filename: str):
-    path = os.path.join(RESULTS_DIR, "clips", filename)
+    path = os.path.join(settings.results_dir, "clips", filename)
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="클립 없음")
     return FileResponse(

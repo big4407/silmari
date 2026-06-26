@@ -1,18 +1,18 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.api.routes import alert, cctv, result, disaster_alerts
+from backend.routes import alert, cctv, result, disaster_alerts
 from backend.services.storage import ensure_dirs
 
 from backend.db.database import Base, SessionLocal, engine, get_db
-from backend.routers import message_router
+from backend.routes import messages
 
 from contextlib import asynccontextmanager
 from secrets import token_urlsafe
 
 from sqlalchemy import or_, select
 
-from backend.api.routes import admin, auth, operations, users
+from backend.routes import admin, auth, operations, users
 from backend.core.config import get_settings
 from backend.core.security import hash_password
 from backend.core.runtime import ensure_supported_python
@@ -68,16 +68,17 @@ def bootstrap_admin() -> None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    Base.metadata.create_all(bind=engine)
+    ensure_supported_python()
+    ensure_dirs()                              # startup에 있던 것 이동
+    Base.metadata.create_all(bind=engine)      # ← 단 1회
     bootstrap_admin()
     yield
 
 
 app = FastAPI(
-    title="Silmari Auth API",
-    version="1.1.0",
-    description="Silmari RBAC authentication and approval workflow API",
-    lifespan=lifespan,
+    title="Silmari API", 
+    version="1.1.0", 
+    lifespan=lifespan
 )
 
 app.add_middleware(
@@ -88,14 +89,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-Base.metadata.create_all(bind=engine)
-
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
 app.include_router(operations.router, prefix="/api/v1")
 
-app.include_router(message_router.router)
+app.include_router(messages.router)
 
 app.include_router(alert.router, prefix="/api/alert", tags=["alert"])
 app.include_router(cctv.router, prefix="/api/cctv", tags=["cctv"])
@@ -110,12 +109,6 @@ app.include_router(result.router, prefix="/api/missing", tags=["legacy"])
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
-
-@app.on_event("startup")
-def startup():
-    ensure_dirs()
-    get_db()
-
 
 @app.get("/")
 def root():
