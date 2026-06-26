@@ -1,18 +1,18 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.routes import alert, cctv, result, disaster_alerts
+from backend.routers import alert, cctv, result, disaster_alerts
 from backend.services.storage import ensure_dirs
 
 from backend.db.database import Base, SessionLocal, engine, get_db
-from backend.routes import messages
+from backend.routers import messages
 
 from contextlib import asynccontextmanager
 from secrets import token_urlsafe
 
 from sqlalchemy import or_, select
 
-from backend.routes import admin, auth, operations, users
+from backend.routers import admin, auth, operations, users
 from backend.core.config import get_settings
 from backend.core.security import hash_password
 from backend.core.runtime import ensure_supported_python
