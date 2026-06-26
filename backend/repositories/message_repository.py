@@ -40,7 +40,7 @@ class MessageRepository:
         )
         self.db.add(message)  # 실제 insert 쿼리문 실행
         self.db.commit()  # 데이터베이스에 영구 반영
-        self.db.refresh(message)  # id가 존재하는 Post 객체
+        self.db.refresh(message)  # 정보를 받아온 message 객체
         return message
 
     def find_all(
