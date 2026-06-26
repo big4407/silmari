@@ -72,3 +72,8 @@ class MessageRepository:
         )
 
         return messages, total
+
+    def delete(self, message: Message) -> None:
+        """문자 삭제"""
+        self.db.delete(message)
+        self.db.commit()
