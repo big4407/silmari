@@ -73,3 +73,11 @@ def get_list(
     service: MessageService = Depends(get_message_service),
 ):
     return service.get_message_list(page, per_page, search, order_by)
+
+
+@router.delete("/{sn}", status_code=204, summary="문자 삭제")
+def delete_message(
+    sn: str = Path(..., min_length=1, max_length=22),
+    service: MessageService = Depends(get_message_service),
+):
+    return service.delete_message(sn)
