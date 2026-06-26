@@ -18,9 +18,10 @@ services:
   backend:
     build: { context: ., dockerfile: backend/Dockerfile }
     ports: ["8000:8000"]
+    environment:
+      DB_HOST: db
     volumes:
       - ./data:/app/data
-      - ./models:/app/models
     env_file: [.env]
     depends_on:
       db:

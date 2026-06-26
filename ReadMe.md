@@ -16,6 +16,7 @@ Silmari/
 ├── backend/
 │   ├── main.py            # FastAPI 진입점 (lifespan에서 테이블 생성·admin bootstrap)
 │   ├── deps.py            # 인증 의존성 (get_current_user, require_roles 등)
+│   ├── Dockerfile
 │   ├── routes/            # 모든 라우터 (auth, users, admin, operations,
 │   │                      #              alert, cctv, result, disaster_alerts, messages)
 │   ├── schemas/           # 모든 Pydantic 스키마 (auth, user, message, alert)
@@ -41,12 +42,14 @@ Silmari/
 │   │   └── llm/           # 안내문자 파싱 체인
 │   ├── utils/             # 순수 헬퍼 (logger, datetime_parser, timeutils, message_filter)
 │   └── tests/
-├── frontend/              # React + Vite
-├── data/                  # CCTV 영상, 탐지 결과, 업로드
-├── models/yolo/           # YOLO 가중치 (yolov8n.pt)
+├── frontend/              # React + Vite (public/geodata 에 행정구역 데이터)
+├── data/
+│   ├── yolo/              # YOLO 가중치 (yolov8n.pt)
+│   ├── CCTV/              # 입력 영상
+│   ├── uploads/           # 업로드 파일
+│   └── results/           # 탐지 결과·클립·썸네일
 ├── scripts/               # 인증 스모크 테스트 스크립트
-├── docs/
-│   └── fashionclip-taxonomy.md   # 의류 속성 분류 기준 레퍼런스
+├── fashionclip-taxonomy.md   # 의류 속성 분류 기준 레퍼런스
 ├── .env.example
 ├── docker-compose.yml
 └── requirements.txt
@@ -87,11 +90,10 @@ cp .env.example .env   # 값 채우기
 | `SAFE182_*`, `SAFETYDATA_*`, `DISASTER_API_*`                      | 외부 재난·실종 API 키                          |
 | `UPLOAD_DIR` / `YOLO_MODEL_PATH` / `CCTV_DATA_DIR` / `RESULTS_DIR` | (선택) 파일 경로. 미지정 시 루트 기준 기본값   |
 
-> 파일 경로 4개는 기본값이 있어 보통 생략합니다(미지정 시 `data/`, `models/yolo/` 기준).
-> Docker로 띄울 때는 `db` 서비스가 `${DB_PASSWORD}`·`${DB_NAME}`을 **루트 `.env`**에서 읽고,
-> 컨테이너 내부 `DB_HOST`는 `localhost`가 아니라 서비스명 `db`로 지정합니다.
+> 파일 경로 4개는 기본값이 있어 보통 생략합니다(미지정 시 `data/yolo/`, `data/CCTV/` 등).
+> **로컬 실행 시 `DB_HOST=localhost`**, Docker 실행 시에는 compose가 자동으로 `DB_HOST=db`로 덮어씁니다.
 
-### 3. 백엔드
+### 3. 백엔드 (로컬)
 
 ```bash
 # 프로젝트 루트에서 실행 (backend 폴더 안 아님 — 절대 import 사용)
@@ -113,7 +115,7 @@ uvicorn backend.main:app --reload
 > pip install --no-build-isolation "git+https://github.com/KaiyangZhou/deep-person-reid.git@f8cd150fdf77e8d9e1ed143b7f308c2c609ded50"
 > ```
 
-### 4. 프론트엔드
+### 4. 프론트엔드 (로컬)
 
 ```bash
 cd frontend
@@ -121,17 +123,28 @@ npm install
 npm run dev        # http://localhost:5173
 ```
 
-### 5. Docker (선택)
+### 5. Docker로 한 번에 (db + backend + frontend)
 
-루트에 `.env`가 있고 `yolov8n.pt`가 `models/yolo/`에 있으면:
+루트에 `.env`가 있고(아래 값 채움) `data/yolo/yolov8n.pt`가 있으면:
 
 ```bash
 docker compose up --build
 ```
 
-`db`(MySQL) → `backend` → `frontend` 순으로 기동합니다. 빌드 컨텍스트가 루트이므로
-백엔드 컨테이너 안에서도 `backend` 패키지가 그대로 import되고, 모델·데이터는
-`/app/models`·`/app/data` 볼륨으로 연결됩니다.
+`db`(MySQL) → `backend`(8000) → `frontend`(5173) 순으로 기동합니다.
+
+- 빌드 컨텍스트가 루트이므로 컨테이너 안에서도 `backend` 패키지가 그대로 import됩니다.
+- `backend` 서비스는 compose의 `environment`로 **`DB_HOST=db`** 를 주입하므로,
+  `.env`의 `localhost`(로컬용)와 충돌 없이 컨테이너에서는 `db` 서비스에 연결됩니다.
+- `db` 서비스는 `${DB_PASSWORD}`·`${DB_NAME}`을 **루트 `.env`**에서 읽습니다.
+- YOLO 가중치·데이터는 `./data` 볼륨으로 연결됩니다(`data/yolo/yolov8n.pt`).
+
+설정 변경(예: `DB_HOST`) 후에는 기존 컨테이너를 지우고 다시 만들어야 반영됩니다:
+
+```bash
+docker compose down
+docker compose up
+```
 
 ---
 
@@ -175,6 +188,8 @@ docker compose up --build
 | `/cctv`              | CCTV 영상 업로드           |
 
 (`/alert` → `/cctv`, `/result` → `/search-results` 로 리다이렉트)
+
+행정구역 지도 데이터는 `frontend/public/geodata/`에 있습니다(상세는 해당 폴더의 README 참고).
 
 ---
 
@@ -236,3 +251,4 @@ python scripts/smoke_test_auth.py
 ## 참고 문서
 
 - [FashionCLIP 의류 속성 분류 기준](fashionclip-taxonomy.md)
+- 행정구역 지도 데이터: `frontend/public/geodata/README.md`
