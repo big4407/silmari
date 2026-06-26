@@ -1,0 +1,45 @@
+from backend.repositories.search_repository import SearchRepository
+from backend.schemas.search_schema import (
+    SearchCreate,
+    SearchDetail,
+    SearchListResponse,
+)
+
+
+class SearchService:
+    def __init__(self, repository: SearchRepository):
+        self.repository = repository
+
+    def create_search(self, search_data: SearchCreate) -> SearchDetail:
+        search = self.repository.insert(search_data)
+
+        # 나중에 분석 실행 기능 추가
+        # self.analysis_service.run(search_id=search.id)
+
+        return SearchDetail.model_validate(search)
+
+    def get_search(self, search_id: int) -> SearchDetail:
+        search = self.repository.find_by_id(search_id)
+
+        if search is None:
+            raise ValueError("검색 기록을 찾을 수 없습니다.")
+
+        return SearchDetail.model_validate(search)
+
+    def get_search_list(self, page: int, size: int) -> SearchListResponse:
+        items, total = self.repository.find_all(page=page, size=size)
+
+        return SearchListResponse(
+            items=items,
+            total=total,
+            page=page,
+            size=size,
+        )
+
+    def delete_search(self, search_id: int) -> None:
+        search = self.repository.find_by_id(search_id)
+
+        if search is None:
+            raise ValueError("검색 기록을 찾을 수 없습니다.")
+
+        self.repository.delete(search)
