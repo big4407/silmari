@@ -139,7 +139,7 @@ class Search(Base):
     )
 
     user_id: Mapped[str] = mapped_column(
-        String(20),
+        String(36),
         ForeignKey("users.id"),
         nullable=False,
     )
