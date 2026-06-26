@@ -27,7 +27,7 @@ class SearchCreate(BaseModel):
     동시에 검색을 진행할 것
     """
 
-    user_id: str = Field(max_length=20)
+    user_id: str = Field(max_length=36)
     message_sn: str | None = Field(default=None, max_length=22)
 
     missing_name: str | None = Field(default=None, max_length=20)
