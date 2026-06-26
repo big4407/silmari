@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 
 from backend.db.models import Search
-
+from backend.schemas.search_schema import SearchCreate
 from datetime import datetime, date
 from sqlalchemy import desc, asc
 
@@ -13,9 +13,13 @@ class SearchRepository:
     def find_by_id(self, id: int) -> Search | None:
         return self.db.query(Search).filter(Search.id == id).first()
 
-    def save(self, search: Search) -> Search:
+    def save(self, search_data: SearchCreate) -> Search:
+        search = Search(**search_data.model_dump())
+
         self.db.add(search)
-        self.db.flush()
+        self.db.commit()
+        self.db.refresh(search)
+
         return search
 
     def find_all(
