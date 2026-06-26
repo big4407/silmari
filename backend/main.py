@@ -12,7 +12,7 @@ from secrets import token_urlsafe
 
 from sqlalchemy import or_, select
 
-from backend.routers import admin, auth, operations, users
+from backend.routers import admin, auth, operations, users, search
 from backend.core.config import get_settings
 from backend.core.security import hash_password
 from backend.core.runtime import ensure_supported_python
@@ -100,6 +100,7 @@ app.include_router(alert.router, prefix="/api/alert", tags=["alert"])
 app.include_router(cctv.router, prefix="/api/cctv", tags=["cctv"])
 app.include_router(result.router, prefix="/api/result", tags=["result"])
 app.include_router(disaster_alerts.router, prefix="/api/alerts", tags=["alerts"])
+app.include_router(search.router, prefix="/search", tags=["search"])
 
 # 하위 호환: 기존 프론트엔드 경로
 app.include_router(alert.router, prefix="/api/sms", tags=["legacy"])
