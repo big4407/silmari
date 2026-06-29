@@ -84,3 +84,5 @@ db.sqlite3
 *.jpg
 *.json
 *.npy
+
+data/chroma_db/
