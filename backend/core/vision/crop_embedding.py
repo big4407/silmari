@@ -10,9 +10,7 @@
 from fashion_clip.fashion_clip import FashionCLIP
 from pathlib import Path
 import numpy as np
-import json
-
-
+from backend.core.vision.chroma_db import get_collection
 
 def get_image_paths(image_dir):
     """
@@ -61,41 +59,58 @@ def make_metadata(image_paths):
         })
     return metadata
 
-def save_embedding_data(embeddings, metadata, save_dir):
-    """
-        npy와 json 파일 저장
-    """
-    save_dir = Path(save_dir)
-    save_dir.mkdir(parents=True, exist_ok=True)
+# def save_embedding_data(embeddings, metadata, save_dir):
+#     """
+#         npy와 json 파일 저장
+#     """
+#     save_dir = Path(save_dir)
+#     save_dir.mkdir(parents=True, exist_ok=True)
 
-    embedding_path = save_dir / "image_embeddings.npy"
-    metadata_path = save_dir / "metadata.json"
+#     embedding_path = save_dir / "image_embeddings.npy"v
+#     metadata_path = save_dir / "metadata.json"
 
-    np.save(embedding_path, embeddings)
+#     np.save(embedding_path, embeddings)
 
-    with open(metadata_path, "w", encoding="utf-8") as file:
-        json.dump(
-            metadata,
-            file,
-            ensure_ascii=False,
-            indent=4
-        )
+#     with open(metadata_path, "w", encoding="utf-8") as file:
+#         json.dump(
+#             metadata,
+#             file,
+#             ensure_ascii=False,
+#             indent=4
+#         )
 
-
-def analyze_unique_persons(image_dir: str, save_dir: str):
-    image_paths = get_image_paths(image_dir)
-
-    embeddings = create_image_embeddings(image_paths)
-
-    normalized_embeddings = normalize_embeddings(embeddings)
-
-    metadata = make_metadata(image_paths)
-
-    save_embedding_data(
-        normalized_embeddings,
-        metadata,
-        save_dir
+def save_embedding(id, embedding, metadata):
+    collection = get_collection()
+    collection.upsert(
+        ids=[id],
+        embeddings=[embedding],
+        metadatas=[metadata]
     )
 
+# def analyze_unique_persons(image_dir: str, save_dir: str):
+#     image_paths = get_image_paths(image_dir)
+
+#     embeddings = create_image_embeddings(image_paths)
+
+#     normalized_embeddings = normalize_embeddings(embeddings)
+
+#     metadata = make_metadata(image_paths)
+
+#     save_embedding_data(
+#         normalized_embeddings,
+#         metadata,
+#         save_dir
+#     )
+
 if __name__ == "__main__":
-    analyze_unique_persons("data/results/unique_persons", "data/results/embeddings")
+    image_dir = "data/results/unique_persons"
+    image_paths = get_image_paths(image_dir)
+    embeddings = create_image_embeddings(image_paths)
+    normalized_embeddings = normalize_embeddings(embeddings)
+    metadatas = make_metadata(image_paths)
+    for image_path, embedding, metadata in zip(image_paths, normalized_embeddings, metadatas):
+        save_embedding(
+            id = image_path.stem,
+            embedding = embedding.tolist(),
+            metadata = metadata
+        )
