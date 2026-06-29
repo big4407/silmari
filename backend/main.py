@@ -12,7 +12,7 @@ from secrets import token_urlsafe
 
 from sqlalchemy import or_, select
 
-from backend.routers import admin, auth, operations, users, search
+from backend.routers import admin, auth, operations, users, search, chatbot
 from backend.core.config import get_settings
 from backend.core.security import hash_password
 from backend.core.runtime import ensure_supported_python
@@ -106,6 +106,7 @@ app.include_router(search.router, prefix="/search", tags=["search"])
 app.include_router(alert.router, prefix="/api/sms", tags=["legacy"])
 app.include_router(cctv.router, prefix="/api/video", tags=["legacy"])
 app.include_router(result.router, prefix="/api/missing", tags=["legacy"])
+app.include_router(chatbot.router)
 
 @app.get("/health")
 def health_check():
