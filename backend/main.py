@@ -18,7 +18,7 @@ from backend.core.security import hash_password
 from backend.core.runtime import ensure_supported_python
 from backend.db.models import ApprovalStatus, User, UserRole
 
-from backend.core.message_scheduler import start_scheduler
+from backend.core.scheduler import start_scheduler
 # scheduler의 logging을 위한 import
 # 아래에서 모듈 사용하지 않는다고 지우면 동작하지 않음
 import backend.core.scheduler_logging

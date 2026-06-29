@@ -52,7 +52,7 @@ def start_scheduler():
     scheduler.add_job(
         collect_messages_job,
         # 매일 일정 시간에 실행
-        trigger=CronTrigger(hour=15, minute=6),
+        trigger=CronTrigger(hour=16, minute=14),
         # 작업 고유 ID
         id="collect_messages_daily",
         # 같은 ID의 작업이 이미 있으면 덮어쓰기
