@@ -1,3 +1,5 @@
+from math import ceil
+
 from sqlalchemy.orm import Session
 
 from backend.repositories.search_repository import SearchRepository
@@ -5,6 +7,8 @@ from backend.schemas.search_schema import (
     SearchCreate,
     SearchDetail,
     SearchListResponse,
+    PagingInfo,
+    SearchItem,
 )
 
 
@@ -30,13 +34,20 @@ class SearchService:
         return SearchDetail.model_validate(search)
 
     def get_search_list(self, page: int, size: int) -> SearchListResponse:
-        items, total = self.repository.find_all(page=page, size=size)
+        items, total = self.repository.find_all(page=page, per_page=size)
+
+        page_info = PagingInfo(
+            total=total,
+            total_pages=ceil(total / size) if total > 0 else 0,
+            page=page,
+            per_page=size,
+            has_prev=page > 1,
+            has_next=page * size < total,
+        )
 
         return SearchListResponse(
-            items=items,
-            total=total,
-            page=page,
-            size=size,
+            items=[SearchItem.model_validate(item) for item in items],
+            page_info=page_info,
         )
 
     def delete_search(self, search_id: int) -> None:
