@@ -77,6 +77,9 @@ class SearchItem(BaseModel):
     searched_at: datetime
     search_type: str
 
+    class Config:
+        from_attributes = True
+
 
 class SearchListResponse(BaseModel):
     """
