@@ -66,10 +66,13 @@ def detect_persons(frame, conf_threshold: float = 0.85):
 
     return detections
 
-if __name__ == "__main__":
-    image_dir = Path("data/results/frames")
+def person_detect(frame_path:str):
+    "폴더 path를 주면 해당 폴더의 모든 frame에 대해 사람 식별함"
+    image_dir = Path(frame_path)
     save_dir = Path("data/results/detected")
 
+    save_dir.mkdir(parents=True, exist_ok=True)
+    image_paths = []
     save_dir.mkdir(parents=True, exist_ok=True)
     image_paths = []
 
@@ -77,12 +80,25 @@ if __name__ == "__main__":
     annotated_dir.mkdir(parents=True, exist_ok=True)
     for ext in ["*.jpg"]:
         image_paths.extend(image_dir.glob(ext))
+    annotated_dir = Path("data/results/annotated_frames")
+    annotated_dir.mkdir(parents=True, exist_ok=True)
+    for ext in ["*.jpg"]:
+        image_paths.extend(image_dir.glob(ext))
 
+    image_paths = sorted(image_paths)
     image_paths = sorted(image_paths)
 
     results = model.predict(source=image_paths, conf=0.4, save=False, classes=0)
     print(results[0])
+    results = model.predict(source=image_paths, conf=0.4, save=False, classes=0)
+    print(results[0])
 
+    for image_path, r in zip(image_paths, results):
+        frame = cv2.imread(str(image_path))
+        if frame is None:
+            continue
+        for person_idx, box in enumerate(r.boxes, 1):
+            x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
     for image_path, r in zip(image_paths, results):
         frame = cv2.imread(str(image_path))
         if frame is None:
@@ -96,7 +112,20 @@ if __name__ == "__main__":
             
             save_path = save_dir / f"{image_path.stem}_person_{person_idx}.jpg"
             cv2.imwrite(str(save_path), person_crop)
+            confidence = float(box.conf[0].cpu().item())
+            label = f"person {confidence:.2f}"
+            person_crop = frame[y1:y2, x1:x2]
+            
+            save_path = save_dir / f"{image_path.stem}_person_{person_idx}.jpg"
+            cv2.imwrite(str(save_path), person_crop)
 
+            cv2.rectangle(
+                frame,
+                (x1, y1),
+                (x2, y2),
+                (0, 255, 0),
+                2
+            )
             cv2.rectangle(
                 frame,
                 (x1, y1),
@@ -117,3 +146,6 @@ if __name__ == "__main__":
             )
         annotated_save_path = annotated_dir / image_path.name
         cv2.imwrite(str(annotated_save_path), frame)
+        
+if __name__ == "__main__":
+    person_detect("data/results/frames")

@@ -9,6 +9,8 @@ import ChatbotPage from "./pages/ChatbotPage"
 import SearchHistory from "./pages/SearchHistory"
 import CCTVUpload from "./pages/CCTVUpload"
 import SearchResults from "./pages/SearchResults"
+import AdminLayout from "./pages/admin/AdminLayout"
+import AdminViewPage from "./pages/admin/AdminViewPage"
 import "./App.css"
 
 export default function App() {
@@ -28,6 +30,11 @@ export default function App() {
 
         <Route element={<AppLayout />}>
           <Route path="/cctv" element={<CCTVUpload />} />
+        </Route>
+
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<AdminViewPage />} />
+          <Route path=":viewId" element={<AdminViewPage />} />
         </Route>
 
         <Route path="/alert" element={<Navigate to="/cctv" replace />} />

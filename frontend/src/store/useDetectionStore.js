@@ -9,6 +9,7 @@ export const useDetectionStore = create((set) => ({
   selectedRegion: "전국",
   startDate: "",
   endDate: "",
+  contentKeyword: "",
   missingList: [],
   loading: false,
 
@@ -21,6 +22,7 @@ export const useDetectionStore = create((set) => ({
   setSelectedRegion: (region) => set({ selectedRegion: region }),
   setStartDate: (date) => set({ startDate: date }),
   setEndDate: (date) => set({ endDate: date }),
+  setContentKeyword: (keyword) => set({ contentKeyword: keyword }),
   setMissingList: (list) => set({ missingList: list }),
   setLoading: (loading) => set({ loading }),
 }))

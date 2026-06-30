@@ -71,13 +71,47 @@ export function getRegionColor(index) {
   return REGION_COLORS[index % REGION_COLORS.length]
 }
 
-export function getRegionStyle({ isActive, colorIndex, alertCount = 0 }) {
-  const hasAlerts = alertCount > 0
+export function getRegionStyle({ isActive, alertCount = 0 }) {
+  if (isActive) {
+    return {
+      fillColor: "#0066cc",
+      fillOpacity: 0.9,
+      color: "#003876",
+      weight: 2.5,
+    }
+  }
+
+  const count = alertCount || 0
+  if (count >= 5) {
+    return {
+      fillColor: "#2d6ba8",
+      fillOpacity: 0.9,
+      color: "#003876",
+      weight: 2,
+    }
+  }
+  if (count >= 3) {
+    return {
+      fillColor: "#4d8cc8",
+      fillOpacity: 0.88,
+      color: "#003876",
+      weight: 2,
+    }
+  }
+  if (count >= 1) {
+    return {
+      fillColor: "#7eb3e0",
+      fillOpacity: 0.86,
+      color: "#004ea2",
+      weight: 1.8,
+    }
+  }
+
   return {
-    fillColor: isActive ? "#4d9de0" : hasAlerts ? "#7eb3e0" : getRegionColor(colorIndex),
-    fillOpacity: isActive ? 0.92 : hasAlerts ? 0.88 : 0.78,
-    color: isActive ? "#003876" : hasAlerts ? "#004ea2" : "#5a7088",
-    weight: isActive ? 2.5 : hasAlerts ? 2 : 1.3,
+    fillColor: "#c5d8ea",
+    fillOpacity: 0.78,
+    color: "#6a8094",
+    weight: 1.2,
   }
 }
 
@@ -132,15 +166,25 @@ export function getShortLabel(name, currentKey) {
 }
 
 /** 선택된 지역과 GeoJSON feature 매칭 (성남시 ↔ 성남시분당구 등) */
-export function isRegionSelected(selectedRegion, regionLabel, geoName, shortLabel) {
+export function isRegionSelected(selectedRegion, regionLabel, geoName, shortLabel, currentKey = "root") {
   if (!selectedRegion || selectedRegion === "전국") return false
+
+  if (currentKey === "root") {
+    if (selectedRegion === regionLabel || selectedRegion === shortLabel) return true
+    const geo = geoName || regionLabel || ""
+    const selectedTerms = SIDO_SEARCH_TERMS[selectedRegion] || [selectedRegion]
+    const featureTerms = SIDO_SEARCH_TERMS[regionLabel] || [regionLabel]
+    return selectedTerms.some(term => geo.includes(term))
+      && featureTerms.some(term => geo.includes(term))
+  }
+
   if (selectedRegion === regionLabel || selectedRegion === shortLabel) return true
 
   const sel = selectedRegion.replace(/\s/g, "")
-  const geo = (geoName || "").replace(/\s/g, "")
+  const geo = (geoName || regionLabel || "").replace(/\s/g, "")
   if (!geo || !sel) return false
 
-  if (geo.includes(sel) || sel.includes(geo)) return true
+  if (geo.includes(sel)) return true
 
   const cityGu = sel.match(/^(.+시)(.+[구군])$/)
   if (cityGu && geo.includes(cityGu[1]) && geo.includes(cityGu[2])) return true
