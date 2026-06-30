@@ -1,3 +1,8 @@
+"""
+사용자 프로필 API.
+
+GET/PATCH /users/me — 로그인 사용자 정보 조회·수정 (비밀번호 변경 포함)
+"""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 

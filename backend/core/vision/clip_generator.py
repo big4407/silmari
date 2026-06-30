@@ -1,3 +1,10 @@
+"""
+탐지 구간 → 인물 크롭 클립(MP4) + 썸네일 생성.
+
+[입력] pipeline 탐지 결과(detections) + 원본 영상 경로
+[출력] data/results/clips/, thumbnails/ + best_confidence 메타
+[로직] SEGMENT_GAP_SEC(2초) 이내 탐지를 한 구간으로 묶어 bbox 크롭 영상 생성
+"""
 import base64
 import os
 import subprocess

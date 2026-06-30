@@ -1,3 +1,4 @@
+/** 관리자 콘솔 사이드바 메뉴 구조 — viewId → AdminViewPage 뷰 매핑 */
 export const NAV = [
   { id: "dashboard", label: "대시보드", solo: true },
   {

@@ -1,4 +1,6 @@
+/** 지역명 검색 → 지도 포커스·mapFilter 변환 */
 import { REGION_DATA } from "../hooks/useMapDrilldown"
+import { hasDongDrilldown } from "../data/dongRegions"
 import { SIDO_SEARCH_TERMS, buildMapFilter } from "./regionMatch"
 
 function normalize(text) {
@@ -29,10 +31,37 @@ function matchesGu(query, gu) {
   return short.length >= 2 && (short.includes(q) || q.includes(short))
 }
 
+function matchesDong(query, dong) {
+  const q = normalize(query)
+  const label = normalize(dong.label)
+  if (!label || !q) return false
+  return label.includes(q) || q.includes(label)
+}
+
 /** 지역명 검색 → 지도 포커스 정보 (없으면 null) */
 export function findRegionByName(query) {
   const q = normalize(query)
   if (!q) return null
+
+  for (const sido of REGION_DATA.root.regions) {
+    const sidoData = REGION_DATA[sido.id]
+    if (!sidoData?.regions) continue
+
+    for (const gu of sidoData.regions) {
+      if (!hasDongDrilldown(gu.id)) continue
+      const dongData = REGION_DATA[gu.id]
+      for (const dong of dongData?.regions || []) {
+        if (matchesDong(q, dong)) {
+          const path = ["root", sido.id, gu.id]
+          return {
+            path,
+            selectedLabel: dong.label,
+            mapFilter: buildMapFilter(dong, path),
+          }
+        }
+      }
+    }
+  }
 
   for (const sido of REGION_DATA.root.regions) {
     const sidoData = REGION_DATA[sido.id]

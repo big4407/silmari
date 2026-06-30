@@ -1,3 +1,4 @@
+"""인증 API 요청/응답 Pydantic 스키마 — signup, login, token, user profile."""
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field

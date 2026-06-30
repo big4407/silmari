@@ -1,3 +1,4 @@
+/** 대시보드 플로팅 FAQ 챗봇 위젯 — ChatbotPage 와 별도 경량 UI */
 import { useState } from "react"
 import "./ChatbotWidget.css"
 

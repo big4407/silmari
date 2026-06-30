@@ -1,4 +1,9 @@
+/**
+ * 지도 드릴다운 상태 훅 — 전국 → 시·도 → 구·군 → (일부) 동 네비게이션.
+ * MapDrilldown 과 regionMatch.buildMapFilter 연동.
+ */
 import { useState, useCallback, useMemo, useRef } from "react"
+import { DONG_REGION_DATA, hasDongDrilldown } from "../data/dongRegions"
 import { buildMapFilter } from "../utils/regionMatch"
 
 export const REGION_DATA = {
@@ -89,16 +94,19 @@ export const REGION_DATA = {
       { id: "36010", label: "세종시", lat: 36.48, lng: 127.289 },
     ],
   },
+  ...DONG_REGION_DATA,
 }
 
 const SIDO_ONLY_ZOOM = 9
 const GU_ZOOM = 13
+const DONG_ZOOM = 14
 
 export default function useMapDrilldown(onRegionSelect) {
   const [path, setPath] = useState(["root"])
   const [selectedRegion, setSelectedRegion] = useState("전국")
   const [sidoFocus, setSidoFocus] = useState(null)
   const [guFocus, setGuFocus] = useState(null)
+  const [dongFocus, setDongFocus] = useState(null)
 
   const onRegionSelectRef = useRef(onRegionSelect)
   onRegionSelectRef.current = onRegionSelect
@@ -107,6 +115,9 @@ export default function useMapDrilldown(onRegionSelect) {
   const drillData = REGION_DATA[currentKey] || REGION_DATA.root
 
   const mapView = useMemo(() => {
+    if (dongFocus?.lat != null && dongFocus?.lng != null) {
+      return { center: [dongFocus.lat, dongFocus.lng], zoom: DONG_ZOOM }
+    }
     if (guFocus) {
       return { center: [guFocus.lat, guFocus.lng], zoom: GU_ZOOM }
     }
@@ -114,7 +125,7 @@ export default function useMapDrilldown(onRegionSelect) {
       return { center: [sidoFocus.lat, sidoFocus.lng], zoom: SIDO_ONLY_ZOOM }
     }
     return { center: drillData.center, zoom: drillData.zoom }
-  }, [guFocus, sidoFocus, drillData])
+  }, [dongFocus, guFocus, sidoFocus, drillData])
 
   const displayRegions = drillData.regions
 
@@ -127,23 +138,34 @@ export default function useMapDrilldown(onRegionSelect) {
           || REGION_DATA.root.regions.find(r => r.id === key)?.label
           || key),
     }))
-    if (guFocus && path.length > 1) {
+    if (dongFocus && hasDongDrilldown(path[path.length - 1])) {
+      crumbs.push({ key: `dong-${dongFocus.id}`, label: dongFocus.label })
+    } else if (guFocus && path.length > 1 && path.length <= 2) {
       crumbs.push({ key: `gu-${guFocus.id}`, label: guFocus.label })
     } else if (sidoFocus && path.length === 1) {
       crumbs.push({ key: `sido-${sidoFocus.id}`, label: sidoFocus.label })
     }
     return crumbs
-  }, [path, sidoFocus, guFocus])
+  }, [path, sidoFocus, guFocus, dongFocus])
 
   const applyFocus = useCallback((focus) => {
     if (!focus?.path) return
     setSidoFocus(null)
     setGuFocus(null)
+    setDongFocus(null)
     setPath(focus.path)
     setSelectedRegion(focus.selectedLabel || "전국")
 
     if (focus.mapFilter) {
       onRegionSelectRef.current?.(focus.mapFilter)
+      if (focus.path.length > 2 && hasDongDrilldown(focus.path[2])) {
+        const guKey = focus.path[2]
+        const dong = REGION_DATA[guKey]?.regions?.find(r => r.label === focus.selectedLabel)
+        if (dong) {
+          setDongFocus(dong)
+          return
+        }
+      }
       if (focus.path.length > 1) {
         const sidoId = focus.path[1]
         const gu = REGION_DATA[sidoId]?.regions?.find(r => r.label === focus.selectedLabel)
@@ -181,11 +203,13 @@ export default function useMapDrilldown(onRegionSelect) {
 
   const selectRegion = useCallback((region) => {
     const isSido = REGION_DATA.root.regions.some(r => r.id === region.id)
-    const inSidoView = path.length > 1
+    const inSidoView = path.length === 2
+    const inDongView = path.length === 3 && hasDongDrilldown(path[2])
 
     if (path.length === 1 && isSido) {
       setSidoFocus(null)
       setGuFocus(null)
+      setDongFocus(null)
       const nextPath = [...path, region.id]
       setPath(nextPath)
       setSelectedRegion(region.label)
@@ -193,9 +217,28 @@ export default function useMapDrilldown(onRegionSelect) {
       return
     }
 
+    if (inDongView) {
+      setSidoFocus(null)
+      setGuFocus(null)
+      setDongFocus(region)
+      setSelectedRegion(region.label)
+      onRegionSelectRef.current?.(buildMapFilter(region, path))
+      return
+    }
+
     if (inSidoView) {
       setSidoFocus(null)
+      if (hasDongDrilldown(region.id)) {
+        setGuFocus(null)
+        setDongFocus(null)
+        const nextPath = [...path, region.id]
+        setPath(nextPath)
+        setSelectedRegion(region.label)
+        onRegionSelectRef.current?.(buildMapFilter(region, nextPath))
+        return
+      }
       setGuFocus(region)
+      setDongFocus(null)
       setSelectedRegion(region.label)
       onRegionSelectRef.current?.(buildMapFilter(region, path))
       return
@@ -205,6 +248,7 @@ export default function useMapDrilldown(onRegionSelect) {
       setPath(["root"])
       setSidoFocus(region)
       setGuFocus(null)
+      setDongFocus(null)
       setSelectedRegion(region.label)
       onRegionSelectRef.current?.(buildMapFilter(region, ["root", region.id]))
     }
@@ -218,6 +262,7 @@ export default function useMapDrilldown(onRegionSelect) {
       setPath(["root"])
       setSidoFocus(null)
       setGuFocus(null)
+      setDongFocus(null)
       setSelectedRegion("전국")
       onRegionSelectRef.current?.({ level: "nation" })
       return
@@ -229,6 +274,7 @@ export default function useMapDrilldown(onRegionSelect) {
       setPath(["root"])
       setSidoFocus(sido)
       setGuFocus(null)
+      setDongFocus(null)
       setSelectedRegion(sido.label)
       onRegionSelectRef.current?.(buildMapFilter(sido, ["root", sido.id]))
       return
@@ -238,8 +284,19 @@ export default function useMapDrilldown(onRegionSelect) {
       const gu = REGION_DATA[path[1]]?.regions?.find(r => r.id === crumb.key.replace("gu-", ""))
       if (!gu) return
       setGuFocus(gu)
+      setDongFocus(null)
       setSelectedRegion(gu.label)
       onRegionSelectRef.current?.(buildMapFilter(gu, path))
+      return
+    }
+
+    if (crumb.key.startsWith("dong-")) {
+      const guKey = path[2]
+      const dong = REGION_DATA[guKey]?.regions?.find(r => r.id === crumb.key.replace("dong-", ""))
+      if (!dong) return
+      setDongFocus(dong)
+      setSelectedRegion(dong.label)
+      onRegionSelectRef.current?.(buildMapFilter(dong, path))
       return
     }
 
@@ -249,9 +306,15 @@ export default function useMapDrilldown(onRegionSelect) {
     setPath(newPath)
     setSidoFocus(null)
     setGuFocus(null)
+    setDongFocus(null)
     const label = REGION_DATA[crumb.key]?.label || crumb.label
     setSelectedRegion(label)
     const sido = REGION_DATA.root.regions.find(r => r.id === crumb.key)
+    if (hasDongDrilldown(crumb.key)) {
+      const gu = REGION_DATA[newPath[1]]?.regions?.find(r => r.id === crumb.key)
+      onRegionSelectRef.current?.(gu ? buildMapFilter(gu, newPath) : { level: "nation" })
+      return
+    }
     onRegionSelectRef.current?.(sido ? buildMapFilter(sido, newPath) : { level: "nation" })
   }, [path, breadcrumbs])
 
@@ -259,6 +322,7 @@ export default function useMapDrilldown(onRegionSelect) {
     setPath(["root"])
     setSidoFocus(null)
     setGuFocus(null)
+    setDongFocus(null)
     setSelectedRegion("전국")
     onRegionSelectRef.current?.({ level: "nation" })
   }, [])

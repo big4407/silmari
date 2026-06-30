@@ -1,3 +1,10 @@
+/**
+ * CCTV 업로드·분석 요청 페이지.
+ *
+ * [입력] 안내문자 + 영상 + (선택) 참조 사진 + 지역
+ * [API] analyzeVideo → 백엔드 파이프라인 실행
+ * [이후] activeSearch 설정 후 /search-results 로 이동
+ */
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { analyzeVideo } from "../api/client"

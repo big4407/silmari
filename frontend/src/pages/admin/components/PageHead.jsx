@@ -1,3 +1,4 @@
+/** 관리자 뷰 공통 페이지 헤더 — breadcrumb + 제목 */
 import { crumbOf } from "../navConfig"
 
 export default function PageHead({ viewId, desc }) {

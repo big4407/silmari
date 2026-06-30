@@ -1,3 +1,8 @@
+"""
+역할 기반 보호 API 예시.
+
+GET /operations/case-search — investigator 역할 전용 (RBAC 데모·향후 검색 연동)
+"""
 from fastapi import APIRouter, Depends
 
 from backend.deps import require_roles

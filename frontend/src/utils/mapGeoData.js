@@ -1,4 +1,9 @@
+/**
+ * Leaflet용 행정구역 GeoJSON 로드·스타일·라벨 유틸.
+ * public/geodata/ + southkorea-maps TopoJSON 변환.
+ */
 import * as topojson from "topojson-client"
+import { hasDongDrilldown } from "../data/dongRegions"
 import { REGION_DATA } from "../hooks/useMapDrilldown"
 import { SIDO_SEARCH_TERMS } from "./regionMatch"
 
@@ -51,6 +56,14 @@ async function loadMunicipalities() {
 export async function loadMapGeoJson(currentKey) {
   if (currentKey === "root") {
     return loadTopoCollection("/geodata/korea.topo.json", "skorea_provinces_geo")
+  }
+
+  if (hasDongDrilldown(currentKey)) {
+    const res = await fetch(`/geodata/sigungu/${currentKey}.geojson`)
+    if (!res.ok) {
+      return { type: "FeatureCollection", features: [] }
+    }
+    return res.json()
   }
 
   const geoSido = GEO_SIDO_CODE_MAP[currentKey]
@@ -131,11 +144,28 @@ function matchGuRegion(geoName, sidoKey) {
   return regions.find(r => geoName.includes(r.label) || r.label === geoName) || null
 }
 
+function matchDongRegion(geoName, guKey) {
+  const regions = REGION_DATA[guKey]?.regions
+  if (!regions) return null
+  return regions.find(r => geoName.includes(r.label) || r.label === geoName) || null
+}
+
 export function findRegionForFeature(feature, currentKey) {
-  const geoName = feature.properties?.name || feature.properties?.SIG_KOR_NM || ""
+  const geoName = feature.properties?.name || feature.properties?.emdnm || feature.properties?.SIG_KOR_NM || ""
 
   if (currentKey === "root") {
     return matchSidoRegion(geoName)
+  }
+
+  if (hasDongDrilldown(currentKey)) {
+    const matched = matchDongRegion(geoName, currentKey)
+    if (matched) return matched
+    return {
+      id: String(feature.properties?.code || geoName),
+      label: geoName,
+      lat: null,
+      lng: null,
+    }
   }
 
   const matched = matchGuRegion(geoName, currentKey)
@@ -158,6 +188,9 @@ export function getShortLabel(name, currentKey) {
       }
     }
     return name.replace(/특별자치시|특별자치도|광역시|특별시|도$/g, "")
+  }
+  if (hasDongDrilldown(currentKey)) {
+    return name.replace(/\(.*\)/, "").trim()
   }
   const cleaned = name.replace(/\(.*\)/, "").trim()
   const compound = cleaned.match(/^(.+시)(.+[구군])$/)
@@ -183,6 +216,10 @@ export function isRegionSelected(selectedRegion, regionLabel, geoName, shortLabe
   const sel = selectedRegion.replace(/\s/g, "")
   const geo = (geoName || regionLabel || "").replace(/\s/g, "")
   if (!geo || !sel) return false
+
+  if (hasDongDrilldown(currentKey)) {
+    return geo.includes(sel) || sel.includes(geo)
+  }
 
   if (geo.includes(sel)) return true
 

@@ -1,3 +1,4 @@
+/** 데이터 관리 뷰 — 코드·검증·보내기·보존 정책 (목 UI) */
 import PageHead from "../components/PageHead"
 import EmptyState, { TableEmptyRow } from "../components/EmptyState"
 

@@ -1,3 +1,4 @@
+/** 리포트 뷰 — 시간·지역·검색 통계 (목 UI) */
 import PageHead from "../components/PageHead"
 import EmptyState, { StatValue, TableEmptyRow } from "../components/EmptyState"
 

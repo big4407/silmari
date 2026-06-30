@@ -1,3 +1,4 @@
+/** 관리자 콘솔 뷰 컴포넌트 레지스트리 — viewId → React 컴포넌트 */
 import { DashboardView } from "./DashboardView"
 import { MembersPendingView, MembersAllView } from "./MemberViews"
 import { ReportsView, ParseReviewView } from "./MessageViews"

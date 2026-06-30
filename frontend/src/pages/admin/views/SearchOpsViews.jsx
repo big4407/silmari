@@ -1,3 +1,4 @@
+/** 검색 운영 뷰 — CCTV 소스·검색 요청·작업·매칭 검수 (목 UI) */
 import { useState } from "react"
 import PageHead from "../components/PageHead"
 import { StatValue, TableEmptyRow } from "../components/EmptyState"

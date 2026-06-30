@@ -1,12 +1,12 @@
-# data/results/unique_persons/
-# → 대표 이미지들 읽기
+"""
+FashionCLIP 이미지 임베딩 생성 (오프라인 배치).
 
-# FashionCLIP
-# → 각 이미지 임베딩 생성
+[파이프라인 위치]
+  detected/ (YOLO 크롭) → check_same_person.py (동일인 병합)
+  → unique_persons/ → crop_embedding.py → embeddings/
 
-# data/results/embeddings/
-# ├─ image_embeddings.npy
-# └─ metadata.json
+[저장] image_embeddings.npy + metadata.json
+"""
 from fashion_clip.fashion_clip import FashionCLIP
 from pathlib import Path
 import numpy as np

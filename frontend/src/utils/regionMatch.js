@@ -1,4 +1,9 @@
+/**
+ * 지역명 ↔ 재난문자 rcptn_rgn_nm 매칭·필터 유틸.
+ * Dashboard 지도 선택 → alertList 필터링에 사용.
+ */
 import { REGION_DATA } from "../hooks/useMapDrilldown"
+import { hasDongDrilldown } from "../data/dongRegions"
 
 /** 시도 약칭 → rcptn_rgn_nm 매칭용 키워드 */
 export const SIDO_SEARCH_TERMS = {
@@ -33,6 +38,25 @@ export function buildMapFilter(region, path) {
   const sidoLabel = REGION_DATA[sidoId]?.label
     || REGION_DATA.root.regions.find(r => r.id === sidoId)?.label
     || ""
+  if (path.length > 2 && hasDongDrilldown(path[2])) {
+    const guId = path[2]
+    const guLabel = REGION_DATA[guId]?.label || ""
+    const isDong = REGION_DATA[guId]?.regions?.some(r => r.id === region.id)
+    if (isDong) {
+      return {
+        level: "dong",
+        label: region.label,
+        guId,
+        guLabel,
+        sidoId,
+        sidoLabel,
+      }
+    }
+    const isGu = REGION_DATA[sidoId]?.regions?.some(r => r.id === region.id)
+    if (isGu) {
+      return { level: "gu", label: region.label, sidoId, sidoLabel }
+    }
+  }
   return { level: "gu", label: region.label, sidoId, sidoLabel }
 }
 
@@ -61,6 +85,15 @@ export function alertMatchesFilter(rcptnRgnNm, mapFilter) {
     if (city && textNorm.includes(city)) return true
 
     return text.includes(mapFilter.label)
+  }
+
+  if (mapFilter.level === "dong") {
+    const textNorm = text.replace(/\s/g, "")
+    const dongLabel = mapFilter.label.replace(/\s/g, "")
+    if (dongLabel && textNorm.includes(dongLabel)) return true
+    const guLabel = (mapFilter.guLabel || "").replace(/\s/g, "")
+    if (guLabel && textNorm.includes(guLabel)) return true
+    return false
   }
 
   return true
@@ -122,6 +155,19 @@ export function resolveAlertMapFocus(rcptnRgnNm) {
   if (sidoData?.regions) {
     for (const gu of sidoData.regions) {
       if (text.includes(gu.label)) {
+        if (hasDongDrilldown(gu.id)) {
+          const dongData = REGION_DATA[gu.id]
+          for (const dong of dongData?.regions || []) {
+            if (text.includes(dong.label)) {
+              const dongPath = [...path, gu.id]
+              return {
+                path: dongPath,
+                selectedLabel: dong.label,
+                mapFilter: buildMapFilter(dong, dongPath),
+              }
+            }
+          }
+        }
         return {
           path,
           selectedLabel: gu.label,

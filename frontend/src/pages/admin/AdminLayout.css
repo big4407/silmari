@@ -24,13 +24,13 @@
 }
 
 .admin-topbar {
-  background: var(--admin-navy);
-  color: #fff;
-  height: 56px;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  height: var(--header-height);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 22px;
+  padding: 0 var(--space-xl);
   position: sticky;
   top: 0;
   z-index: 30;
@@ -39,45 +39,60 @@
 .admin-brand {
   display: flex;
   align-items: baseline;
-  gap: 12px;
+  gap: var(--space-md);
+  min-width: 0;
 }
 
 .admin-brand .admin-logo {
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: -0.5px;
-  color: #fff;
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-text-inverse);
   text-decoration: none;
+  flex-shrink: 0;
+}
+
+.admin-brand .admin-logo:hover {
+  color: #fff;
+  opacity: 0.9;
 }
 
 .admin-brand .admin-sub {
-  font-size: 13px;
-  color: #b9c7dd;
-  font-weight: 500;
+  font-size: var(--font-size-sm);
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.8);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .admin-topbar .admin-right {
   display: flex;
   align-items: center;
-  gap: 14px;
-  font-size: 13px;
-  color: #cdd8e8;
+  gap: var(--space-sm);
+  flex-shrink: 0;
 }
 
 .admin-topbar .admin-right .admin-role {
-  background: rgba(255, 255, 255, 0.14);
-  padding: 3px 10px;
-  border-radius: 20px;
-  font-size: 12px;
-  color: #fff;
+  padding: 6px 12px;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .admin-topbar .admin-right a {
-  color: #cdd8e8;
+  padding: 6px 12px;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
   text-decoration: none;
+  border-radius: var(--radius-md);
+  transition: background 0.15s, color 0.15s;
 }
 
 .admin-topbar .admin-right a:hover {
+  background: rgba(255, 255, 255, 0.12);
   color: #fff;
 }
 
@@ -85,11 +100,12 @@
   width: 1px;
   height: 14px;
   background: rgba(255, 255, 255, 0.25);
+  margin: 0 2px;
 }
 
 .admin-layout {
   display: flex;
-  min-height: calc(100vh - 56px);
+  min-height: calc(100vh - var(--header-height));
 }
 
 .admin-sidebar {
@@ -99,9 +115,9 @@
   border-right: 1px solid var(--admin-line);
   padding: 10px 0 40px;
   overflow-y: auto;
-  height: calc(100vh - 56px);
+  height: calc(100vh - var(--header-height));
   position: sticky;
-  top: 56px;
+  top: var(--header-height);
 }
 
 .admin-nav-group {

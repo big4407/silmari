@@ -1,3 +1,14 @@
+/**
+ * 실마리 프론트엔드 라우팅 진입점.
+ *
+ * [화면 구역]
+ *   공개: Landing, Login, Signup
+ *   수사관 대시보드(DashboardLayout): 지도·챗봇·이력·탐지결과
+ *   CCTV 업로드(AppLayout): /cctv
+ *   관리자(AdminLayout): /admin/:viewId
+ *
+ * 레거시 경로 /alert, /result 는 /cctv, /search-results 로 리다이렉트.
+ */
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import AppLayout from "./components/AppLayout"
 import DashboardLayout from "./components/DashboardLayout"

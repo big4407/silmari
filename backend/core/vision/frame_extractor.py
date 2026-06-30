@@ -1,3 +1,9 @@
+"""
+CCTV 영상 → 프레임 시퀀스 추출.
+
+[런타임] extract_frames() — 파이프라인에서 사용 (every_nth=5, 약 6fps 샘플링)
+[오프라인] frame_extract() — 디스크에 JPG 저장 (개발·디버깅용)
+"""
 import cv2
 from typing import Generator, Tuple
 

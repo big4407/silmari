@@ -1,3 +1,4 @@
+/** 검색 결과 좌측 패널 — 파싱된 실종자 인상착의·안내문자 원문 표시 */
 import "./MissingPersonSidebar.css"
 
 export default function MissingPersonSidebar({ person }) {

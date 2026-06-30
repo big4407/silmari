@@ -1,3 +1,4 @@
+/** 서비스 소개 랜딩 — 챗봇·안내문자 검색 방법 안내 + 로그인 유도 */
 import { Link } from "react-router-dom"
 import LandingHeader from "../components/LandingHeader"
 import { ChatbotScreenPreview, AlertSearchScreenPreview } from "../components/LandingPreviews"

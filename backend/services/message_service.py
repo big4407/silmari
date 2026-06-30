@@ -1,3 +1,9 @@
+"""
+재난문자 수집·저장 비즈니스 로직.
+
+[흐름] DisasterMessageClient → is_missing_person_message 필터 → MessageRepository
+[호출] routes/messages.py, Dashboard 재난문자 연동
+"""
 from sqlalchemy.orm import Session
 
 from backend.services.disaster_message_client import DisasterMessageClient
@@ -14,7 +20,6 @@ from backend.utils.message_filter import is_missing_person_message
 from fastapi import HTTPException
 
 
-# api로부터 메시지를 받아오거나, 수동으로 입력하는 서비스단
 class MessageService:
     def __init__(self, db: Session):
         self.db = db

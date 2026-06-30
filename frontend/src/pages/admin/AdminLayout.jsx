@@ -1,3 +1,8 @@
+/**
+ * 관리자 콘솔 레이아웃 — navConfig 기반 사이드바 + 뷰 라우팅.
+ *
+ * 하위: AdminViewPage (:viewId) — 회원·메시지·검색운영·감사 등
+ */
 import { useState } from "react"
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom"
 import { NAV } from "./navConfig"

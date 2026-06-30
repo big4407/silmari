@@ -1,3 +1,4 @@
+/** 로그인 UI — POST /api/v1/auth/login 연동 예정 (현재 폼만) */
 import { Link } from "react-router-dom"
 import LandingHeader from "../components/LandingHeader"
 import "./AuthPage.css"

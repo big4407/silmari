@@ -1,3 +1,4 @@
+/** 검색 이력 페이지 — 현재 플레이스홀더 (향후 /api/result/search 연동 예정) */
 import "./SearchHistory.css"
 
 export default function SearchHistory() {

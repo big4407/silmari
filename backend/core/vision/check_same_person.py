@@ -1,3 +1,10 @@
+"""
+torchreid(OSNet) 기반 동일인 그룹핑.
+
+[입력] data/results/detected/ — 프레임별 person 크롭 JPG
+[출력] data/results/unique_persons/ — 그룹 대표 이미지 + group_data.json
+[임계값] cosine similarity ≥ 0.7 이면 동일인으로 병합
+"""
 from torchreid.utils import FeatureExtractor
 from pathlib import Path
 import torch.nn.functional as F

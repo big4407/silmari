@@ -1,3 +1,4 @@
+"""행정안전부 재난문자 API HTTP 클라이언트 — MessageService.collect_messages 에서 사용."""
 import httpx
 
 from backend.core.config import settings

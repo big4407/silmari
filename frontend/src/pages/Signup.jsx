@@ -1,3 +1,4 @@
+/** 회원가입 UI — POST /api/v1/auth/signup (승인 대기 상태로 신청) */
 import { Link } from "react-router-dom"
 import LandingHeader from "../components/LandingHeader"
 import "./AuthPage.css"

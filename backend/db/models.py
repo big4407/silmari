@@ -1,3 +1,10 @@
+"""
+ORM 모델 정의 — MySQL 테이블과 1:1 매핑.
+
+[탐지] DetectionRecord(레거시), SearchResult(CCTV 분석 결과·클립 메타)
+[인증] User, AuthSession — 승인 기반 RBAC + JWT 세션 철회
+[외부] Message — 재난안전데이터 API 수집 재난문자
+"""
 # db/models.py
 from sqlalchemy import Column, Date, Integer, String, DateTime, Text, Float, Enum, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship

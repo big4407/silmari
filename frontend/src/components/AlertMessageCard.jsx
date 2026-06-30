@@ -1,3 +1,4 @@
+/** 대시보드 재난·안내문자 카드 — 선택 시 탐지 컨텍스트로 사용 */
 import "./AlertMessageCard.css"
 
 function formatDate(crtDt) {

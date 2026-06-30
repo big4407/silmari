@@ -1,3 +1,4 @@
+/** 검색 결과 카드 — 썸네일·신뢰도·구간 수, 클릭 시 상세·클립 재생 */
 import ConfidenceBar from "./ConfidenceBar"
 import "./SearchResultCard.css"
 

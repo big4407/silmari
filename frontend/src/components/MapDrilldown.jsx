@@ -1,7 +1,14 @@
+/**
+ * Leaflet 행정구역 드릴다운 지도.
+ *
+ * [데이터] public/geodata/ GeoJSON (시·도 → 구·군 → 강남구 동)
+ * [연동] Dashboard — 지역 클릭 시 mapFilter 변경 → 안내문자 필터
+ */
 import { useCallback, useEffect, useRef } from "react"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
 import useMapDrilldown from "../hooks/useMapDrilldown"
+import { hasDongDrilldown } from "../data/dongRegions"
 import { countAlertsForSido } from "../utils/regionMatch"
 import {
   getLabelLatLng,
@@ -126,7 +133,7 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
     if (!layer.getBounds().isValid()) return
     map.fitBounds(layer.getBounds(), {
       padding: [12, 12],
-      maxZoom: key === "root" ? 9 : 11,
+      maxZoom: key === "root" ? 9 : hasDongDrilldown(key) ? 15 : 11,
       animate: true,
       duration: 0.65,
     })
@@ -149,7 +156,7 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
 
     map.fitBounds(group.getBounds(), {
       padding: [48, 48],
-      maxZoom: key === "root" ? 8 : 13,
+      maxZoom: key === "root" ? 8 : hasDongDrilldown(key) ? 16 : 13,
       animate: true,
       duration: 0.65,
     })

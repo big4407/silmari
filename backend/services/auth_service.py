@@ -1,3 +1,10 @@
+"""
+인증 비즈니스 로직 — 토큰·세션 생명주기.
+
+[login]     authenticate_user → create_session_and_tokens
+[refresh]   refresh token 회전 + access token 재발급
+[logout]    revoke_session — revoked_at 설정으로 즉시 무효화
+"""
 import hmac
 from datetime import timedelta, timezone
 

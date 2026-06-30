@@ -1,3 +1,11 @@
+"""
+FashionCLIP 기반 텍스트→이미지 유사도 검색 (오프라인 임베딩 비교).
+
+[용도] CCTV에서 추출·중복 제거된 인물 크롭(data/results/embeddings)을
+       안내문자 인상착의 텍스트 쿼리와 코사인 유사도로 랭킹한다.
+[연계] crop_embedding.py(임베딩 생성) · check_same_person.py(동일인 병합)
+[상태] search_similar_images() 반환값 미구현 — matcher.py 쪽이 실제 탐지에 사용됨
+"""
 from fashion_clip.fashion_clip import FashionCLIP
 from pathlib import Path
 import numpy as np
@@ -6,9 +14,7 @@ import json
 model = FashionCLIP("fashion-clip")
 
 def load_embedding_data(embedding_dir:str):
-    """
-        저장된 이미지 임베딩과 메타데이터를 불러온다.
-    """
+    """data/results/embeddings/ 에 저장된 .npy 임베딩 + metadata.json 로드."""
     embedding_dir = Path(embedding_dir)
     embedding_path = embedding_dir / "image_embeddings.npy"
     metadata_path = embedding_dir / "metadata.json"
