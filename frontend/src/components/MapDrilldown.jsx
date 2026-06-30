@@ -40,20 +40,15 @@ function createLabelIcon(shortLabel, count, isActive, permanent) {
   })
 }
 
-const FIT_OPTIONS = { duration: 0.35 }
-
 export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] }) {
   const mapRef = useRef(null)
   const mapInstanceRef = useRef(null)
   const geoLayerRef = useRef(null)
-  const labelMarkerMapRef = useRef(new Map())
+  const labelMarkersRef = useRef([])
   const featureMetaRef = useRef([])
   const geojsonRef = useRef(null)
-  const alertsRef = useRef(alerts)
   const currentKeyRef = useRef("root")
   const selectedRegionRef = useRef("전국")
-
-  alertsRef.current = alerts
 
   const {
     currentKey,
@@ -73,13 +68,14 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
 
   const lastFocusKeyRef = useRef(null)
   const prevCurrentKeyRef = useRef("root")
+  const renderGenRef = useRef(0)
 
   currentKeyRef.current = currentKey
   selectedRegionRef.current = selectedRegion
 
   const clearLabelMarkers = () => {
-    labelMarkerMapRef.current.forEach(m => m.remove())
-    labelMarkerMapRef.current.clear()
+    labelMarkersRef.current.forEach(m => m.remove())
+    labelMarkersRef.current = []
   }
 
   const clearGeoLayer = () => {
@@ -91,20 +87,16 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
     clearLabelMarkers()
   }
 
-  const applyFeatureStyle = useCallback((featureLayer, meta, selected) => {
-    const { region, shortLabel, geoName, colorIndex, alertCount } = meta
-    const isActive = isRegionSelected(selected, region.label, geoName, shortLabel)
-    featureLayer.setStyle(getRegionStyle({ isActive, colorIndex, alertCount }))
-  }, [])
-
   const updateLayerPresentation = useCallback((map, geojson, key, selected) => {
-    const visibleLabelIds = new Set()
+    clearLabelMarkers()
 
-    featureMetaRef.current.forEach((meta) => {
-      const { featureLayer, feature, region, shortLabel, geoName, alertCount } = meta
-      const isActive = isRegionSelected(selected, region.label, geoName, shortLabel)
+    featureMetaRef.current.forEach(({ featureLayer, feature, region, shortLabel, labelText, geoName, alertCount: storedCount }) => {
+      const alertCount = key === "root" && region
+        ? countAlertsForSido(alerts, region.label)
+        : storedCount || 0
+      const isActive = isRegionSelected(selected, region.label, geoName, shortLabel, key)
       const displayLabel = getDisplayLabel(selected, shortLabel, geoName)
-      applyFeatureStyle(featureLayer, meta, selected)
+      featureLayer.setStyle(getRegionStyle({ isActive, alertCount }))
 
       const labelLatLng = getLabelLatLng(feature, shortLabel, key)
       const count = alertCount || 0
@@ -115,50 +107,28 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
       )
 
       if (labelLatLng && showPermanent) {
-        visibleLabelIds.add(region.id)
-        const icon = createLabelIcon(displayLabel, count, isActive, true)
-        const existing = labelMarkerMapRef.current.get(region.id)
-        if (existing) {
-          existing.setLatLng(labelLatLng)
-          existing.setIcon(icon)
-        } else {
-          labelMarkerMapRef.current.set(
-            region.id,
-            L.marker(labelLatLng, { icon, interactive: false }).addTo(map),
-          )
-        }
+        const labelMarker = L.marker(labelLatLng, {
+          icon: createLabelIcon(displayLabel, alertCount || 0, isActive, true),
+          interactive: false,
+        }).addTo(map)
+        labelMarkersRef.current.push(labelMarker)
       }
 
       const tooltip = featureLayer.getTooltip()
       if (tooltip) {
-        tooltip.setContent(meta.labelText)
+        const nextLabelText = count > 0 ? `${shortLabel} (${count})` : shortLabel
+        tooltip.setContent(nextLabelText)
       }
     })
-
-    labelMarkerMapRef.current.forEach((marker, id) => {
-      if (!visibleLabelIds.has(id)) {
-        marker.remove()
-        labelMarkerMapRef.current.delete(id)
-      }
-    })
-  }, [applyFeatureStyle])
-
-  const syncAlertCounts = useCallback((key) => {
-    if (key !== "root") return
-    featureMetaRef.current.forEach((meta) => {
-      const count = countAlertsForSido(alertsRef.current, meta.region.label)
-      meta.alertCount = count
-      meta.labelText = count > 0 ? `${meta.shortLabel} (${count})` : meta.shortLabel
-    })
-  }, [])
+  }, [alerts])
 
   const fitMapToLayer = useCallback((map, layer, key) => {
     if (!layer.getBounds().isValid()) return
     map.fitBounds(layer.getBounds(), {
-      padding: [8, 8],
+      padding: [12, 12],
       maxZoom: key === "root" ? 9 : 11,
       animate: true,
-      ...FIT_OPTIONS,
+      duration: 0.65,
     })
     requestAnimationFrame(() => map.invalidateSize())
   }, [])
@@ -168,7 +138,7 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
 
     const activeLayers = featureMetaRef.current
       .filter(({ region, shortLabel, geoName }) =>
-        isRegionSelected(selected, region.label, geoName, shortLabel),
+        isRegionSelected(selected, region.label, geoName, shortLabel, key),
       )
       .map(({ featureLayer }) => featureLayer)
 
@@ -181,7 +151,7 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
       padding: [48, 48],
       maxZoom: key === "root" ? 8 : 13,
       animate: true,
-      ...FIT_OPTIONS,
+      duration: 0.65,
     })
     requestAnimationFrame(() => map.invalidateSize())
     return true
@@ -204,9 +174,9 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
   }, [resetMap, fitMapView])
 
   const renderGeoLayer = useCallback(async (map) => {
-    clearGeoLayer()
-
     const key = currentKeyRef.current
+    const gen = ++renderGenRef.current
+
     let geojson
     try {
       geojson = await loadMapGeoJson(key)
@@ -214,25 +184,28 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
       return
     }
 
-    if (!mapInstanceRef.current || currentKeyRef.current !== key) return
+    if (!mapInstanceRef.current || gen !== renderGenRef.current || currentKeyRef.current !== key) {
+      return
+    }
+
+    clearGeoLayer()
 
     geojsonRef.current = geojson
     const selected = selectedRegionRef.current
 
     const layer = L.geoJSON(geojson, {
-      smoothFactor: 0.5,
+      smoothFactor: 0.25,
       style: (feature) => {
         const region = findRegionForFeature(feature, key)
         const geoName = feature.properties?.name || region?.label
         const shortLabel = getShortLabel(geoName || region?.label || "", key)
         const isActive = region
-          ? isRegionSelected(selected, region.label, geoName, shortLabel)
+          ? isRegionSelected(selected, region.label, geoName, shortLabel, key)
           : false
-        const idx = geojson.features.indexOf(feature)
         const count = key === "root" && region
-          ? countAlertsForSido(alertsRef.current, region.label)
+          ? countAlertsForSido(alerts, region.label)
           : 0
-        return getRegionStyle({ isActive, colorIndex: idx, alertCount: count })
+        return getRegionStyle({ isActive, alertCount: count })
       },
       onEachFeature: (feature, featureLayer) => {
         const region = findRegionForFeature(feature, key)
@@ -240,11 +213,10 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
 
         const geoName = feature.properties?.name || region.label
         const shortLabel = getShortLabel(geoName || region.label, key)
-        const colorIndex = geojson.features.indexOf(feature)
-        const count = key === "root" ? countAlertsForSido(alertsRef.current, region.label) : 0
+        const count = key === "root" ? countAlertsForSido(alerts, region.label) : 0
         const labelText = count > 0 ? `${shortLabel} (${count})` : shortLabel
 
-        const meta = {
+        featureMetaRef.current.push({
           featureLayer,
           feature,
           region,
@@ -252,9 +224,7 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
           labelText,
           geoName,
           alertCount: count,
-          colorIndex,
-        }
-        featureMetaRef.current.push(meta)
+        })
 
         featureLayer.bindTooltip(labelText, {
           permanent: false,
@@ -264,25 +234,31 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
           opacity: 1,
         })
 
+        const applyFeatureStyle = () => {
+          const active = isRegionSelected(
+            selectedRegionRef.current,
+            region.label,
+            geoName,
+            shortLabel,
+            key,
+          )
+          const alertCount = key === "root" ? countAlertsForSido(alerts, region.label) : 0
+          featureLayer.setStyle(getRegionStyle({ isActive: active, alertCount }))
+        }
+
         featureLayer.on("mouseover", function () {
           const active = isRegionSelected(
             selectedRegionRef.current,
             region.label,
             geoName,
             shortLabel,
+            key,
           )
           if (!active) {
             this.setStyle({ fillOpacity: 0.82, weight: 1.2, color: "#94a3b8" })
           }
         })
-        featureLayer.on("mouseout", function () {
-          const entry = featureMetaRef.current.find(m => m.featureLayer === this)
-          if (!entry) {
-            layer.resetStyle(this)
-            return
-          }
-          applyFeatureStyle(this, entry, selectedRegionRef.current)
-        })
+        featureLayer.on("mouseout", applyFeatureStyle)
         featureLayer.on("click", () => {
           const center = getFeatureCenter(featureLayer)
           selectRegionRef.current({
@@ -294,10 +270,15 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
       },
     }).addTo(map)
 
+    if (gen !== renderGenRef.current || currentKeyRef.current !== key) {
+      layer.remove()
+      return
+    }
+
     geoLayerRef.current = layer
     updateLayerPresentation(map, geojson, key, selected)
     fitMapView(map, layer, key, selected)
-  }, [updateLayerPresentation, fitMapView, applyFeatureStyle])
+  }, [alerts, updateLayerPresentation, fitMapView])
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return
@@ -311,6 +292,10 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
       minZoom: 6,
       attributionControl: false,
       preferCanvas: true,
+      zoomAnimation: true,
+      fadeAnimation: true,
+      markerZoomAnimation: true,
+      wheelPxPerZoomLevel: 80,
     })
 
     mapInstanceRef.current = map
@@ -333,9 +318,8 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
     const map = mapInstanceRef.current
     const geojson = geojsonRef.current
     if (!map || !geoLayerRef.current || !geojson) return
-    syncAlertCounts(currentKey)
     updateLayerPresentation(map, geojson, currentKey, selectedRegion)
-  }, [alerts, selectedRegion, currentKey, syncAlertCounts, updateLayerPresentation])
+  }, [selectedRegion, currentKey, alerts, updateLayerPresentation])
 
   useEffect(() => {
     const keyChanged = prevCurrentKeyRef.current !== currentKey
