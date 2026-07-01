@@ -4,17 +4,22 @@
  * [모드] activeSearch(방금 분석) 또는 DB 이력(fetchSearchResults)
  * [UI] MissingPersonSidebar + ClipSequencePlayer + SearchResultCard
  */
-import { useEffect, useMemo, useState } from "react"
-import { Link } from "react-router-dom"
-import { fetchSearchResults, deleteSearchResult, deleteAllSearchResults, API_BASE } from "../api/client"
-import { useDetectionStore } from "../store/useDetectionStore"
-import SearchResultCard from "../components/SearchResultCard"
-import ClipSequencePlayer from "../components/ClipSequencePlayer"
-import MissingPersonSidebar from "../components/MissingPersonSidebar"
-import "./SearchResults.css"
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  fetchSearchResults,
+  deleteSearchResult,
+  deleteAllSearchResults,
+  API_BASE,
+} from '../api/client';
+import { useDetectionStore } from '../store/useDetectionStore';
+import SearchResultCard from '../components/SearchResultCard';
+import ClipSequencePlayer from '../components/ClipSequencePlayer';
+import MissingPersonSidebar from '../components/MissingPersonSidebar';
+import './SearchResults.css';
 
 function resultToSidebar(data) {
-  if (!data) return null
+  if (!data) return null;
   return {
     name: data.person_name,
     age: data.person_age,
@@ -24,14 +29,14 @@ function resultToSidebar(data) {
     missing_date: null,
     photo_url: null,
     alertText: data.alert_text,
-  }
+  };
 }
 
 function buildSidebarPerson(activeSearch, selectedResult, firstResult) {
   if (activeSearch) {
-    const sms = activeSearch.smsInfo || {}
+    const sms = activeSearch.smsInfo || {};
     return {
-      name: sms.name || "미상",
+      name: sms.name || '미상',
       age: sms.age,
       gender: sms.gender,
       clothes: sms.clothes,
@@ -39,102 +44,105 @@ function buildSidebarPerson(activeSearch, selectedResult, firstResult) {
       missing_date: null,
       photo_url: null,
       alertText: activeSearch.alertText,
-    }
+    };
   }
 
-  return resultToSidebar(selectedResult || firstResult)
+  return resultToSidebar(selectedResult || firstResult);
 }
 
 export default function SearchResults() {
-  const { selectedPerson, selectedRegion, activeSearch } = useDetectionStore()
-  const [results, setResults] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [selectedResult, setSelectedResult] = useState(null)
-  const [error, setError] = useState(null)
-  const [deletingId, setDeletingId] = useState(null)
-  const [clearingAll, setClearingAll] = useState(false)
+  const { selectedPerson, selectedRegion, activeSearch } = useDetectionStore();
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedResult, setSelectedResult] = useState(null);
+  const [error, setError] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+  const [clearingAll, setClearingAll] = useState(false);
 
   const searchParams = useMemo(() => {
-    const params = {}
+    const params = {};
     if (activeSearch?.alertText) {
-      params.alert_text = activeSearch.alertText
+      params.alert_text = activeSearch.alertText;
     } else if (selectedPerson?.name) {
-      params.person_name = selectedPerson.name
+      params.person_name = selectedPerson.name;
     }
-    if (selectedRegion && selectedRegion !== "전국") {
-      params.region = selectedRegion
+    if (selectedRegion && selectedRegion !== '전국') {
+      params.region = selectedRegion;
     }
-    return params
-  }, [activeSearch?.alertText, selectedPerson?.name, selectedRegion])
+    return params;
+  }, [activeSearch?.alertText, selectedPerson?.name, selectedRegion]);
 
   const sidebarPerson = useMemo(
     () => buildSidebarPerson(activeSearch, selectedResult, results[0]),
     [activeSearch, selectedResult, results],
-  )
+  );
 
   const loadResults = async () => {
-    setLoading(true)
-    setError(null)
-    setSelectedResult(null)
+    setLoading(true);
+    setError(null);
+    setSelectedResult(null);
     try {
-      const data = await fetchSearchResults(searchParams)
-      setResults(data)
+      const data = await fetchSearchResults(searchParams);
+      setResults(data);
     } catch {
-      setError("검색 결과를 불러오지 못했습니다.")
-      setResults([])
+      setError('검색 결과를 불러오지 못했습니다.');
+      setResults([]);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    loadResults()
-  }, [activeSearch?.alertText, selectedPerson?.name, selectedRegion])
+    loadResults();
+  }, [activeSearch?.alertText, selectedPerson?.name, selectedRegion]);
 
   const handleDeleteResult = async (result) => {
-    if (!window.confirm("이 검색 결과를 삭제할까요?")) return
+    if (!window.confirm('이 검색 결과를 삭제할까요?')) return;
 
-    setDeletingId(result.id)
-    setError(null)
+    setDeletingId(result.id);
+    setError(null);
     try {
-      await deleteSearchResult(result.id)
-      setResults(prev => prev.filter(r => r.id !== result.id))
+      await deleteSearchResult(result.id);
+      setResults((prev) => prev.filter((r) => r.id !== result.id));
       if (selectedResult?.id === result.id) {
-        setSelectedResult(null)
+        setSelectedResult(null);
       }
     } catch {
-      setError("검색 결과를 삭제하지 못했습니다.")
+      setError('검색 결과를 삭제하지 못했습니다.');
     } finally {
-      setDeletingId(null)
+      setDeletingId(null);
     }
-  }
+  };
 
   const handleDeleteAll = async () => {
-    if (!window.confirm(`표시된 검색 결과 ${results.length}건을 모두 삭제할까요?`)) return
+    if (
+      !window.confirm(`표시된 검색 결과 ${results.length}건을 모두 삭제할까요?`)
+    )
+      return;
 
-    setClearingAll(true)
-    setError(null)
+    setClearingAll(true);
+    setError(null);
     try {
-      await deleteAllSearchResults(searchParams)
-      setResults([])
-      setSelectedResult(null)
+      await deleteAllSearchResults(searchParams);
+      setResults([]);
+      setSelectedResult(null);
     } catch {
-      setError("검색 결과를 삭제하지 못했습니다.")
+      setError('검색 결과를 삭제하지 못했습니다.');
     } finally {
-      setClearingAll(false)
+      setClearingAll(false);
     }
-  }
+  };
 
-  const clipsWithFullUrl = selectedResult?.clips?.map(c => ({
+  const clipsWithFullUrl = selectedResult?.clips?.map((c) => ({
     ...c,
-    url: c.url.startsWith("http") ? c.url : `${API_BASE}${c.url}`,
-  }))
+    url: c.url.startsWith('http') ? c.url : `${API_BASE}${c.url}`,
+  }));
 
   const contextLabel = activeSearch
-    ? "현재 안내문자"
+    ? '현재 안내문자'
     : selectedPerson
       ? `${selectedPerson.name} 검색`
-      : null
+      : null;
 
   return (
     <div className="search-page">
@@ -143,7 +151,7 @@ export default function SearchResults() {
         {contextLabel && (
           <span className="search-page__person">
             {contextLabel}
-            {selectedRegion !== "전국" ? ` · ${selectedRegion}` : ""}
+            {selectedRegion !== '전국' ? ` · ${selectedRegion}` : ''}
           </span>
         )}
         {results.length > 0 && !selectedResult && (
@@ -153,7 +161,7 @@ export default function SearchResults() {
             onClick={handleDeleteAll}
             disabled={clearingAll || loading}
           >
-            {clearingAll ? "삭제 중..." : "전체 삭제"}
+            {clearingAll ? '삭제 중...' : '전체 삭제'}
           </button>
         )}
       </header>
@@ -170,8 +178,10 @@ export default function SearchResults() {
           {loading && <p className="search-page__status">불러오는 중...</p>}
           {error && <p className="search-page__error">{error}</p>}
 
-          {!loading && !error && !selectedResult && (
-            results.length === 0 ? (
+          {!loading &&
+            !error &&
+            !selectedResult &&
+            (results.length === 0 ? (
               <div className="search-page__empty">
                 <p>아직 검색 결과가 없습니다.</p>
                 <p>CCTV 영상을 업로드해 분석을 실행해주세요.</p>
@@ -179,12 +189,12 @@ export default function SearchResults() {
               </div>
             ) : (
               <div className="search-grid">
-                {results.map(r => (
+                {results.map((r) => (
                   <SearchResultCard
                     key={r.id}
                     result={{
                       ...r,
-                      thumbnail_url: r.thumbnail_url.startsWith("http")
+                      thumbnail_url: r.thumbnail_url.startsWith('http')
                         ? r.thumbnail_url
                         : `${API_BASE}${r.thumbnail_url}`,
                     }}
@@ -194,8 +204,7 @@ export default function SearchResults() {
                   />
                 ))}
               </div>
-            )
-          )}
+            ))}
 
           {selectedResult && (
             <ClipSequencePlayer
@@ -208,5 +217,5 @@ export default function SearchResults() {
         <MissingPersonSidebar person={sidebarPerson} />
       </div>
     </div>
-  )
+  );
 }

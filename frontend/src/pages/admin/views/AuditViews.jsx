@@ -1,6 +1,6 @@
 /** 감사 로그 뷰 — 관리자·승인·로그인 이력 (목 UI) */
-import PageHead from "../components/PageHead"
-import { StatValue, TableEmptyRow } from "../components/EmptyState"
+import PageHead from '../components/PageHead';
+import { StatValue, TableEmptyRow } from '../components/EmptyState';
 
 export function AuditAdminView() {
   return (
@@ -11,10 +11,14 @@ export function AuditAdminView() {
       />
       <div className="admin-toolbar">
         <input placeholder="행위자·대상 검색" disabled />
-        <select disabled><option>전체 유형</option></select>
+        <select disabled>
+          <option>전체 유형</option>
+        </select>
         <input type="date" disabled />
         <div className="admin-spacer" />
-        <button type="button" className="admin-btn" disabled>로그보내기</button>
+        <button type="button" className="admin-btn" disabled>
+          로그보내기
+        </button>
       </div>
       <div className="admin-card admin-table-wrap">
         <table>
@@ -34,10 +38,11 @@ export function AuditAdminView() {
         </table>
       </div>
       <p className="admin-footnote">
-        ※ 가입 승인·권한 변경은 보안 감사를 위해 <b>승인·권한변경 이력</b>에서 별도 추적합니다.
+        ※ 가입 승인·권한 변경은 보안 감사를 위해 <b>승인·권한변경 이력</b>에서
+        별도 추적합니다.
       </p>
     </>
-  )
+  );
 }
 
 export function AuditApprovalView() {
@@ -49,10 +54,14 @@ export function AuditApprovalView() {
       />
       <div className="admin-toolbar">
         <input placeholder="처리자·대상 검색" disabled />
-        <select disabled><option>전체 유형</option></select>
+        <select disabled>
+          <option>전체 유형</option>
+        </select>
         <input type="date" disabled />
         <div className="admin-spacer" />
-        <button type="button" className="admin-btn" disabled>로그보내기</button>
+        <button type="button" className="admin-btn" disabled>
+          로그보내기
+        </button>
       </div>
       <div className="admin-card admin-table-wrap">
         <table>
@@ -72,7 +81,7 @@ export function AuditApprovalView() {
         </table>
       </div>
     </>
-  )
+  );
 }
 
 export function AuditLoginView() {
@@ -118,5 +127,5 @@ export function AuditLoginView() {
         </table>
       </div>
     </>
-  )
+  );
 }

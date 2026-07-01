@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  font-family: "Pretendard", "Noto Sans KR", sans-serif;
+  font-family: 'Pretendard', 'Noto Sans KR', sans-serif;
   background: #f5f6f8;
 }
 
@@ -34,7 +34,9 @@
   color: #dc2626;
   font-size: 0.8rem;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .search-page__clear-btn:hover:not(:disabled) {

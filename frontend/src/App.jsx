@@ -9,20 +9,20 @@
  *
  * 레거시 경로 /alert, /result 는 /cctv, /search-results 로 리다이렉트.
  */
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
-import AppLayout from "./components/AppLayout"
-import DashboardLayout from "./components/DashboardLayout"
-import Landing from "./pages/Landing"
-import Login from "./pages/Login"
-import Signup from "./pages/Signup"
-import Dashboard from "./pages/Dashboard"
-import ChatbotPage from "./pages/ChatbotPage"
-import SearchHistory from "./pages/SearchHistory"
-import CCTVUpload from "./pages/CCTVUpload"
-import SearchResults from "./pages/SearchResults"
-import AdminLayout from "./pages/admin/AdminLayout"
-import AdminViewPage from "./pages/admin/AdminViewPage"
-import "./App.css"
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import AppLayout from './components/AppLayout';
+import DashboardLayout from './components/DashboardLayout';
+import Landing from './pages/Landing';
+import Login from './pages/Login';
+import Signup from './pages/Signup';
+import Dashboard from './pages/Dashboard';
+import ChatbotPage from './pages/ChatbotPage';
+import SearchHistory from './pages/SearchHistory';
+import CCTVUpload from './pages/CCTVUpload';
+import SearchResults from './pages/SearchResults';
+import AdminLayout from './pages/admin/AdminLayout';
+import AdminViewPage from './pages/admin/AdminViewPage';
+import './App.css';
 
 export default function App() {
   return (
@@ -49,8 +49,11 @@ export default function App() {
         </Route>
 
         <Route path="/alert" element={<Navigate to="/cctv" replace />} />
-        <Route path="/result" element={<Navigate to="/search-results" replace />} />
+        <Route
+          path="/result"
+          element={<Navigate to="/search-results" replace />}
+        />
       </Routes>
     </BrowserRouter>
-  )
+  );
 }

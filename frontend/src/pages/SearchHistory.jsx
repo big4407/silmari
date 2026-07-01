@@ -1,5 +1,5 @@
 /** 검색 이력 페이지 — 현재 플레이스홀더 (향후 /api/result/search 연동 예정) */
-import "./SearchHistory.css"
+import './SearchHistory.css';
 
 export default function SearchHistory() {
   return (
@@ -9,5 +9,5 @@ export default function SearchHistory() {
         <p>준비 중입니다.</p>
       </div>
     </div>
-  )
+  );
 }

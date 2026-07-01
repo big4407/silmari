@@ -3,20 +3,20 @@
  *
  * 하위: AdminViewPage (:viewId) — 회원·메시지·검색운영·감사 등
  */
-import { useState } from "react"
-import { Link, NavLink, Outlet, useNavigate } from "react-router-dom"
-import { NAV } from "./navConfig"
-import "./AdminLayout.css"
+import { useState } from 'react';
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NAV } from './navConfig';
+import './AdminLayout.css';
 
 export default function AdminLayout() {
   const [collapsed, setCollapsed] = useState(() =>
-    Object.fromEntries(NAV.map((node, i) => [node.group || node.id, i > 3]))
-  )
-  const navigate = useNavigate()
+    Object.fromEntries(NAV.map((node, i) => [node.group || node.id, i > 3])),
+  );
+  const navigate = useNavigate();
 
   const toggleGroup = (key) => {
-    setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }))
-  }
+    setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   return (
     <div className="admin-console">
@@ -34,8 +34,8 @@ export default function AdminLayout() {
           <a
             href="#logout"
             onClick={(e) => {
-              e.preventDefault()
-              navigate("/login")
+              e.preventDefault();
+              navigate('/login');
             }}
           >
             로그아웃
@@ -52,20 +52,20 @@ export default function AdminLayout() {
                   key={node.id}
                   to={`/admin/${node.id}`}
                   className={({ isActive }) =>
-                    `admin-nav-solo${isActive ? " admin-nav-solo--active" : ""}`
+                    `admin-nav-solo${isActive ? ' admin-nav-solo--active' : ''}`
                   }
                 >
                   <span>▣</span> {node.label}
                 </NavLink>
-              )
+              );
             }
 
-            const isCollapsed = collapsed[node.group] ?? gi > 3
+            const isCollapsed = collapsed[node.group] ?? gi > 3;
 
             return (
               <div
                 key={node.group}
-                className={`admin-nav-group${isCollapsed ? " admin-nav-group--collapsed" : ""}`}
+                className={`admin-nav-group${isCollapsed ? ' admin-nav-group--collapsed' : ''}`}
               >
                 <button
                   type="button"
@@ -81,16 +81,18 @@ export default function AdminLayout() {
                       key={it.id}
                       to={`/admin/${it.id}`}
                       className={({ isActive }) =>
-                        `admin-nav-item${isActive ? " admin-nav-item--active" : ""}`
+                        `admin-nav-item${isActive ? ' admin-nav-item--active' : ''}`
                       }
                     >
                       <span>{it.label}</span>
-                      {it.badge ? <span className="admin-badge">{it.badge}</span> : null}
+                      {it.badge ? (
+                        <span className="admin-badge">{it.badge}</span>
+                      ) : null}
                     </NavLink>
                   ))}
                 </div>
               </div>
-            )
+            );
           })}
         </aside>
 
@@ -99,5 +101,5 @@ export default function AdminLayout() {
         </main>
       </div>
     </div>
-  )
+  );
 }
