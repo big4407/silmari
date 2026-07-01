@@ -81,14 +81,14 @@ cp .env.example .env   # 값 채우기
 
 `.env.example`의 모든 항목은 `core/config.py`의 `Settings` 필드와 매핑됩니다. 핵심만:
 
-| 변수                                                               | 설명                                           |
-| ------------------------------------------------------------------ | ---------------------------------------------- |
-| `DB_HOST` / `DB_PORT` / `DB_NAME` / `DB_USER` / `DB_PASSWORD`      | MySQL 접속 정보                                |
-| `DATABASE_URL_OVERRIDE`                                            | (선택) 로컬에서 SQLite 등으로 강제 지정 시     |
-| `JWT_SECRET_KEY`                                                   | 32자 이상 무작위 값                            |
-| `BOOTSTRAP_ADMIN_*`                                                | 최초 관리자 계정 (개발용은 `NO_PASSWORD=true`) |
-| `SAFE182_*`, `SAFETYDATA_*`, `DISASTER_API_*`                      | 외부 재난·실종 API 키                          |
-| `UPLOAD_DIR` / `YOLO_MODEL_PATH` / `CCTV_DATA_DIR` / `RESULTS_DIR` | (선택) 파일 경로. 미지정 시 루트 기준 기본값   |
+| 변수 | 설명 |
+| --- | --- |
+| `DB_HOST` / `DB_PORT` / `DB_NAME` / `DB_USER` / `DB_PASSWORD` | MySQL 접속 정보 |
+| `DATABASE_URL_OVERRIDE` | (선택) 로컬에서 SQLite 등으로 강제 지정 시 |
+| `JWT_SECRET_KEY` | 32자 이상 무작위 값 |
+| `BOOTSTRAP_ADMIN_*` | 최초 관리자 계정 (개발용은 `NO_PASSWORD=true`) |
+| `SAFE182_*`, `SAFETYDATA_*`, `DISASTER_API_*` | 외부 재난·실종 API 키 |
+| `UPLOAD_DIR` / `YOLO_MODEL_PATH` / `CCTV_DATA_DIR` / `RESULTS_DIR` | (선택) 파일 경로. 미지정 시 루트 기준 기본값 |
 
 > 파일 경로 4개는 기본값이 있어 보통 생략합니다(미지정 시 `data/yolo/`, `data/CCTV/` 등).
 > **로컬 실행 시 `DB_HOST=localhost`**, Docker 실행 시에는 compose가 자동으로 `DB_HOST=db`로 덮어씁니다.
@@ -110,7 +110,6 @@ uvicorn backend.main:app --reload
 
 > `torchreid`는 git 소스 설치라 빌드가 오래 걸립니다. `requirements.txt`에서 해당 줄을 잠시 주석 처리해
 > 나머지를 먼저 설치한 뒤 아래로 별도 설치할 수 있습니다.
->
 > ```bash
 > pip install --no-build-isolation "git+https://github.com/KaiyangZhou/deep-person-reid.git@f8cd150fdf77e8d9e1ed143b7f308c2c609ded50"
 > ```
@@ -152,24 +151,24 @@ docker compose up
 
 ### 인증 / 사용자 (`/api/v1`)
 
-| 경로                                | 설명                                  |
-| ----------------------------------- | ------------------------------------- |
-| `POST /auth/signup`                 | 회원가입 신청 (승인 상태 `pending`)   |
-| `POST /auth/login`                  | 승인된 계정만 access/refresh JWT 발급 |
-| `POST /auth/logout`                 | 세션 철회로 토큰 즉시 무효화          |
-| `GET /users/me` · `PATCH /users/me` | 내 정보 조회·수정                     |
-| `PATCH /admin/users/{id}/approval`  | 관리자 승인·반려·정지 및 역할 부여    |
-| `GET /operations/case-search`       | `investigator` 역할 전용 예시         |
+| 경로 | 설명 |
+| --- | --- |
+| `POST /auth/signup` | 회원가입 신청 (승인 상태 `pending`) |
+| `POST /auth/login` | 승인된 계정만 access/refresh JWT 발급 |
+| `POST /auth/logout` | 세션 철회로 토큰 즉시 무효화 |
+| `GET /users/me` · `PATCH /users/me` | 내 정보 조회·수정 |
+| `PATCH /admin/users/{id}/approval` | 관리자 승인·반려·정지 및 역할 부여 |
+| `GET /operations/case-search` | `investigator` 역할 전용 예시 |
 
 ### 탐지 / 데이터
 
-| 경로                     | 설명                                      |
-| ------------------------ | ----------------------------------------- |
-| `POST /api/alert/parse`  | 안내문자 인상착의 파싱                    |
+| 경로 | 설명 |
+| --- | --- |
+| `POST /api/alert/parse` | 안내문자 인상착의 파싱 |
 | `POST /api/cctv/analyze` | CCTV 영상 분석 (탐지·클립 생성·결과 저장) |
-| `GET /api/result/...`    | 탐지/검색 결과 조회·삭제                  |
-| `GET /api/alerts/...`    | 재난문자 목록                             |
-| `/messages/...`          | 메시지 수집·조회                          |
+| `GET /api/result/...` | 탐지/검색 결과 조회·삭제 |
+| `GET /api/alerts/...` | 재난문자 목록 |
+| `/messages/...` | 메시지 수집·조회 |
 
 전체 스펙은 `/docs`(Swagger)에서 확인하세요.
 
@@ -177,15 +176,15 @@ docker compose up
 
 ## 프론트엔드 라우트
 
-| 경로                 | 화면                       |
-| -------------------- | -------------------------- |
-| `/`                  | 랜딩                       |
-| `/login`, `/signup`  | 로그인·회원가입            |
-| `/dashboard`         | 대시보드 (지도 + 인상착의) |
-| `/dashboard/chatbot` | 챗봇                       |
-| `/dashboard/history` | 검색 이력                  |
-| `/search-results`    | 탐지 결과                  |
-| `/cctv`              | CCTV 영상 업로드           |
+| 경로 | 화면 |
+| --- | --- |
+| `/` | 랜딩 |
+| `/login`, `/signup` | 로그인·회원가입 |
+| `/dashboard` | 대시보드 (지도 + 인상착의) |
+| `/dashboard/chatbot` | 챗봇 |
+| `/dashboard/history` | 검색 이력 |
+| `/search-results` | 탐지 결과 |
+| `/cctv` | CCTV 영상 업로드 |
 
 (`/alert` → `/cctv`, `/result` → `/search-results` 로 리다이렉트)
 
@@ -250,6 +249,5 @@ python scripts/smoke_test_auth.py
 
 ## 참고 문서
 
-- [변경 이력 (CHANGELOG)](CHANGELOG.md)
 - [FashionCLIP 의류 속성 분류 기준](fashionclip-taxonomy.md)
 - 행정구역 지도 데이터: `frontend/public/geodata/README.md`
