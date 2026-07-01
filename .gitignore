@@ -11,6 +11,7 @@ frontend/dist/
 # Data & uploads
 data/uploads/
 data/CCTV/**/*.mp4
+data/chroma/**
 
 # Models
 # models/yolo/*.pt

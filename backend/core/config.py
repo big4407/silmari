@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     DB_USER: str = "root"
     DB_PASSWORD: str = ""
     DB_CHARSET: str = "utf8mb4"
+    
+    # --- DB (Chroma DB) ---
+    chroma_dir: Path = PROJECT_ROOT / "data" / "chroma"
 
     # 로컬 개발 시 SQLite 등으로 강제 override 하고 싶을 때만 사용
     DATABASE_URL_OVERRIDE: str | None = None
