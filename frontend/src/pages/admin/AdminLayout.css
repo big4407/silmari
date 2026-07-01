@@ -88,7 +88,9 @@
   color: rgba(255, 255, 255, 0.9);
   text-decoration: none;
   border-radius: var(--radius-md);
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .admin-topbar .admin-right a:hover {
@@ -297,7 +299,7 @@
 }
 
 .admin-stat::before {
-  content: "";
+  content: '';
   position: absolute;
   left: 0;
   top: 0;
@@ -431,7 +433,7 @@
 }
 
 .admin-pill--dot::before {
-  content: "";
+  content: '';
   width: 6px;
   height: 6px;
   border-radius: 50%;

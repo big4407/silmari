@@ -6,7 +6,7 @@ from backend.chatbot.schemas import ChatbotRequest, ChatbotResponse
 from backend.services.chatbot_service import ChatbotService
 
 
-router = APIRouter(prefix="/chatbot", tags=["Chatbot"])
+router = APIRouter()
 
 
 @router.post("/chat", response_model=ChatbotResponse)

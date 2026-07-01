@@ -21,7 +21,7 @@ from backend.services.auth_service import authenticate_user, create_session_and_
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
-router = APIRouter(prefix="/auth", tags=["Authentication"])
+router = APIRouter(prefix="/auth")
 
 
 def _is_local_request(request: Request) -> bool:

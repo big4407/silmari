@@ -1,6 +1,6 @@
 /** 관리자 대시보드 — 시스템 KPI·최근 활동 요약 (목 UI) */
-import PageHead from "../components/PageHead"
-import EmptyState, { StatValue, TableEmptyRow } from "../components/EmptyState"
+import PageHead from '../components/PageHead';
+import EmptyState, { StatValue, TableEmptyRow } from '../components/EmptyState';
 
 export function DashboardView() {
   return (
@@ -55,5 +55,5 @@ export function DashboardView() {
         </div>
       </div>
     </>
-  )
+  );
 }

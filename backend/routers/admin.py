@@ -17,7 +17,7 @@ from backend.db.models import ApprovalStatus, User, UserRole
 from backend.schemas.auth import UserResponse
 from backend.schemas.user import ApprovalRequest
 
-router = APIRouter(prefix="/admin", tags=["Admin"])
+router = APIRouter(prefix="/admin")
 
 
 @router.get("/users", response_model=list[UserResponse])

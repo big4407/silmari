@@ -84,7 +84,9 @@
   text-decoration: none;
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .dashboard-layout__util-link:hover {
@@ -126,7 +128,10 @@
   text-decoration: none;
   border-bottom: 3px solid transparent;
   margin-bottom: -1px;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
   white-space: nowrap;
 }
 

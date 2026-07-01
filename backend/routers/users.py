@@ -13,7 +13,7 @@ from backend.schemas.auth import UserResponse
 from backend.schemas.user import UpdateMyProfileRequest
 from backend.services.auth_service import change_password
 
-router = APIRouter(prefix="/users", tags=["Users"])
+router = APIRouter(prefix="/users")
 
 
 @router.get("/me", response_model=UserResponse)

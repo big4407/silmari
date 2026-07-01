@@ -15,13 +15,11 @@ from datetime import datetime
 
 from backend.core.llm.chain import run_alert_parse_chain
 from backend.core.vision.frame_extractor import extract_frames
-from backend.core.vision.matcher import match_persons_in_frame
 from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from backend.core.vision.matcher import index_video, search_persons
 from backend.db.crud import MatchCandidate, search_embeddings
 from backend.db.models import Video, VideoDetail
 
@@ -51,11 +49,12 @@ def index_video_pipeline(
     db.flush()   # video.id 확보
 
     # 2) 영상 → crop 임베딩 → Chroma 저장 (matcher가 처리)
-    indexed = index_video(
-        video_path=video_path,
-        video_id=video.id,
-        region_code=region_code,
-    )
+    indexed=[]
+    # indexed = index_video(
+    #     video_path=video_path,
+    #     video_id=video.id,
+    #     region_code=region_code,
+    # )
 
     # 3) video_detail 행들 저장 (Chroma id = embedding_id 로 매핑)
     for d in indexed:
@@ -120,7 +119,8 @@ def search_pipeline(
     if threshold is not None:
         kwargs["threshold"] = threshold
 
-    return search_persons(clothes_en, **kwargs)
+    # return search_persons(clothes_en, **kwargs)
+    return ""
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -136,13 +136,13 @@ def run_detection_pipeline(
     # 2단계: 영상을 프레임 단위로 순회하며 후보 인물 탐지·필터링
     for frame_idx, frame, timestamp_sec in extract_frames(video_path):
         detections.extend(
-            match_persons_in_frame(
-                frame,
-                frame_idx,
-                timestamp_sec,
-                alert_info.model_dump(),
-                reference_img_path,
-            )
+            # match_persons_in_frame(
+            #     frame,
+            #     frame_idx,
+            #     timestamp_sec,
+            #     alert_info.model_dump(),
+            #     reference_img_path,
+            # )
         )
 
     return {

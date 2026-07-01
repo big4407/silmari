@@ -53,7 +53,9 @@
   color: var(--color-primary) !important;
   background: var(--color-surface) !important;
   border-bottom: 1px solid var(--color-border) !important;
-  transition: background 0.15s, color 0.15s !important;
+  transition:
+    background 0.15s,
+    color 0.15s !important;
 }
 
 .leaflet-control-zoom a:hover {
@@ -232,7 +234,10 @@
   cursor: pointer;
   white-space: nowrap;
   box-shadow: 0 2px 8px rgba(0, 102, 204, 0.28);
-  transition: background 0.15s, box-shadow 0.15s, transform 0.15s;
+  transition:
+    background 0.15s,
+    box-shadow 0.15s,
+    transform 0.15s;
 }
 
 .map-reset-btn:hover {

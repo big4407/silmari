@@ -4,26 +4,28 @@
  * [연동] Dashboard(재난문자·지역) ↔ CCTVUpload(안내문자) ↔ SearchResults(결과)
  * [핵심] alertText, selectedRegion, activeSearch — 화면 간 탐지 컨텍스트 공유
  */
-import { create } from "zustand"
+import { create } from 'zustand';
 
 export const useDetectionStore = create((set) => ({
-  alertText: "",
+  alertText: '',
   selectedPerson: null,
   selectedAlert: null,
   alertList: [],
   activeSearch: null,
-  selectedRegion: "전국",
-  startDate: "",
-  endDate: "",
-  contentKeyword: "",
+  selectedRegion: '전국',
+  startDate: '',
+  endDate: '',
+  contentKeyword: '',
   missingList: [],
   loading: false,
 
   setAlertText: (text) => set({ alertText: text }),
-  setSelectedPerson: (person) => set({ selectedPerson: person, activeSearch: null }),
+  setSelectedPerson: (person) =>
+    set({ selectedPerson: person, activeSearch: null }),
   setSelectedAlert: (alert) => set({ selectedAlert: alert }),
   setAlertList: (list) => set({ alertList: list }),
-  setActiveSearch: (search) => set({ activeSearch: search, selectedPerson: null }),
+  setActiveSearch: (search) =>
+    set({ activeSearch: search, selectedPerson: null }),
   clearActiveSearch: () => set({ activeSearch: null }),
   setSelectedRegion: (region) => set({ selectedRegion: region }),
   setStartDate: (date) => set({ startDate: date }),
@@ -31,4 +33,4 @@ export const useDetectionStore = create((set) => ({
   setContentKeyword: (keyword) => set({ contentKeyword: keyword }),
   setMissingList: (list) => set({ missingList: list }),
   setLoading: (loading) => set({ loading }),
-}))
+}));

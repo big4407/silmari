@@ -168,7 +168,10 @@
   cursor: pointer;
   white-space: nowrap;
   box-sizing: border-box;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
 }
 
 .filter-panel__btn:hover:not(:disabled) {
@@ -291,7 +294,9 @@
   font-weight: 600;
   color: var(--color-text);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .sidebar__action-btn:hover {

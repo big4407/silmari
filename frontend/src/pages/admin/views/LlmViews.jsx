@@ -1,6 +1,6 @@
 /** LLM 운영 뷰 — 사용량·비용·성능·로그 (목 UI) */
-import PageHead from "../components/PageHead"
-import EmptyState, { StatValue, TableEmptyRow } from "../components/EmptyState"
+import PageHead from '../components/PageHead';
+import EmptyState, { StatValue, TableEmptyRow } from '../components/EmptyState';
 
 export function LlmUsageView() {
   return (
@@ -46,7 +46,7 @@ export function LlmUsageView() {
         </table>
       </div>
     </>
-  )
+  );
 }
 
 export function LlmCostView() {
@@ -96,7 +96,7 @@ export function LlmCostView() {
         ※ <code>input_tokens · output_tokens · cost</code> 합산.
       </p>
     </>
-  )
+  );
 }
 
 export function LlmPerfView() {
@@ -127,7 +127,10 @@ export function LlmPerfView() {
       <div className="admin-cols">
         <div className="admin-card">
           <div className="admin-card-h">모델별 성능</div>
-          <div className="admin-card-b admin-table-wrap" style={{ paddingTop: 6 }}>
+          <div
+            className="admin-card-b admin-table-wrap"
+            style={{ paddingTop: 6 }}
+          >
             <table>
               <thead>
                 <tr>
@@ -151,7 +154,7 @@ export function LlmPerfView() {
         </div>
       </div>
     </>
-  )
+  );
 }
 
 export function LlmLogsView() {
@@ -163,11 +166,19 @@ export function LlmLogsView() {
       />
       <div className="admin-toolbar">
         <input placeholder="프롬프트·응답·검색 ID 검색" disabled />
-        <select disabled><option>전체 유형</option></select>
-        <select disabled><option>전체 모델</option></select>
-        <select disabled><option>전체 상태</option></select>
+        <select disabled>
+          <option>전체 유형</option>
+        </select>
+        <select disabled>
+          <option>전체 모델</option>
+        </select>
+        <select disabled>
+          <option>전체 상태</option>
+        </select>
         <div className="admin-spacer" />
-        <button type="button" className="admin-btn" disabled>CSV보내기</button>
+        <button type="button" className="admin-btn" disabled>
+          CSV보내기
+        </button>
       </div>
       <div className="admin-card admin-table-wrap">
         <table>
@@ -189,5 +200,5 @@ export function LlmLogsView() {
         </table>
       </div>
     </>
-  )
+  );
 }

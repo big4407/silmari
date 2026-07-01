@@ -54,7 +54,8 @@ body {
   --color-map-stroke-light: #8a9db0;
 
   /* Typography */
-  --font-family: "Pretendard", "Noto Sans KR", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-family:
+    'Pretendard', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-size-xs: 0.6875rem;
   --font-size-sm: 0.8125rem;
   --font-size-base: 0.875rem;

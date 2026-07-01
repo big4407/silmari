@@ -10,32 +10,32 @@
  *
  * 레거시 경로 /alert, /result 는 /cctv, /search-results 로 리다이렉트.
  */
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
-import AppLayout from "./components/AppLayout"
-import DashboardLayout from "./components/DashboardLayout"
-import Landing from "./pages/Landing"
-import Login from "./pages/Login"
-import Signup from "./pages/Signup"
-import Dashboard from "./pages/Dashboard"
-import ChatbotPage from "./pages/ChatbotPage"
-import SearchHistory from "./pages/SearchHistory"
-import CCTVUpload from "./pages/CCTVUpload"
-import SearchResults from "./pages/SearchResults"
-import AdminLayout from "./pages/admin/AdminLayout"
-import AdminViewPage from "./pages/admin/AdminViewPage"
-import DevLayout from "./pages/dev/DevLayout"
-import DevHub from "./pages/dev/DevHub"
-import DevHealthPage from "./pages/dev/DevHealthPage"
-import DevAuthPage from "./pages/dev/DevAuthPage"
-import DevMessagesPage from "./pages/dev/DevMessagesPage"
-import DevAlertPage from "./pages/dev/DevAlertPage"
-import DevSearchPage from "./pages/dev/DevSearchPage"
-import DevDisasterAlertsPage from "./pages/dev/DevDisasterAlertsPage"
-import DevResultPage from "./pages/dev/DevResultPage"
-import DevCctvPage from "./pages/dev/DevCctvPage"
-import DevChatbotPage from "./pages/dev/DevChatbotPage"
-import DevAdminPage from "./pages/dev/DevAdminPage"
-import "./App.css"
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import AppLayout from './components/AppLayout';
+import DashboardLayout from './components/DashboardLayout';
+import Landing from './pages/Landing';
+import Login from './pages/Login';
+import Signup from './pages/Signup';
+import Dashboard from './pages/Dashboard';
+import ChatbotPage from './pages/ChatbotPage';
+import SearchHistory from './pages/SearchHistory';
+import CCTVUpload from './pages/CCTVUpload';
+import SearchResults from './pages/SearchResults';
+import AdminLayout from './pages/admin/AdminLayout';
+import AdminViewPage from './pages/admin/AdminViewPage';
+import DevLayout from './pages/dev/DevLayout';
+import DevHub from './pages/dev/DevHub';
+import DevHealthPage from './pages/dev/DevHealthPage';
+import DevAuthPage from './pages/dev/DevAuthPage';
+import DevMessagesPage from './pages/dev/DevMessagesPage';
+import DevAlertPage from './pages/dev/DevAlertPage';
+import DevSearchPage from './pages/dev/DevSearchPage';
+import DevDisasterAlertsPage from './pages/dev/DevDisasterAlertsPage';
+import DevResultPage from './pages/dev/DevResultPage';
+import DevCctvPage from './pages/dev/DevCctvPage';
+import DevChatbotPage from './pages/dev/DevChatbotPage';
+import DevAdminPage from './pages/dev/DevAdminPage';
+import './App.css';
 
 export default function App() {
   return (
@@ -76,8 +76,11 @@ export default function App() {
         </Route>
 
         <Route path="/alert" element={<Navigate to="/cctv" replace />} />
-        <Route path="/result" element={<Navigate to="/search-results" replace />} />
+        <Route
+          path="/result"
+          element={<Navigate to="/search-results" replace />}
+        />
       </Routes>
     </BrowserRouter>
-  )
+  );
 }

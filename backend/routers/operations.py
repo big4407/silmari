@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends
 from backend.deps import require_roles
 from backend.db.models import User, UserRole
 
-router = APIRouter(prefix="/operations", tags=["Protected example"])
+router = APIRouter(prefix="/operations")
 
 
 @router.get("/case-search")

@@ -1,10 +1,9 @@
-import chromadb
-from backend.core.vision.chroma_db import get_collection
+from backend.db.database import get_chromadb
 from fashion_clip.fashion_clip import FashionCLIP
 import numpy as np
 
 fclip = FashionCLIP("fashion-clip")
-collection = get_collection()
+collection = get_chromadb()
 
 def search_embedding(query, n=5,):
     query_embedding = fclip.encode_text(

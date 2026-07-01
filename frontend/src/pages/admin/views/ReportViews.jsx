@@ -1,6 +1,6 @@
 /** 리포트 뷰 — 시간·지역·검색 통계 (목 UI) */
-import PageHead from "../components/PageHead"
-import EmptyState, { StatValue, TableEmptyRow } from "../components/EmptyState"
+import PageHead from '../components/PageHead';
+import EmptyState, { StatValue, TableEmptyRow } from '../components/EmptyState';
 
 export function RepTimeView() {
   return (
@@ -10,10 +10,16 @@ export function RepTimeView() {
         desc="실종 발생 시각(search.missing_time)과 안내문자 수신(message.crt_dt)을 기준으로 시간 패턴을 분석합니다."
       />
       <div className="admin-toolbar">
-        <select disabled><option>최근 90일</option></select>
-        <select disabled><option>실종 발생시각 기준</option></select>
+        <select disabled>
+          <option>최근 90일</option>
+        </select>
+        <select disabled>
+          <option>실종 발생시각 기준</option>
+        </select>
         <div className="admin-spacer" />
-        <button type="button" className="admin-btn" disabled>리포트보내기</button>
+        <button type="button" className="admin-btn" disabled>
+          리포트보내기
+        </button>
       </div>
       <div className="admin-cols">
         <div className="admin-card">
@@ -30,7 +36,7 @@ export function RepTimeView() {
         </div>
       </div>
     </>
-  )
+  );
 }
 
 export function RepRegionView() {
@@ -41,10 +47,16 @@ export function RepRegionView() {
         desc="실종 지역(search.missing_location)과 CCTV 커버리지(video.region_code)를 region 기준으로 분석합니다."
       />
       <div className="admin-toolbar">
-        <select disabled><option>최근 90일</option></select>
-        <select disabled><option>전체 시·도</option></select>
+        <select disabled>
+          <option>최근 90일</option>
+        </select>
+        <select disabled>
+          <option>전체 시·도</option>
+        </select>
         <div className="admin-spacer" />
-        <button type="button" className="admin-btn" disabled>리포트보내기</button>
+        <button type="button" className="admin-btn" disabled>
+          리포트보내기
+        </button>
       </div>
       <div className="admin-card admin-table-wrap">
         <div className="admin-card-h">지역별 실종 발생 · CCTV 커버리지</div>
@@ -65,7 +77,7 @@ export function RepRegionView() {
         </table>
       </div>
     </>
-  )
+  );
 }
 
 export function RepSearchView() {
@@ -96,7 +108,10 @@ export function RepSearchView() {
       <div className="admin-cols">
         <div className="admin-card">
           <div className="admin-card-h">검색 유형별 성능 (search_type)</div>
-          <div className="admin-card-b admin-table-wrap" style={{ paddingTop: 6 }}>
+          <div
+            className="admin-card-b admin-table-wrap"
+            style={{ paddingTop: 6 }}
+          >
             <table>
               <thead>
                 <tr>
@@ -120,5 +135,5 @@ export function RepSearchView() {
         </div>
       </div>
     </>
-  )
+  );
 }

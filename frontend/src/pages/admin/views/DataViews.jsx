@@ -1,6 +1,6 @@
 /** 데이터 관리 뷰 — 코드·검증·보내기·보존 정책 (목 UI) */
-import PageHead from "../components/PageHead"
-import EmptyState, { TableEmptyRow } from "../components/EmptyState"
+import PageHead from '../components/PageHead';
+import EmptyState, { TableEmptyRow } from '../components/EmptyState';
 
 export function DataCodesView() {
   return (
@@ -12,18 +12,30 @@ export function DataCodesView() {
       <div className="admin-cols">
         <div className="admin-card">
           <div className="admin-card-h">
-            행정구역 (region) <button type="button" className="admin-btn admin-btn--sm" disabled>코드 추가</button>
+            행정구역 (region){' '}
+            <button type="button" className="admin-btn admin-btn--sm" disabled>
+              코드 추가
+            </button>
           </div>
           <div className="admin-card-b">
             <EmptyState message="등록된 행정구역이 없습니다." />
-            <p style={{ fontSize: 12, color: "var(--admin-ink-3)", marginTop: 10 }}>
+            <p
+              style={{
+                fontSize: 12,
+                color: 'var(--admin-ink-3)',
+                marginTop: 10,
+              }}
+            >
               parent_code 기반 계층(self-FK). 영상·검색이 이 코드를 참조합니다.
             </p>
           </div>
         </div>
         <div className="admin-card">
           <div className="admin-card-h">코드 그룹</div>
-          <div className="admin-card-b admin-table-wrap" style={{ paddingTop: 6 }}>
+          <div
+            className="admin-card-b admin-table-wrap"
+            style={{ paddingTop: 6 }}
+          >
             <table>
               <thead>
                 <tr>
@@ -33,14 +45,17 @@ export function DataCodesView() {
                 </tr>
               </thead>
               <tbody>
-                <TableEmptyRow colSpan={3} message="코드 그룹을 불러오지 못했습니다." />
+                <TableEmptyRow
+                  colSpan={3}
+                  message="코드 그룹을 불러오지 못했습니다."
+                />
               </tbody>
             </table>
           </div>
         </div>
       </div>
     </>
-  )
+  );
 }
 
 export function DataValidateView() {
@@ -51,10 +66,14 @@ export function DataValidateView() {
         desc="테이블 간 참조 무결성과 데이터 정합성을 검사합니다. 고아 레코드·끊긴 계층·잘못된 코드값을 탐지합니다."
       />
       <div className="admin-toolbar">
-        <button type="button" className="admin-btn admin-btn--primary" disabled>정합성 검사 실행</button>
+        <button type="button" className="admin-btn admin-btn--primary" disabled>
+          정합성 검사 실행
+        </button>
         <span className="admin-pill admin-pill--muted">마지막 검사 —</span>
         <div className="admin-spacer" />
-        <button type="button" className="admin-btn" disabled>오류 리포트 다운로드</button>
+        <button type="button" className="admin-btn" disabled>
+          오류 리포트 다운로드
+        </button>
       </div>
       <div className="admin-card admin-table-wrap">
         <table>
@@ -64,16 +83,19 @@ export function DataValidateView() {
               <th>대상</th>
               <th>검사 내용</th>
               <th>결과</th>
-              <th style={{ textAlign: "right" }} />
+              <th style={{ textAlign: 'right' }} />
             </tr>
           </thead>
           <tbody>
-            <TableEmptyRow colSpan={5} message="정합성 검사를 실행하면 결과가 표시됩니다." />
+            <TableEmptyRow
+              colSpan={5}
+              message="정합성 검사를 실행하면 결과가 표시됩니다."
+            />
           </tbody>
         </table>
       </div>
     </>
-  )
+  );
 }
 
 export function DataExportView() {
@@ -103,9 +125,15 @@ export function DataExportView() {
                 <option>CSV</option>
               </select>
             </div>
-            <div className="admin-fld" style={{ flex: "0 0 auto" }}>
+            <div className="admin-fld" style={{ flex: '0 0 auto' }}>
               <label>&nbsp;</label>
-              <button type="button" className="admin-btn admin-btn--primary" disabled>보내기</button>
+              <button
+                type="button"
+                className="admin-btn admin-btn--primary"
+                disabled
+              >
+                보내기
+              </button>
             </div>
           </div>
         </div>
@@ -121,7 +149,7 @@ export function DataExportView() {
               <th>형식</th>
               <th>행 수</th>
               <th>요청자</th>
-              <th style={{ textAlign: "right" }} />
+              <th style={{ textAlign: 'right' }} />
             </tr>
           </thead>
           <tbody>
@@ -130,7 +158,7 @@ export function DataExportView() {
         </table>
       </div>
     </>
-  )
+  );
 }
 
 export function DataRetentionView() {
@@ -142,7 +170,14 @@ export function DataRetentionView() {
       />
       <div className="admin-card admin-table-wrap">
         <div className="admin-card-h">
-          보존 정책 <button type="button" className="admin-btn admin-btn--sm admin-btn--primary" disabled>정책 저장</button>
+          보존 정책{' '}
+          <button
+            type="button"
+            className="admin-btn admin-btn--sm admin-btn--primary"
+            disabled
+          >
+            정책 저장
+          </button>
         </div>
         <table>
           <thead>
@@ -156,7 +191,10 @@ export function DataRetentionView() {
             </tr>
           </thead>
           <tbody>
-            <TableEmptyRow colSpan={6} message="보존 정책이 설정되지 않았습니다." />
+            <TableEmptyRow
+              colSpan={6}
+              message="보존 정책이 설정되지 않았습니다."
+            />
           </tbody>
         </table>
       </div>
@@ -164,5 +202,5 @@ export function DataRetentionView() {
         ※ 영상 삭제 시 Chroma 임베딩도 함께 삭제돼야 정합성이 유지됩니다.
       </p>
     </>
-  )
+  );
 }
