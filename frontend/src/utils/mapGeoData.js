@@ -4,7 +4,8 @@
  */
 import * as topojson from "topojson-client"
 import { hasDongDrilldown } from "../data/dongRegions"
-import { REGION_DATA } from "../hooks/useMapDrilldown"
+import { REGION_DATA } from "../data/regionData"
+import { loadDongGeoJson } from "./admDongLoader"
 import { SIDO_SEARCH_TERMS } from "./regionMatch"
 
 /** REGION_DATA 행정코드 → southkorea-maps GeoJSON 시도코드 */
@@ -53,17 +54,13 @@ async function loadMunicipalities() {
   return municipalitiesCache
 }
 
-export async function loadMapGeoJson(currentKey) {
+export async function loadMapGeoJson(currentKey, options = {}) {
   if (currentKey === "root") {
     return loadTopoCollection("/geodata/korea.topo.json", "skorea_provinces_geo")
   }
 
   if (hasDongDrilldown(currentKey)) {
-    const res = await fetch(`/geodata/sigungu/${currentKey}.geojson`)
-    if (!res.ok) {
-      return { type: "FeatureCollection", features: [] }
-    }
-    return res.json()
+    return loadDongGeoJson(currentKey, options)
   }
 
   const geoSido = GEO_SIDO_CODE_MAP[currentKey]
@@ -144,12 +141,6 @@ function matchGuRegion(geoName, sidoKey) {
   return regions.find(r => geoName.includes(r.label) || r.label === geoName) || null
 }
 
-function matchDongRegion(geoName, guKey) {
-  const regions = REGION_DATA[guKey]?.regions
-  if (!regions) return null
-  return regions.find(r => geoName.includes(r.label) || r.label === geoName) || null
-}
-
 export function findRegionForFeature(feature, currentKey) {
   const geoName = feature.properties?.name || feature.properties?.emdnm || feature.properties?.SIG_KOR_NM || ""
 
@@ -158,10 +149,9 @@ export function findRegionForFeature(feature, currentKey) {
   }
 
   if (hasDongDrilldown(currentKey)) {
-    const matched = matchDongRegion(geoName, currentKey)
-    if (matched) return matched
+    const code = feature.properties?.code || feature.properties?.emdcd || feature.properties?.emd8
     return {
-      id: String(feature.properties?.code || geoName),
+      id: String(code || geoName),
       label: geoName,
       lat: null,
       lng: null,

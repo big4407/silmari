@@ -1,10 +1,10 @@
 /**
  * Leaflet 행정구역 드릴다운 지도.
  *
- * [데이터] public/geodata/ GeoJSON (시·도 → 구·군 → 강남구 동)
+ * [데이터] TopoJSON 시·도/구·군 + admdongkor 동 경계
  * [연동] Dashboard — 지역 클릭 시 mapFilter 변경 → 안내문자 필터
  */
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
 import useMapDrilldown from "../hooks/useMapDrilldown"
@@ -21,6 +21,7 @@ import {
   isRegionSelected,
   loadMapGeoJson,
 } from "../utils/mapGeoData"
+import { getGuLabelFromPath } from "../utils/admDongLoader"
 import "./MapDrilldown.css"
 
 const KOREA_BOUNDS = L.latLngBounds([33.0, 124.5], [39.0, 132.1])
@@ -58,7 +59,9 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
   const selectedRegionRef = useRef("전국")
 
   const {
+    path,
     currentKey,
+    activeGu,
     breadcrumbs,
     selectedRegion,
     selectRegion,
@@ -66,6 +69,8 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
     resetMap,
     applyFocus,
   } = useMapDrilldown(onRegionSelect)
+
+  const [geoLoading, setGeoLoading] = useState(false)
 
   const selectRegionRef = useRef(selectRegion)
   selectRegionRef.current = selectRegion
@@ -76,9 +81,13 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
   const lastFocusKeyRef = useRef(null)
   const prevCurrentKeyRef = useRef("root")
   const renderGenRef = useRef(0)
+  const pathRef = useRef(path)
+  const activeGuRef = useRef(activeGu)
 
   currentKeyRef.current = currentKey
   selectedRegionRef.current = selectedRegion
+  pathRef.current = path
+  activeGuRef.current = activeGu
 
   const clearLabelMarkers = () => {
     labelMarkersRef.current.forEach(m => m.remove())
@@ -184,11 +193,20 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
     const key = currentKeyRef.current
     const gen = ++renderGenRef.current
 
+    setGeoLoading(true)
     let geojson
     try {
-      geojson = await loadMapGeoJson(key)
+      const mapPath = pathRef.current
+      const sidoId = mapPath.length >= 2 ? mapPath[1] : null
+      const guLabel = activeGuRef.current?.label || getGuLabelFromPath(mapPath, selectedRegionRef.current)
+      geojson = await loadMapGeoJson(key, { sidoId, guLabel })
     } catch {
+      setGeoLoading(false)
       return
+    } finally {
+      if (gen === renderGenRef.current) {
+        setGeoLoading(false)
+      }
     }
 
     if (!mapInstanceRef.current || gen !== renderGenRef.current || currentKeyRef.current !== key) {
@@ -378,6 +396,7 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
         </div>
       </div>
       <div className="map-body">
+        {geoLoading && <div className="map-loading">행정구역 불러오는 중…</div>}
         <div ref={mapRef} className="leaflet-map" />
       </div>
     </div>

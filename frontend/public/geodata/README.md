@@ -2,7 +2,8 @@
 
 - 시/도: `korea.topo.json` — [southkorea-maps](https://github.com/southkorea/southkorea-maps) TopoJSON (17개, 고해상도)
 - 시/군/구: `municipalities.topo.json` — 동일 출처 TopoJSON (251개)
-- 읍/면/동: `sigungu/{구ID}.geojson` — 프로토타입: 강남구(`1122`) 22개 행정동 ([admdongkor](https://github.com/vuski/admdongkor) 20250401 경계)
+- 읍/면/동: **admdongkor** 런타임 로딩 (구 클릭 시 `sggcd` 필터, 20250401 경계)
+- (레거시) `sigungu/1122.geojson` — 강남구 프로토타입 정적 파일, 더 이상 사용하지 않음
 
 런타임에서 `topojson-client`로 GeoJSON 변환 후 렌더링합니다.
 

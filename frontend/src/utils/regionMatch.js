@@ -2,7 +2,7 @@
  * 지역명 ↔ 재난문자 rcptn_rgn_nm 매칭·필터 유틸.
  * Dashboard 지도 선택 → alertList 필터링에 사용.
  */
-import { REGION_DATA } from "../hooks/useMapDrilldown"
+import { REGION_DATA } from "../data/regionData"
 import { hasDongDrilldown } from "../data/dongRegions"
 
 /** 시도 약칭 → rcptn_rgn_nm 매칭용 키워드 */
@@ -40,21 +40,18 @@ export function buildMapFilter(region, path) {
     || ""
   if (path.length > 2 && hasDongDrilldown(path[2])) {
     const guId = path[2]
-    const guLabel = REGION_DATA[guId]?.label || ""
-    const isDong = REGION_DATA[guId]?.regions?.some(r => r.id === region.id)
-    if (isDong) {
-      return {
-        level: "dong",
-        label: region.label,
-        guId,
-        guLabel,
-        sidoId,
-        sidoLabel,
-      }
-    }
-    const isGu = REGION_DATA[sidoId]?.regions?.some(r => r.id === region.id)
-    if (isGu) {
+    const guMeta = REGION_DATA[sidoId]?.regions?.find(r => r.id === guId)
+    const guLabel = guMeta?.label || region.guLabel || ""
+    if (region.id === guId || (guMeta && region.id === guMeta.id)) {
       return { level: "gu", label: region.label, sidoId, sidoLabel }
+    }
+    return {
+      level: "dong",
+      label: region.label,
+      guId,
+      guLabel,
+      sidoId,
+      sidoLabel,
     }
   }
   return { level: "gu", label: region.label, sidoId, sidoLabel }
@@ -109,6 +106,11 @@ export function countAlertsForSido(alerts, sidoLabel) {
   return filterAlertsByRegion(alerts, filter).length
 }
 
+/** rcptn_rgn_nm에서 읍·면·동 후보 추출 */
+function extractEmdNames(text) {
+  return [...text.matchAll(/([가-힣0-9]+(?:동|읍|면))/g)].map(m => m[1])
+}
+
 function isSidoUnit(name, matchedSido) {
   const sidoTerms = SIDO_SEARCH_TERMS[matchedSido.label] || [matchedSido.label]
   return sidoTerms.some(term => name.includes(term.replace(/도$|특별.*$|광역.*$/, "")))
@@ -156,13 +158,14 @@ export function resolveAlertMapFocus(rcptnRgnNm) {
     for (const gu of sidoData.regions) {
       if (text.includes(gu.label)) {
         if (hasDongDrilldown(gu.id)) {
-          const dongData = REGION_DATA[gu.id]
-          for (const dong of dongData?.regions || []) {
-            if (text.includes(dong.label)) {
+          for (const emdName of extractEmdNames(text)) {
+            if (text.includes(emdName)) {
               const dongPath = [...path, gu.id]
+              const dong = { id: emdName, label: emdName }
               return {
                 path: dongPath,
-                selectedLabel: dong.label,
+                selectedLabel: emdName,
+                dongId: emdName,
                 mapFilter: buildMapFilter(dong, dongPath),
               }
             }

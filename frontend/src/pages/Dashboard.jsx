@@ -120,9 +120,9 @@ export default function Dashboard() {
     setSelectedRegion(regionFilterLabel(filter) || "전국")
   }, [setSelectedRegion])
 
-  const handleRegionSearch = (e) => {
+  const handleRegionSearch = async (e) => {
     e.preventDefault()
-    const focus = findRegionByName(regionQuery)
+    const focus = await findRegionByName(regionQuery)
     if (!focus) {
       setRegionSearchError("일치하는 지역을 찾을 수 없습니다.")
       return
