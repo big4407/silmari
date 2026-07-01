@@ -17,16 +17,11 @@ def chat(
     service = ChatbotService(db)
 
     result = service.chat(
-        user_id=request.user_id,
+        session_id=request.session_id,
         message=request.message,
-        prev_state=request.state,
     )
 
-    response = result["response"]
-    state = result.copy()
-    state.pop("response", None)
-
     return ChatbotResponse(
-        response=response,
-        state=state,
+        response=result["response"],
+        session_id=result["session_id"],
     )

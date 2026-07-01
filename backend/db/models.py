@@ -1,5 +1,18 @@
 # db/models.py
-from sqlalchemy import Column, Date, Integer, String, DateTime, Text, Float, Enum, ForeignKey, func, CHAR
+from sqlalchemy import (
+    Column,
+    Date,
+    Integer,
+    String,
+    DateTime,
+    Text,
+    Float,
+    Enum,
+    ForeignKey,
+    func,
+    CHAR,
+    JSON,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import date, datetime
 import enum
@@ -168,4 +181,29 @@ class Search(Base):
         CHAR(1),
         nullable=False,
         server_default="1",
+    )
+
+
+class ChatbotSession(Base):
+    __tablename__ = "chatbot_session"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+
+    session_id: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+
+    user_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+
+    state_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
     )

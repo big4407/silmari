@@ -68,6 +68,7 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
 
   const lastFocusKeyRef = useRef(null)
   const prevCurrentKeyRef = useRef("root")
+  const renderGenRef = useRef(0)
 
   currentKeyRef.current = currentKey
   selectedRegionRef.current = selectedRegion
@@ -89,11 +90,13 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
   const updateLayerPresentation = useCallback((map, geojson, key, selected) => {
     clearLabelMarkers()
 
-    featureMetaRef.current.forEach(({ featureLayer, feature, region, shortLabel, labelText, geoName, alertCount }) => {
-      const isActive = isRegionSelected(selected, region.label, geoName, shortLabel)
+    featureMetaRef.current.forEach(({ featureLayer, feature, region, shortLabel, labelText, geoName, alertCount: storedCount }) => {
+      const alertCount = key === "root" && region
+        ? countAlertsForSido(alerts, region.label)
+        : storedCount || 0
+      const isActive = isRegionSelected(selected, region.label, geoName, shortLabel, key)
       const displayLabel = getDisplayLabel(selected, shortLabel, geoName)
-      const idx = geojson.features.indexOf(feature)
-      featureLayer.setStyle(getRegionStyle({ isActive, colorIndex: idx, alertCount }))
+      featureLayer.setStyle(getRegionStyle({ isActive, alertCount }))
 
       const labelLatLng = getLabelLatLng(feature, shortLabel, key)
       const count = alertCount || 0
@@ -113,17 +116,19 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
 
       const tooltip = featureLayer.getTooltip()
       if (tooltip) {
-        tooltip.setContent(labelText)
+        const nextLabelText = count > 0 ? `${shortLabel} (${count})` : shortLabel
+        tooltip.setContent(nextLabelText)
       }
     })
-  }, [])
+  }, [alerts])
 
   const fitMapToLayer = useCallback((map, layer, key) => {
     if (!layer.getBounds().isValid()) return
     map.fitBounds(layer.getBounds(), {
-      padding: [8, 8],
+      padding: [12, 12],
       maxZoom: key === "root" ? 9 : 11,
-      animate: false,
+      animate: true,
+      duration: 0.65,
     })
     requestAnimationFrame(() => map.invalidateSize())
   }, [])
@@ -133,7 +138,7 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
 
     const activeLayers = featureMetaRef.current
       .filter(({ region, shortLabel, geoName }) =>
-        isRegionSelected(selected, region.label, geoName, shortLabel),
+        isRegionSelected(selected, region.label, geoName, shortLabel, key),
       )
       .map(({ featureLayer }) => featureLayer)
 
@@ -145,7 +150,8 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
     map.fitBounds(group.getBounds(), {
       padding: [48, 48],
       maxZoom: key === "root" ? 8 : 13,
-      animate: false,
+      animate: true,
+      duration: 0.65,
     })
     requestAnimationFrame(() => map.invalidateSize())
     return true
@@ -156,10 +162,21 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
     fitMapToLayer(map, layer, key)
   }, [fitMapToLayer, fitMapToSelection])
 
-  const renderGeoLayer = useCallback(async (map) => {
-    clearGeoLayer()
+  const handleResetMap = useCallback(() => {
+    const wasNationwide =
+      currentKeyRef.current === "root" && selectedRegionRef.current === "전국"
+    resetMap()
+    if (!wasNationwide) return
+    const map = mapInstanceRef.current
+    const layer = geoLayerRef.current
+    if (!map || !layer) return
+    fitMapView(map, layer, "root", "전국")
+  }, [resetMap, fitMapView])
 
+  const renderGeoLayer = useCallback(async (map) => {
     const key = currentKeyRef.current
+    const gen = ++renderGenRef.current
+
     let geojson
     try {
       geojson = await loadMapGeoJson(key)
@@ -167,7 +184,11 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
       return
     }
 
-    if (!mapInstanceRef.current || currentKeyRef.current !== key) return
+    if (!mapInstanceRef.current || gen !== renderGenRef.current || currentKeyRef.current !== key) {
+      return
+    }
+
+    clearGeoLayer()
 
     geojsonRef.current = geojson
     const selected = selectedRegionRef.current
@@ -179,13 +200,12 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
         const geoName = feature.properties?.name || region?.label
         const shortLabel = getShortLabel(geoName || region?.label || "", key)
         const isActive = region
-          ? isRegionSelected(selected, region.label, geoName, shortLabel)
+          ? isRegionSelected(selected, region.label, geoName, shortLabel, key)
           : false
-        const idx = geojson.features.indexOf(feature)
         const count = key === "root" && region
           ? countAlertsForSido(alerts, region.label)
           : 0
-        return getRegionStyle({ isActive, colorIndex: idx, alertCount: count })
+        return getRegionStyle({ isActive, alertCount: count })
       },
       onEachFeature: (feature, featureLayer) => {
         const region = findRegionForFeature(feature, key)
@@ -214,20 +234,31 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
           opacity: 1,
         })
 
+        const applyFeatureStyle = () => {
+          const active = isRegionSelected(
+            selectedRegionRef.current,
+            region.label,
+            geoName,
+            shortLabel,
+            key,
+          )
+          const alertCount = key === "root" ? countAlertsForSido(alerts, region.label) : 0
+          featureLayer.setStyle(getRegionStyle({ isActive: active, alertCount }))
+        }
+
         featureLayer.on("mouseover", function () {
           const active = isRegionSelected(
             selectedRegionRef.current,
             region.label,
             geoName,
             shortLabel,
+            key,
           )
           if (!active) {
             this.setStyle({ fillOpacity: 0.82, weight: 1.2, color: "#94a3b8" })
           }
         })
-        featureLayer.on("mouseout", function () {
-          layer.resetStyle(this)
-        })
+        featureLayer.on("mouseout", applyFeatureStyle)
         featureLayer.on("click", () => {
           const center = getFeatureCenter(featureLayer)
           selectRegionRef.current({
@@ -238,6 +269,11 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
         })
       },
     }).addTo(map)
+
+    if (gen !== renderGenRef.current || currentKeyRef.current !== key) {
+      layer.remove()
+      return
+    }
 
     geoLayerRef.current = layer
     updateLayerPresentation(map, geojson, key, selected)
@@ -256,6 +292,10 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
       minZoom: 6,
       attributionControl: false,
       preferCanvas: true,
+      zoomAnimation: true,
+      fadeAnimation: true,
+      markerZoomAnimation: true,
+      wheelPxPerZoomLevel: 80,
     })
 
     mapInstanceRef.current = map
@@ -272,14 +312,14 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
     const map = mapInstanceRef.current
     if (!map) return
     renderGeoLayer(map)
-  }, [currentKey, alerts, renderGeoLayer])
+  }, [currentKey, renderGeoLayer])
 
   useEffect(() => {
     const map = mapInstanceRef.current
     const geojson = geojsonRef.current
     if (!map || !geoLayerRef.current || !geojson) return
     updateLayerPresentation(map, geojson, currentKey, selectedRegion)
-  }, [selectedRegion, currentKey, updateLayerPresentation])
+  }, [selectedRegion, currentKey, alerts, updateLayerPresentation])
 
   useEffect(() => {
     const keyChanged = prevCurrentKeyRef.current !== currentKey
@@ -327,7 +367,7 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
               </span>
             ))}
           </div>
-          <button type="button" className="map-reset-btn" onClick={resetMap}>전국 보기</button>
+          <button type="button" className="map-reset-btn" onClick={handleResetMap}>전국 보기</button>
         </div>
       </div>
       <div className="map-body">

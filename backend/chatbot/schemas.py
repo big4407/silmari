@@ -1,16 +1,14 @@
-from typing import Any
 from pydantic import BaseModel, Field
 
 
 class ChatbotRequest(BaseModel):
-    user_id: str
+    session_id: str
     message: str
-    state: dict[str, Any] | None = None
 
 
 class ChatbotResponse(BaseModel):
     response: str
-    state: dict[str, Any]
+    session_id: str
 
 
 class ExtractedSearchSlots(BaseModel):
