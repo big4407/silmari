@@ -1,5 +1,5 @@
 # db/models.py
-from sqlalchemy import Column, Date, Integer, String, DateTime, Text, Float, Enum, ForeignKey, func
+from sqlalchemy import CHAR, Column, Date, Integer, String, DateTime, Text, Float, Enum, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import date, datetime
 import enum
@@ -128,3 +128,181 @@ class Message(Base):
     mdfcn_ymd: Mapped[date | None] = mapped_column(
         Date, nullable=True, comment="수정일자"
     )
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# 설계서(테이블 명세) 기준 모델
+# region / video / video_detail / search / analysis / analysis_detail
+# (User · Message 등 위 모델과 같은 Base 를 공유)
+# ──────────────────────────────────────────────────────────────────────────
+
+class Region(Base):
+    """지역명과 지역코드(행정동코드). parent_code 로 계층(self-FK)."""
+    __tablename__ = "region"
+
+    region_code: Mapped[str] = mapped_column(
+        String(10), primary_key=True, comment="지역코드(행정동코드)"
+    )
+    full_name: Mapped[str | None] = mapped_column(
+        String(100), nullable=True, comment="지역명 전체(ex. 서울시 강남구 역삼동)"
+    )
+    specific_name: Mapped[str | None] = mapped_column(
+        String(20), nullable=True, comment="최하위 지역명(ex. 역삼동)"
+    )
+    parent_code: Mapped[str | None] = mapped_column(
+        ForeignKey("region.region_code"), nullable=True, comment="상위 지역코드(self-FK)"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False, comment="입력일시"
+    )
+
+    parent: Mapped["Region | None"] = relationship(
+        remote_side=[region_code], foreign_keys=[parent_code]
+    )
+
+
+class Video(Base):
+    """전체 영상에 대한 정보. embedding_id 로 Chroma 벡터와 매핑."""
+    __tablename__ = "video"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    cctv_serial_no: Mapped[str | None] = mapped_column(
+        String(50), nullable=True, comment="CCTV 일련번호"
+    )
+    file_path: Mapped[str] = mapped_column(
+        String(260), nullable=False, comment="영상 파일의 경로"
+    )
+    region_code: Mapped[str | None] = mapped_column(
+        ForeignKey("region.region_code"), nullable=True, comment="지역코드(region의 PK)"
+    )
+    recorded_at: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True, comment="영상이 녹화된 일시"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False, comment="입력일시"
+    )
+    embedding_id: Mapped[str | None] = mapped_column(
+        String(50), nullable=True, comment="Chroma DB 내 매핑할 ID (embedding, metadata 세트)"
+    )
+
+    region: Mapped["Region | None"] = relationship()
+    details: Mapped[list["VideoDetail"]] = relationship(
+        back_populates="video", cascade="all, delete-orphan"
+    )
+
+
+class VideoDetail(Base):
+    """영상 상세정보 — 영상 내 인물 출현 구간(인덱싱 결과)."""
+    __tablename__ = "video_detail"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    video_id: Mapped[int] = mapped_column(
+        ForeignKey("video.id"), nullable=False, comment="video 테이블 pk"
+    )
+    video_timestamp: Mapped[int] = mapped_column(
+        Integer, nullable=False, comment="영상 내 사람 출현 시간(초, ex 8:10 -> 490)"
+    )
+    crop_id: Mapped[int] = mapped_column(
+        Integer, nullable=False, comment="한 화면에 여러 사람일 때 구분 ID"
+    )
+    position: Mapped[str] = mapped_column(
+        String(100), nullable=False, comment="bbox (x,y,width,height)"
+    )
+
+    video: Mapped["Video"] = relationship(back_populates="details")
+
+
+class Search(Base):
+    """요청한 검색 내용. search_type 으로 출처 구분(1 SMS / 2 챗봇 / 3 자동)."""
+    __tablename__ = "search"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id"), nullable=False, comment="검색 요청한 유저 id (user의 PK)"
+    )
+    message_sn: Mapped[str | None] = mapped_column(
+        ForeignKey("message.sn"), nullable=True, comment="지정 안내문자 id (message의 PK)"
+    )
+    missing_name: Mapped[str | None] = mapped_column(
+        String(20), nullable=True, comment="이름"
+    )
+    gender: Mapped[str | None] = mapped_column(
+        CHAR(1), nullable=True, comment="성별 (M:남성, F:여성)"
+    )
+    age: Mapped[int | None] = mapped_column(Integer, nullable=True, comment="나이")
+    clothing: Mapped[str | None] = mapped_column(
+        String(100), nullable=True, comment="인상착의(모자, 상의, 하의, 신발, 기타)"
+    )
+    missing_location: Mapped[str | None] = mapped_column(
+        String(20), nullable=True, comment="실종지역(추후 region_code로 변경 가능)"
+    )
+    missing_time: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True, comment="실종시각"
+    )
+    searched_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False, comment="검색한 일시"
+    )
+    search_type: Mapped[str] = mapped_column(
+        CHAR(1), nullable=False, default="1",
+        comment="1:SMS 파싱, 2:챗봇, 3:자동검색",
+    )
+
+    user: Mapped["User"] = relationship(foreign_keys=[user_id])
+    message: Mapped["Message | None"] = relationship()
+    analyses: Mapped[list["Analysis"]] = relationship(
+        back_populates="search", cascade="all, delete-orphan"
+    )
+
+
+class Analysis(Base):
+    """검색 요청에 대한 분석(실행) 상태."""
+    __tablename__ = "analysis"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id"), nullable=False, comment="user 테이블 pk"
+    )
+    search_id: Mapped[int] = mapped_column(
+        ForeignKey("search.id"), nullable=False, comment="search 테이블 pk"
+    )
+    analysis_status: Mapped[str] = mapped_column(
+        CHAR(1), nullable=False, default="0",
+        comment="0:분석 전, 1:부분분석완료, 2:완료",
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False, comment="결과도출 시간"
+    )
+
+    user: Mapped["User"] = relationship(foreign_keys=[user_id])
+    search: Mapped["Search"] = relationship(back_populates="analyses")
+    details: Mapped[list["AnalysisDetail"]] = relationship(
+        back_populates="analysis", cascade="all, delete-orphan"
+    )
+
+
+class AnalysisDetail(Base):
+    """분석 결과 상세 — 매칭된 인물 후보(crop) 단위."""
+    __tablename__ = "analysis_detail"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    analysis_id: Mapped[int] = mapped_column(
+        ForeignKey("analysis.id"), nullable=False, comment="analysis 테이블 pk"
+    )
+    video_id: Mapped[int] = mapped_column(
+        ForeignKey("video.id"), nullable=False, comment="video 테이블 pk"
+    )
+    video_timestamp: Mapped[int] = mapped_column(
+        Integer, nullable=False, comment="영상 내 실종자 출현 시간(초)"
+    )
+    crop_id: Mapped[int] = mapped_column(
+        Integer, nullable=False, comment="한 화면에 여러 사람일 때 구분 ID"
+    )
+    position: Mapped[str] = mapped_column(
+        String(100), nullable=False, comment="bbox (x,y,width,height)"
+    )
+    matching_rate: Mapped[float] = mapped_column(
+        Float, nullable=False, default=0, comment="매칭 정확도"
+    )
+
+    analysis: Mapped["Analysis"] = relationship(back_populates="details")
+    video: Mapped["Video"] = relationship()

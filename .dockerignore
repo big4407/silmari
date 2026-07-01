@@ -6,4 +6,5 @@ frontend/dist/
 .git/
 data/CCTV/**
 data/uploads/**
+data/chroma/**
 *.mp4
