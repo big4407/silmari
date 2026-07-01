@@ -60,7 +60,7 @@ async function loadTopoCollection(topoFile, objectName) {
 async function loadMunicipalities() {
   if (!municipalitiesCache) {
     municipalitiesCache = await loadTopoCollection(
-      '/geodata/municipalities.topo.json',
+      '/geodata/sigungu/municipalities.topo.json',
       'skorea_municipalities_geo',
     );
   }
@@ -70,7 +70,7 @@ async function loadMunicipalities() {
 export async function loadMapGeoJson(currentKey, options = {}) {
   if (currentKey === 'root') {
     return loadTopoCollection(
-      '/geodata/korea.topo.json',
+      '/geodata/sido/korea.topo.json',
       'skorea_provinces_geo',
     );
   }

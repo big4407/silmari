@@ -5,6 +5,7 @@ ORM 모델 정의 — MySQL 테이블과 1:1 매핑.
 [인증] User, AuthSession — 승인 기반 RBAC + JWT 세션 철회
 [외부] Message — 재난안전데이터 API 수집 재난문자
 """
+
 # db/models.py
 from sqlalchemy import (
     Column,
@@ -25,7 +26,8 @@ from datetime import date, datetime
 import enum
 import uuid
 
-from backend.db.database import Base   # ← 단일 Base 사용
+from backend.db.database import Base  # ← 단일 Base 사용
+
 
 class DetectionRecord(Base):
     __tablename__ = "detection_records"
@@ -54,6 +56,7 @@ class SearchResult(Base):
     description = Column(String(500), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+
 class UserRole(str, enum.Enum):
     INVESTIGATOR = "investigator"
     PUBLIC_OFFICIAL = "public_official"
@@ -70,9 +73,15 @@ class ApprovalStatus(str, enum.Enum):
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    username: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    username: Mapped[str] = mapped_column(
+        String(50), unique=True, index=True, nullable=False
+    )
+    email: Mapped[str] = mapped_column(
+        String(255), unique=True, index=True, nullable=False
+    )
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
 
     full_name: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -84,44 +93,71 @@ class User(Base):
     requested_role: Mapped[UserRole] = mapped_column(
         Enum(UserRole, native_enum=False), nullable=False, default=UserRole.INVESTIGATOR
     )
-    role: Mapped[UserRole | None] = mapped_column(Enum(UserRole, native_enum=False), nullable=True)
-    approval_status: Mapped[ApprovalStatus] = mapped_column(
-        Enum(ApprovalStatus, native_enum=False), nullable=False, default=ApprovalStatus.PENDING, index=True
+    role: Mapped[UserRole | None] = mapped_column(
+        Enum(UserRole, native_enum=False), nullable=True
     )
-    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    approved_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    approval_status: Mapped[ApprovalStatus] = mapped_column(
+        Enum(ApprovalStatus, native_enum=False),
+        nullable=False,
+        default=ApprovalStatus.PENDING,
+        index=True,
+    )
+    approved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    approved_by_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True
+    )
     rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
     )
 
-    approved_by: Mapped["User | None"] = relationship(remote_side=[id], foreign_keys=[approved_by_id])
-    sessions: Mapped[list["AuthSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    approved_by: Mapped["User | None"] = relationship(
+        remote_side=[id], foreign_keys=[approved_by_id]
+    )
+    sessions: Mapped[list["AuthSession"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class AuthSession(Base):
     __tablename__ = "auth_sessions"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id"), index=True, nullable=False
+    )
     refresh_token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
-    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
     ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
     user_agent: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
     user: Mapped[User] = relationship(back_populates="sessions")
+
 
 # 재난문자 원문 그대로, 단 date/datetime의 경우 파싱
 class Message(Base):
     __tablename__ = "message"
 
-    sn: Mapped[str] = mapped_column(
-        String(22), primary_key=True, comment="일련번호"
-    )
+    sn: Mapped[str] = mapped_column(String(22), primary_key=True, comment="일련번호")
 
     crt_dt: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, comment="생성일시"
@@ -149,6 +185,7 @@ class Message(Base):
         Date, nullable=True, comment="수정일자"
     )
 
+
 class ChatbotSession(Base):
     __tablename__ = "chatbot_session"
 
@@ -173,14 +210,17 @@ class ChatbotSession(Base):
         nullable=False,
     )
 
+
 # ──────────────────────────────────────────────────────────────────────────
 # 설계서(테이블 명세) 기준 모델
 # region / video / video_detail / search / analysis / analysis_detail
 # (User · Message 등 위 모델과 같은 Base 를 공유)
 # ──────────────────────────────────────────────────────────────────────────
 
+
 class Region(Base):
     """지역명과 지역코드(행정동코드). parent_code 로 계층(self-FK)."""
+
     __tablename__ = "region"
 
     region_code: Mapped[str] = mapped_column(
@@ -193,7 +233,9 @@ class Region(Base):
         String(20), nullable=True, comment="최하위 지역명(ex. 역삼동)"
     )
     parent_code: Mapped[str | None] = mapped_column(
-        ForeignKey("region.region_code"), nullable=True, comment="상위 지역코드(self-FK)"
+        ForeignKey("region.region_code"),
+        nullable=True,
+        comment="상위 지역코드(self-FK)",
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False, comment="입력일시"
@@ -206,6 +248,7 @@ class Region(Base):
 
 class Video(Base):
     """전체 영상에 대한 정보. embedding_id 로 Chroma 벡터와 매핑."""
+
     __tablename__ = "video"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -225,7 +268,9 @@ class Video(Base):
         DateTime, server_default=func.now(), nullable=False, comment="입력일시"
     )
     embedding_id: Mapped[str | None] = mapped_column(
-        String(50), nullable=True, comment="Chroma DB 내 매핑할 ID (embedding, metadata 세트)"
+        String(50),
+        nullable=True,
+        comment="Chroma DB 내 매핑할 ID (embedding, metadata 세트)",
     )
 
     region: Mapped["Region | None"] = relationship()
@@ -236,6 +281,7 @@ class Video(Base):
 
 class VideoDetail(Base):
     """영상 상세정보 — 영상 내 인물 출현 구간(인덱싱 결과)."""
+
     __tablename__ = "video_detail"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -257,14 +303,19 @@ class VideoDetail(Base):
 
 class Search(Base):
     """요청한 검색 내용. search_type 으로 출처 구분(1 SMS / 2 챗봇 / 3 자동)."""
+
     __tablename__ = "search"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[str] = mapped_column(
-        ForeignKey("users.id"), nullable=False, comment="검색 요청한 유저 id (user의 PK)"
+        ForeignKey("users.id"),
+        nullable=False,
+        comment="검색 요청한 유저 id (user의 PK)",
     )
     message_sn: Mapped[str | None] = mapped_column(
-        ForeignKey("message.sn"), nullable=True, comment="지정 안내문자 id (message의 PK)"
+        ForeignKey("message.sn"),
+        nullable=True,
+        comment="지정 안내문자 id (message의 PK)",
     )
     missing_name: Mapped[str | None] = mapped_column(
         String(20), nullable=True, comment="이름"
@@ -286,7 +337,9 @@ class Search(Base):
         DateTime, server_default=func.now(), nullable=False, comment="검색한 일시"
     )
     search_type: Mapped[str] = mapped_column(
-        CHAR(1), nullable=False, default="1",
+        CHAR(1),
+        nullable=False,
+        default="1",
         comment="1:SMS 파싱, 2:챗봇, 3:자동검색",
     )
 
@@ -299,6 +352,7 @@ class Search(Base):
 
 class Analysis(Base):
     """검색 요청에 대한 분석(실행) 상태."""
+
     __tablename__ = "analysis"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -309,7 +363,9 @@ class Analysis(Base):
         ForeignKey("search.id"), nullable=False, comment="search 테이블 pk"
     )
     analysis_status: Mapped[str] = mapped_column(
-        CHAR(1), nullable=False, default="0",
+        CHAR(1),
+        nullable=False,
+        default="0",
         comment="0:분석 전, 1:부분분석완료, 2:완료",
     )
     created_at: Mapped[datetime] = mapped_column(
@@ -325,6 +381,7 @@ class Analysis(Base):
 
 class AnalysisDetail(Base):
     """분석 결과 상세 — 매칭된 인물 후보(crop) 단위."""
+
     __tablename__ = "analysis_detail"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
