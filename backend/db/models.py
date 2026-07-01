@@ -149,48 +149,6 @@ class Message(Base):
         Date, nullable=True, comment="수정일자"
     )
 
-class Search(Base):
-    __tablename__ = "search"
-
-    id: Mapped[int] = mapped_column(
-        Integer,
-        primary_key=True,
-        autoincrement=True,
-    )
-
-    user_id: Mapped[str] = mapped_column(
-        String(36),
-        ForeignKey("users.id"),
-        nullable=False,
-    )
-
-    message_sn: Mapped[str | None] = mapped_column(
-        String(22),
-        ForeignKey("message.sn"),
-        nullable=True,
-    )
-
-    missing_name: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    gender: Mapped[str | None] = mapped_column(CHAR(1), nullable=True)
-    age: Mapped[int | None] = mapped_column(Integer, nullable=True)
-
-    clothing: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    missing_location: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    missing_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-
-    searched_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        nullable=False,
-        server_default=func.current_timestamp(),
-    )
-
-    search_type: Mapped[str] = mapped_column(
-        CHAR(1),
-        nullable=False,
-        server_default="1",
-    )
-
-
 class ChatbotSession(Base):
     __tablename__ = "chatbot_session"
 

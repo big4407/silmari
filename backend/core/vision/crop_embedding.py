@@ -10,7 +10,7 @@ FashionCLIP 이미지 임베딩 생성 (오프라인 배치).
 from fashion_clip.fashion_clip import FashionCLIP
 from pathlib import Path
 import numpy as np
-from backend.core.vision.chroma_db import get_collection
+from backend.db.database import get_chromadb
 
 def get_image_paths(image_dir):
     """
@@ -80,7 +80,7 @@ def make_metadata(image_paths):
 #         )
 
 def save_embedding(id, embedding, metadata):
-    collection = get_collection()
+    collection = get_chromadb()
     collection.upsert(
         ids=[id],
         embeddings=[embedding],

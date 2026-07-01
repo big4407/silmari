@@ -89,4 +89,4 @@ db.sqlite3
 *.json
 *.npy
 
-data/chroma_db/
+data/chroma/

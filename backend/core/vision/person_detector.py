@@ -6,7 +6,6 @@ YOLOv8 인물 탐지 + HSV 기반 의류 색상 필터.
 [호출] matcher.match_persons_in_frame() 에서 detect_persons + check_color_in_region 사용
 """
 from pathlib import Path
-from typing import Optional
 
 from ultralytics import YOLO
 import cv2
