@@ -26,6 +26,9 @@ export default function DashboardLayout() {
               <span className="dashboard-layout__subtitle">실종자 통합 검색 시스템</span>
             </div>
             <div className="dashboard-layout__util">
+              <Link to="/dev" className="dashboard-layout__util-link dashboard-layout__util-link--temp">
+                API 테스트
+              </Link>
               <Link to="/admin" className="dashboard-layout__util-link dashboard-layout__util-link--temp">
                 관리자
               </Link>
