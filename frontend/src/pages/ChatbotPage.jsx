@@ -1,5 +1,6 @@
 import { useState } from "react"
 import "./ChatbotPage.css"
+import { sendChatMessage } from "../api/chatbot_api"
 
 export default function ChatbotPage() {
   const [input, setInput] = useState("")
@@ -9,17 +10,44 @@ export default function ChatbotPage() {
       text: "안녕하세요! 실마리 챗봇입니다. 사진이나 인상착의를 입력해 주세요.",
     },
   ])
+  const getSessionId = () => {
+    let sessionId = localStorage.getItem("chatbot_session_id")
 
-  const handleSend = () => {
-    if (!input.trim()) return
-    const userMsg = input.trim()
-    setMessages((prev) => [...prev, { role: "user", text: userMsg }])
-    setInput("")
+    if (!sessionId) {
+      sessionId = crypto.randomUUID()
+      localStorage.setItem("chatbot_session_id", sessionId)
+    }
 
-    setTimeout(() => {
-      setMessages((prev) => [...prev, { role: "bot", text: "아직 준비중입니다." }])
-    }, 400)
+    return sessionId
   }
+
+  const handleSend = async () => {
+  if (!input.trim()) return
+
+  const userMsg = input.trim()
+
+  setMessages((prev) => [...prev, { role: "user", text: userMsg }])
+  setInput("")
+
+  try {
+    const data = await sendChatMessage({
+      sessionId: getSessionId(),
+      message: userMsg,
+    })
+
+    setMessages((prev) => [
+      ...prev,
+      { role: "bot", text: data.response },
+    ])
+  } catch (error) {
+    console.error(error)
+
+    setMessages((prev) => [
+      ...prev,
+      { role: "bot", text: "챗봇 서버와 연결할 수 없습니다." },
+    ])
+  }
+}
 
   return (
     <div className="chatbot-page">
