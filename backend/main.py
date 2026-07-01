@@ -108,24 +108,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth.router, prefix="/api/v1")
-app.include_router(users.router, prefix="/api/v1")
-app.include_router(admin.router, prefix="/api/v1")
-app.include_router(operations.router, prefix="/api/v1")
+app.include_router(auth.router, prefix="/member", tags=["member"])
+app.include_router(users.router, prefix="/member", tags=["member"])
+app.include_router(admin.router, prefix="/member", tags=["member"])
+app.include_router(operations.router, prefix="/member", tags=["member"])
 
-app.include_router(messages.router)
+app.include_router(messages.router, prefix="/message", tags=["message"])
+app.include_router(chatbot.router, prefix="/chatbot", tags=["chatbot"])
 
-app.include_router(alert.router, prefix="/api/alert", tags=["alert"])
-app.include_router(cctv.router, prefix="/api/cctv", tags=["cctv"])
-app.include_router(result.router, prefix="/api/result", tags=["result"])
-app.include_router(disaster_alerts.router, prefix="/api/alerts", tags=["alerts"])
 app.include_router(search.router, prefix="/search", tags=["search"])
 
-# 하위 호환: 기존 프론트엔드 경로
+# 태윤이 숙제
+# app.include_router(video.router, prefix="/video", tags=["video"])
+
+# legacy 미사용 라우터 추후 확인 및 처리
+app.include_router(disaster_alerts.router, prefix="/api/alerts", tags=["legacy"])
 app.include_router(alert.router, prefix="/api/sms", tags=["legacy"])
 app.include_router(cctv.router, prefix="/api/video", tags=["legacy"])
 app.include_router(result.router, prefix="/api/missing", tags=["legacy"])
-app.include_router(chatbot.router)
+
 
 @app.get("/health")
 def health_check():

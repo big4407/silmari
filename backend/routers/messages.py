@@ -27,11 +27,7 @@ def get_message_service(db: Session = Depends(get_db)) -> MessageService:
     return MessageService(db)
 
 
-router = APIRouter(
-    prefix="/messages",
-    tags=["Messages"],
-)
-
+router = APIRouter()
 
 @router.post(
     "/collect",
