@@ -3,7 +3,9 @@
   border-radius: 4px;
   background: #fff;
   overflow: hidden;
-  transition: box-shadow 0.15s, border-color 0.15s;
+  transition:
+    box-shadow 0.15s,
+    border-color 0.15s;
 }
 
 .search-card:hover {

@@ -2,6 +2,9 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
   font-family: var(--font-family);
   background: var(--color-bg);
   color: var(--color-text);
@@ -81,12 +84,18 @@
   text-decoration: none;
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .dashboard-layout__util-link:hover {
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
+}
+
+.dashboard-layout__util-link--temp {
+  border: 1px dashed rgba(255, 255, 255, 0.45);
 }
 
 .dashboard-layout__util-divider {
@@ -104,6 +113,7 @@
 .dashboard-layout__nav {
   display: flex;
   align-items: stretch;
+  width: 100%;
 }
 
 .dashboard-layout__tab {
@@ -118,7 +128,10 @@
   text-decoration: none;
   border-bottom: 3px solid transparent;
   margin-bottom: -1px;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
   white-space: nowrap;
 }
 

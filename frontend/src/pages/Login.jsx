@@ -1,6 +1,7 @@
-import { Link } from "react-router-dom"
-import LandingHeader from "../components/LandingHeader"
-import "./AuthPage.css"
+/** 로그인 UI — POST /api/v1/auth/login 연동 예정 (현재 폼만) */
+import { Link } from 'react-router-dom';
+import LandingHeader from '../components/LandingHeader';
+import './AuthPage.css';
 
 export default function Login() {
   return (
@@ -48,5 +49,5 @@ export default function Login() {
 
       <footer className="auth-page__footer" />
     </div>
-  )
+  );
 }

@@ -1,3 +1,10 @@
+"""
+JWT 발급·검증 및 비밀번호 해시.
+
+[흐름] login → create_access_token + create_refresh_token
+       API 요청 → deps.get_current_user → decode_token(access)
+       refresh → decode_token(refresh) → rotate_refresh_token
+"""
 import hashlib
 import uuid
 from datetime import datetime, timedelta, timezone

@@ -1,3 +1,10 @@
+"""
+FastAPI 인증 의존성 (Dependency Injection).
+
+[get_current_user] Bearer JWT → 세션 유효성 → 승인된 User 반환
+[require_roles]    RBAC — investigator / public_official / admin 역할 검사
+[사용처] routes/*.py 에서 Depends(get_current_user) 또는 Depends(require_roles(...))
+"""
 from collections.abc import Callable
 
 from fastapi import Depends, HTTPException, status
@@ -23,6 +30,7 @@ def get_current_user(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
+    # 세션 철회(revoked_at) 또는 만료 시 401 — 로그아웃 즉시 반영
     session = db.get(AuthSession, payload["sid"])
     if session is None or session.revoked_at is not None or as_utc(session.expires_at) <= utc_now():
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="로그인 세션이 종료되었습니다.")
