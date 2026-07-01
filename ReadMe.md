@@ -250,5 +250,6 @@ python scripts/smoke_test_auth.py
 
 ## 참고 문서
 
+- [변경 이력 (CHANGELOG)](CHANGELOG.md)
 - [FashionCLIP 의류 속성 분류 기준](fashionclip-taxonomy.md)
 - 행정구역 지도 데이터: `frontend/public/geodata/README.md`

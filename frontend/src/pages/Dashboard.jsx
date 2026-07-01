@@ -142,53 +142,56 @@ export default function Dashboard() {
   return (
     <div className="page">
       <section className="filter-panel" aria-label="조회 조건">
-        <div className="filter-panel__head">
-          <h2 className="filter-panel__title">조회 조건</h2>
-          {regionLabel && (
-            <span className="filter-panel__chip">지역 · {regionLabel}</span>
-          )}
-        </div>
-
-        <div className="filter-panel__body">
-          <div className="filter-panel__group">
-            <span className="filter-panel__label">기간</span>
-            <div className="filter-panel__dates">
-              <input
-                id="search-start-date"
-                type="date"
-                value={startDate}
-                onChange={e => setStartDate(e.target.value)}
-                aria-label="시작일"
-              />
-              <span className="filter-panel__sep">~</span>
-              <input
-                id="search-end-date"
-                type="date"
-                value={endDate}
-                onChange={e => setEndDate(e.target.value)}
-                aria-label="종료일"
-              />
-            </div>
+        <div className="filter-panel__toolbar">
+          <div className="filter-panel__title-col">
+            <h2 className="filter-panel__title">조회 조건</h2>
           </div>
 
-          <form className="filter-panel__group" onSubmit={handleRegionSearch}>
-            <span className="filter-panel__label">지역</span>
-            <div className="filter-panel__region">
-              <input
-                type="text"
-                placeholder="시·도·구·군 검색"
-                value={regionQuery}
-                onChange={(e) => {
-                  setRegionQuery(e.target.value)
-                  if (regionSearchError) setRegionSearchError(null)
-                }}
-                aria-label="지역명 검색"
-              />
-              <button type="submit" className="filter-panel__btn filter-panel__btn--sub">
-                지도 이동
-              </button>
+          <div className="filter-panel__fields">
+            <div className="filter-panel__group filter-panel__group--period">
+              <span className="filter-panel__label">기간</span>
+              <div className="filter-panel__dates">
+                <input
+                  id="search-start-date"
+                  type="date"
+                  value={startDate}
+                  onChange={e => setStartDate(e.target.value)}
+                  aria-label="시작일"
+                />
+                <span className="filter-panel__sep">~</span>
+                <input
+                  id="search-end-date"
+                  type="date"
+                  value={endDate}
+                  onChange={e => setEndDate(e.target.value)}
+                  aria-label="종료일"
+                />
+              </div>
             </div>
-          </form>
+
+            <form className="filter-panel__group filter-panel__group--region" onSubmit={handleRegionSearch}>
+              <span className="filter-panel__label">지역</span>
+              <div className="filter-panel__region">
+                <input
+                  type="text"
+                  placeholder="시·도·구·군 검색"
+                  value={regionQuery}
+                  onChange={(e) => {
+                    setRegionQuery(e.target.value)
+                    if (regionSearchError) setRegionSearchError(null)
+                  }}
+                  aria-label="지역명 검색"
+                />
+                <button type="submit" className="filter-panel__btn filter-panel__btn--secondary">
+                  지도 이동
+                </button>
+              </div>
+            </form>
+
+            {regionLabel && (
+              <span className="filter-panel__chip">지역 · {regionLabel}</span>
+            )}
+          </div>
 
           <div className="filter-panel__actions">
             <button
@@ -201,6 +204,14 @@ export default function Dashboard() {
             </button>
           </div>
         </div>
+
+        <p className={`filter-panel__hint${loading ? " filter-panel__hint--loading" : ""}`}>
+          {loading
+            ? "안내문자를 불러오는 중입니다."
+            : alertList.length === 0
+              ? "기간·지역을 설정한 뒤 안내문자 조회를 실행하세요. 저장된 목록이 없으면 최근 90일 기준으로 조회합니다."
+              : `총 ${alertList.length}건 · 지도에서 지역을 클릭하거나 검색해 필터할 수 있습니다.`}
+        </p>
 
         {regionSearchError && (
           <p className="filter-panel__error">{regionSearchError}</p>
@@ -241,70 +252,36 @@ export default function Dashboard() {
             </div>
           )}
 
-          {loading && (
-            <p className="sidebar-hint">조회 중… (과거 기간은 시간이 걸릴 수 있습니다)</p>
-          )}
-          {isDefaultQuery && !loading && (
+          {!loading && filteredAlerts.length > 0 && isDefaultQuery && (
             <p className="sidebar-hint">
               기본 조회 (최근 90일)
               {regionLabel && ` · ${regionLabel}`}
             </p>
           )}
-          {regionLabel && !isDefaultQuery && (
+          {!loading && filteredAlerts.length > 0 && !isDefaultQuery && regionLabel && (
             <p className="sidebar-hint">지역 필터 · {regionLabel}</p>
           )}
           {apiError && (
             <p className="sidebar-error">{apiError}</p>
           )}
-          {!loading && !apiError && filteredAlerts.length === 0 && (
-            <div className="sidebar-empty-state">
-              <div className="sidebar-empty-state__icon" aria-hidden="true">
-                <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-                  <rect x="6" y="10" width="36" height="28" rx="3" stroke="currentColor" strokeWidth="2" />
-                  <path d="M14 20h20M14 26h14M14 32h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                </svg>
-              </div>
-              <h3 className="sidebar-empty-state__title">
-                {alertList.length > 0 && regionLabel
-                  ? `${regionLabel} 지역 결과 없음`
-                  : startDate || endDate
-                    ? "해당 기간 결과 없음"
-                    : "조회된 안내문자가 없습니다"}
-              </h3>
-              <p className="sidebar-empty-state__message">
-                {alertList.length > 0 && regionLabel
-                  ? "지도에서 다른 지역을 선택해 보세요."
-                  : startDate || endDate
-                    ? "기간·지역 조건을 넓혀 다시 조회해 보세요."
-                    : "아래 순서대로 실종 안내문자를 조회할 수 있습니다."}
-              </p>
-              <ol className="sidebar-empty-state__steps">
-                <li>
-                  <span className="sidebar-empty-state__step-num">1</span>
-                  <div>
-                    <strong>조회 조건 설정</strong>
-                    <span>상단에서 기간·지역 입력</span>
-                  </div>
-                </li>
-                <li>
-                  <span className="sidebar-empty-state__step-num">2</span>
-                  <div>
-                    <strong>안내문자 조회</strong>
-                    <span>「안내문자 조회」 버튼 클릭</span>
-                  </div>
-                </li>
-                <li>
-                  <span className="sidebar-empty-state__step-num">3</span>
-                  <div>
-                    <strong>항목 선택</strong>
-                    <span>목록에서 안내문자 선택 후 분석</span>
-                  </div>
-                </li>
-              </ol>
-            </div>
-          )}
 
           <div className="sidebar__list">
+            {!loading && filteredAlerts.length === 0 && (
+              <div className="sidebar__empty">
+                <div className="sidebar__empty-icon" aria-hidden="true">
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                </div>
+                <p className="sidebar__empty-title">표시할 안내문자가 없습니다</p>
+                <p className="sidebar__empty-desc">
+                  상단 <strong>안내문자 조회</strong>를 실행하거나 지도에서 지역을 선택하세요.
+                </p>
+              </div>
+            )}
             {filteredAlerts.map((alert, i) => (
               <AlertMessageCard
                 key={alert.id || i}

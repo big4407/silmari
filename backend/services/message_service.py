@@ -12,6 +12,7 @@ from backend.utils.datetime_parser import parse_date, parse_datetime
 from backend.utils.message_filter import is_missing_person_message
 
 from fastapi import HTTPException
+from datetime import date
 
 
 # api로부터 메시지를 받아오거나, 수동으로 입력하는 서비스단
@@ -122,14 +123,20 @@ class MessageService:
         self,
         page: int,
         per_page: int,
-        search: str | None,
-        order_by: str,
+        search_content: str | None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        region: str | None = None,
+        order_by: str = "latest",
     ) -> MessageListResponse:
 
         messages, total = self.repository.find_all(
             page=page,
             per_page=per_page,
-            search=search,
+            search_content=search_content,
+            start_date=start_date,
+            end_date=end_date,
+            region=region,
             order_by=order_by,
         )
 
@@ -139,3 +146,10 @@ class MessageService:
             page=page,
             size=per_page,
         )
+
+    def delete_message(self, sn: str) -> None:
+        """
+        sn을 받아서 메시지를 삭제하는 함수
+        """
+        message = self._get_or_404(sn)
+        self.repository.delete(message)

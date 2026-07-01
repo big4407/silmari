@@ -1,5 +1,18 @@
 # db/models.py
-from sqlalchemy import Column, Date, Integer, String, DateTime, Text, Float, Enum, ForeignKey, func
+from sqlalchemy import (
+    Column,
+    Date,
+    Integer,
+    String,
+    DateTime,
+    Text,
+    Float,
+    Enum,
+    ForeignKey,
+    func,
+    CHAR,
+    JSON,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import date, datetime
 import enum
@@ -127,4 +140,70 @@ class Message(Base):
 
     mdfcn_ymd: Mapped[date | None] = mapped_column(
         Date, nullable=True, comment="수정일자"
+    )
+
+class Search(Base):
+    __tablename__ = "search"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True,
+    )
+
+    user_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("users.id"),
+        nullable=False,
+    )
+
+    message_sn: Mapped[str | None] = mapped_column(
+        String(22),
+        ForeignKey("message.sn"),
+        nullable=True,
+    )
+
+    missing_name: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    gender: Mapped[str | None] = mapped_column(CHAR(1), nullable=True)
+    age: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    clothing: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    missing_location: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    missing_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    searched_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        server_default=func.current_timestamp(),
+    )
+
+    search_type: Mapped[str] = mapped_column(
+        CHAR(1),
+        nullable=False,
+        server_default="1",
+    )
+
+
+class ChatbotSession(Base):
+    __tablename__ = "chatbot_session"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+
+    session_id: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+
+    user_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+
+    state_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
     )
