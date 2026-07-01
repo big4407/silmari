@@ -31,6 +31,11 @@ from backend.core.security import hash_password
 from backend.core.runtime import ensure_supported_python
 from backend.db.models import ApprovalStatus, User, UserRole
 
+from backend.core.scheduler import start_scheduler
+# scheduler의 logging을 위한 import
+# 아래에서 모듈 사용하지 않는다고 지우면 동작하지 않음
+import backend.core.scheduler_logging
+
 ensure_supported_python()
 settings = get_settings()
 
@@ -85,6 +90,7 @@ async def lifespan(_: FastAPI):
     ensure_dirs()                              # startup에 있던 것 이동
     Base.metadata.create_all(bind=engine)      # ← 단 1회
     bootstrap_admin()
+    start_scheduler() # 메시지 수집 스케줄러 시작
     yield
 
 
