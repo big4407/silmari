@@ -1,3 +1,4 @@
+/** 감사 로그 뷰 — 관리자·승인·로그인 이력 (목 UI) */
 import PageHead from "../components/PageHead"
 import { StatValue, TableEmptyRow } from "../components/EmptyState"
 

@@ -1,3 +1,10 @@
+"""
+재난안전데이터 API 클라이언트 + 로컬 캐시.
+
+[캐시] backend/data/alerts_cache/ — TTL 15분, force_refresh/cache_only 지원
+[필터] missing_only 시 실종 관련 안내문자만 반환
+[호출] routes/disaster_alerts.py → Dashboard.jsx
+"""
 import json
 import re
 import time

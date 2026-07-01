@@ -1,5 +1,11 @@
+/**
+ * Leaflet용 행정구역 GeoJSON 로드·스타일·라벨 유틸.
+ * public/geodata/ + southkorea-maps TopoJSON 변환.
+ */
 import * as topojson from "topojson-client"
-import { REGION_DATA } from "../hooks/useMapDrilldown"
+import { hasDongDrilldown } from "../data/dongRegions"
+import { REGION_DATA } from "../data/regionData"
+import { loadDongGeoJson } from "./admDongLoader"
 import { SIDO_SEARCH_TERMS } from "./regionMatch"
 
 /** REGION_DATA 행정코드 → southkorea-maps GeoJSON 시도코드 */
@@ -48,9 +54,13 @@ async function loadMunicipalities() {
   return municipalitiesCache
 }
 
-export async function loadMapGeoJson(currentKey) {
+export async function loadMapGeoJson(currentKey, options = {}) {
   if (currentKey === "root") {
     return loadTopoCollection("/geodata/korea.topo.json", "skorea_provinces_geo")
+  }
+
+  if (hasDongDrilldown(currentKey)) {
+    return loadDongGeoJson(currentKey, options)
   }
 
   const geoSido = GEO_SIDO_CODE_MAP[currentKey]
@@ -132,10 +142,20 @@ function matchGuRegion(geoName, sidoKey) {
 }
 
 export function findRegionForFeature(feature, currentKey) {
-  const geoName = feature.properties?.name || feature.properties?.SIG_KOR_NM || ""
+  const geoName = feature.properties?.name || feature.properties?.emdnm || feature.properties?.SIG_KOR_NM || ""
 
   if (currentKey === "root") {
     return matchSidoRegion(geoName)
+  }
+
+  if (hasDongDrilldown(currentKey)) {
+    const code = feature.properties?.code || feature.properties?.emdcd || feature.properties?.emd8
+    return {
+      id: String(code || geoName),
+      label: geoName,
+      lat: null,
+      lng: null,
+    }
   }
 
   const matched = matchGuRegion(geoName, currentKey)
@@ -158,6 +178,9 @@ export function getShortLabel(name, currentKey) {
       }
     }
     return name.replace(/특별자치시|특별자치도|광역시|특별시|도$/g, "")
+  }
+  if (hasDongDrilldown(currentKey)) {
+    return name.replace(/\(.*\)/, "").trim()
   }
   const cleaned = name.replace(/\(.*\)/, "").trim()
   const compound = cleaned.match(/^(.+시)(.+[구군])$/)
@@ -183,6 +206,10 @@ export function isRegionSelected(selectedRegion, regionLabel, geoName, shortLabe
   const sel = selectedRegion.replace(/\s/g, "")
   const geo = (geoName || regionLabel || "").replace(/\s/g, "")
   if (!geo || !sel) return false
+
+  if (hasDongDrilldown(currentKey)) {
+    return geo.includes(sel) || sel.includes(geo)
+  }
 
   if (geo.includes(sel)) return true
 

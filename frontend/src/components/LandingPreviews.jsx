@@ -1,3 +1,4 @@
+/** 랜딩 페이지 서비스 소개용 화면 미리보기 목업 */
 import "./LandingPreviews.css"
 
 export function ChatbotScreenPreview() {

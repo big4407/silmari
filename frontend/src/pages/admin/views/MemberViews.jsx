@@ -1,3 +1,4 @@
+/** 회원 관리 뷰 — 가입 승인 대기·전체 회원 (목 UI, /api/v1/admin 연동 예정) */
 import PageHead from "../components/PageHead"
 import { TableEmptyRow } from "../components/EmptyState"
 

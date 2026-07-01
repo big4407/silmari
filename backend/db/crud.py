@@ -1,3 +1,11 @@
+"""
+탐지·검색 결과 CRUD.
+
+[주요 함수]
+  create_search_result — CCTV 분석 후 DB 저장 (routes/cctv.py)
+  get_search_results   — 필터(이름·지역·안내문자) + 목록 조회
+  delete_search_result — 레코드 + 연관 미디어 삭제 연동 (routes/result.py)
+"""
 # db/crud.py
 import json
 from typing import Optional

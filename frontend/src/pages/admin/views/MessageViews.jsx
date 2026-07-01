@@ -1,3 +1,4 @@
+/** 안내문자 관리 뷰 — 목록·인상착의 파싱 검수 (목 UI) */
 import PageHead from "../components/PageHead"
 import EmptyState, { TableEmptyRow } from "../components/EmptyState"
 

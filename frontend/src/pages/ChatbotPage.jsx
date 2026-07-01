@@ -1,3 +1,4 @@
+/** 챗봇 UI — 현재 로컬 목 응답만 (향후 LLM·비전 API 연동 예정) */
 import { useState } from "react"
 import "./ChatbotPage.css"
 import { sendChatMessage } from "../api/chatbot_api"

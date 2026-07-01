@@ -1,4 +1,9 @@
-# core/config.py
+"""
+실마리(Silmari) 전역 설정 — .env 와 1:1 매핑되는 단일 Settings.
+
+[발표 포인트] DB·JWT·외부 API 키·파일 경로가 모두 여기서 관리됨.
+             Docker compose는 DB_HOST=db 등을 환경변수로 덮어씀.
+"""
 from functools import lru_cache
 from pathlib import Path
 

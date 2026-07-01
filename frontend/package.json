@@ -6,6 +6,7 @@
     "build": "vite build"
   },
   "dependencies": {
+    "admdongkor": "^0.2.0",
     "axios": "^1.6.0",
     "leaflet": "^1.9.4",
     "react": "^18.2.0",

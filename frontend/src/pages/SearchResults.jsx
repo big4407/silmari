@@ -1,3 +1,9 @@
+/**
+ * 탐지 결과 목록·상세·클립 재생.
+ *
+ * [모드] activeSearch(방금 분석) 또는 DB 이력(fetchSearchResults)
+ * [UI] MissingPersonSidebar + ClipSequencePlayer + SearchResultCard
+ */
 import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { fetchSearchResults, deleteSearchResult, deleteAllSearchResults, API_BASE } from "../api/client"

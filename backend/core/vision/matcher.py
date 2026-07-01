@@ -1,3 +1,14 @@
+"""
+프레임 단위 인물 매칭 — 파이프라인 2단계 핵심.
+
+[필터 순서]
+  1. YOLO person 탐지 (person_detector)
+  2. HSV 의류 색상 비율 (color_ratio < 0.2 이면 제외)
+  3. (선택) 참조 사진 얼굴 유사도 — 현재 compare_face 미연결
+
+[출력] 탐지 후보 리스트 — bbox, confidence, timestamp, image_base64 등
+       → clip_generator 가 클립·썸네일로 변환
+"""
 import base64
 from typing import Optional
 
@@ -5,7 +16,6 @@ import cv2
 
 from backend.core.vision.person_detector import check_color_in_region, detect_persons
 
-# matcher파일 동일인물 검증 기능으로 분리된 이미지를 text query문과 비교해서 점수를 뽑아내 상위 5명을 가져온다.
 from fashion_clip.fashion_clip import FashionCLIP
 from pathlib import Path
 import numpy as np
@@ -28,6 +38,7 @@ def match_persons_in_frame(
         x1, y1, x2, y2 = det["bbox"]
         conf = det["confidence"]
 
+        # 안내문자에서 파싱한 의류색과 bbox 영역 HSV 매칭 — 20% 미만이면 후보 제외
         color_ratio = check_color_in_region(
             frame, x1, y1, x2, y2, target_color, clothes_part
         )

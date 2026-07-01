@@ -1,3 +1,9 @@
+/**
+ * 대시보드 전역 상태 — Zustand 스토어.
+ *
+ * [연동] Dashboard(재난문자·지역) ↔ CCTVUpload(안내문자) ↔ SearchResults(결과)
+ * [핵심] alertText, selectedRegion, activeSearch — 화면 간 탐지 컨텍스트 공유
+ */
 import { create } from "zustand"
 
 export const useDetectionStore = create((set) => ({

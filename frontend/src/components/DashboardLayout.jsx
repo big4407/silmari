@@ -1,3 +1,8 @@
+/**
+ * 수사관 대시보드 공통 레이아웃 — 상단 탭 + Outlet.
+ *
+ * 하위: Dashboard, ChatbotPage, SearchHistory, SearchResults
+ */
 import { Link, NavLink, Outlet } from "react-router-dom"
 import "./DashboardLayout.css"
 

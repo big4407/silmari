@@ -1,3 +1,9 @@
+"""
+SQLAlchemy 엔진·세션·Base 선언.
+
+[연결] core/config.py 의 database_url (MySQL 또는 DATABASE_URL_OVERRIDE)
+[get_db] FastAPI Depends용 제너레이터 — 요청마다 SessionLocal 생성·종료
+"""
 # db/database.py
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker

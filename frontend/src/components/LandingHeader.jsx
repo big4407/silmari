@@ -1,3 +1,4 @@
+/** 랜딩·인증 페이지 공통 헤더 네비게이션 */
 import { Link, NavLink, useLocation } from "react-router-dom"
 import "./LandingHeader.css"
 

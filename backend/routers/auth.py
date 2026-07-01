@@ -1,3 +1,9 @@
+"""
+인증 API — 회원가입·로그인·토큰 갱신·로그아웃.
+
+[승인 흐름] signup(pending) → admin 승인 → login → JWT 발급
+[개발용]    POST /auth/dev/bootstrap-login — 로컬 전용, NO_PASSWORD 모드
+"""
 import logging
 from datetime import timezone
 

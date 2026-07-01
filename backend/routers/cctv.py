@@ -1,3 +1,12 @@
+"""
+CCTV 영상 분석 API.
+
+[역할] 프론트엔드(CCTVUpload.jsx)에서 업로드된 영상·안내문자를 받아
+       탐지 파이프라인을 실행하고, 결과가 있으면 DB에 검색 이력을 저장한다.
+
+[후처리] 탐지 구간 → clip_generator로 클립·썸네일 생성 → SearchResult 레코드 생성
+[정리]   분석에 쓴 임시 업로드 파일은 응답 직전에 삭제(storage.remove_file)
+"""
 import uuid
 
 from fastapi import APIRouter, UploadFile, File, Form
@@ -18,6 +27,7 @@ async def analyze_video(
     reference_photo: Optional[UploadFile] = File(None),
     region: Optional[str] = Form(None),
 ):
+    # 업로드 파일을 data/uploads/ 에 임시 저장 (분석 후 삭제)
     file_id, video_path = save_upload(video.file, video.filename)
 
     ref_path = None
@@ -27,6 +37,7 @@ async def analyze_video(
     result = run_detection_pipeline(video_path, sms_text.strip(), ref_path)
     search_result_id = None
 
+    # 탐지가 1건 이상일 때만 클립 생성 + DB 저장 (없으면 API는 결과만 반환)
     if result["detections"]:
         sms_info = result["sms_info"]
         if hasattr(sms_info, "model_dump"):

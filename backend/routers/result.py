@@ -1,3 +1,10 @@
+"""
+탐지 결과·검색 이력·미디어 제공 API.
+
+[조회] /search, /search/{id} — SearchResult + 클립·썸네일 URL
+[미디어] /media/thumbnails, /media/clips — data/results/ 정적 파일
+[삭제] DELETE /search — DB 레코드 + 디스크 클립·썸네일 함께 제거
+"""
 import json
 import os
 

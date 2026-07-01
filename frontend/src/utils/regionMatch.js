@@ -1,4 +1,9 @@
-import { REGION_DATA } from "../hooks/useMapDrilldown"
+/**
+ * 지역명 ↔ 재난문자 rcptn_rgn_nm 매칭·필터 유틸.
+ * Dashboard 지도 선택 → alertList 필터링에 사용.
+ */
+import { REGION_DATA } from "../data/regionData"
+import { hasDongDrilldown } from "../data/dongRegions"
 
 /** 시도 약칭 → rcptn_rgn_nm 매칭용 키워드 */
 export const SIDO_SEARCH_TERMS = {
@@ -33,6 +38,22 @@ export function buildMapFilter(region, path) {
   const sidoLabel = REGION_DATA[sidoId]?.label
     || REGION_DATA.root.regions.find(r => r.id === sidoId)?.label
     || ""
+  if (path.length > 2 && hasDongDrilldown(path[2])) {
+    const guId = path[2]
+    const guMeta = REGION_DATA[sidoId]?.regions?.find(r => r.id === guId)
+    const guLabel = guMeta?.label || region.guLabel || ""
+    if (region.id === guId || (guMeta && region.id === guMeta.id)) {
+      return { level: "gu", label: region.label, sidoId, sidoLabel }
+    }
+    return {
+      level: "dong",
+      label: region.label,
+      guId,
+      guLabel,
+      sidoId,
+      sidoLabel,
+    }
+  }
   return { level: "gu", label: region.label, sidoId, sidoLabel }
 }
 
@@ -63,6 +84,15 @@ export function alertMatchesFilter(rcptnRgnNm, mapFilter) {
     return text.includes(mapFilter.label)
   }
 
+  if (mapFilter.level === "dong") {
+    const textNorm = text.replace(/\s/g, "")
+    const dongLabel = mapFilter.label.replace(/\s/g, "")
+    if (dongLabel && textNorm.includes(dongLabel)) return true
+    const guLabel = (mapFilter.guLabel || "").replace(/\s/g, "")
+    if (guLabel && textNorm.includes(guLabel)) return true
+    return false
+  }
+
   return true
 }
 
@@ -74,6 +104,11 @@ export function filterAlertsByRegion(alerts, mapFilter) {
 export function countAlertsForSido(alerts, sidoLabel) {
   const filter = { level: "sido", label: sidoLabel }
   return filterAlertsByRegion(alerts, filter).length
+}
+
+/** rcptn_rgn_nm에서 읍·면·동 후보 추출 */
+function extractEmdNames(text) {
+  return [...text.matchAll(/([가-힣0-9]+(?:동|읍|면))/g)].map(m => m[1])
 }
 
 function isSidoUnit(name, matchedSido) {
@@ -122,6 +157,20 @@ export function resolveAlertMapFocus(rcptnRgnNm) {
   if (sidoData?.regions) {
     for (const gu of sidoData.regions) {
       if (text.includes(gu.label)) {
+        if (hasDongDrilldown(gu.id)) {
+          for (const emdName of extractEmdNames(text)) {
+            if (text.includes(emdName)) {
+              const dongPath = [...path, gu.id]
+              const dong = { id: emdName, label: emdName }
+              return {
+                path: dongPath,
+                selectedLabel: emdName,
+                dongId: emdName,
+                mapFilter: buildMapFilter(dong, dongPath),
+              }
+            }
+          }
+        }
         return {
           path,
           selectedLabel: gu.label,

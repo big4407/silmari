@@ -1,3 +1,4 @@
+/** CCTV 업로드 등 단순 페이지용 상단 네비 레이아웃 */
 import { NavLink, Outlet } from "react-router-dom"
 import "../App.css"
 

@@ -1,3 +1,10 @@
+/**
+ * 메인 대시보드 — 지도 + 실종 안내문자 목록.
+ *
+ * [지도] MapDrilldown — 시·도/구·군 드릴다운, 지역별 문자 필터
+ * [데이터] fetchDisasterAlerts(missing_only) + sessionStorage 캐시
+ * [액션] 문자 선택 → alertText 저장 → /cctv 또는 /search-results 이동
+ */
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import MapDrilldown from "../components/MapDrilldown"
@@ -113,9 +120,9 @@ export default function Dashboard() {
     setSelectedRegion(regionFilterLabel(filter) || "전국")
   }, [setSelectedRegion])
 
-  const handleRegionSearch = (e) => {
+  const handleRegionSearch = async (e) => {
     e.preventDefault()
-    const focus = findRegionByName(regionQuery)
+    const focus = await findRegionByName(regionQuery)
     if (!focus) {
       setRegionSearchError("일치하는 지역을 찾을 수 없습니다.")
       return

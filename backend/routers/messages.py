@@ -1,3 +1,9 @@
+"""
+재난문자 수집·조회 API.
+
+POST /messages/collect — 외부 API에서 재난문자 수집 후 DB 저장
+GET  /messages         — 저장된 메시지 목록 (실종 필터 등)
+"""
 from fastapi import APIRouter, Depends, Query, Path
 from sqlalchemy.orm import Session
 

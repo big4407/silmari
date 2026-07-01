@@ -1,3 +1,4 @@
+/** YOLO 탐지 신뢰도 시각화 바 — SearchResultCard 에서 사용 */
 import "./ConfidenceBar.css"
 
 export default function ConfidenceBar({ value, label }) {

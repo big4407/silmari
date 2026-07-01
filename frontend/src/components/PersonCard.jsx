@@ -1,3 +1,4 @@
+/** 실종자 인상착의 카드 — safe182 목록 등에서 선택용 */
 import "./PersonCard.css"
 
 export default function PersonCard({ person, index, selected, onClick }) {

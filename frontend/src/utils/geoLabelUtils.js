@@ -1,4 +1,5 @@
 /** 시·도 라벨 수동 좌표 (바다/섬 지역 바운딩박스 중심 보정) */
+import { hasDongDrilldown } from "../data/dongRegions"
 export const SIDO_LABEL_POSITIONS = {
   서울: [37.5665, 126.978],
   부산: [35.18, 129.05],
@@ -134,7 +135,7 @@ export function getLabelLatLng(feature, shortLabel, currentKey) {
 
 /** 화면 픽셀 기준 라벨 표시 여부 */
 export function shouldShowPermanentLabel(featureLayer, map, currentKey, { isActive = false } = {}) {
-  if (currentKey === "root" || isActive) return true
+  if (currentKey === "root" || isActive || hasDongDrilldown(currentKey)) return true
 
   const bounds = featureLayer.getBounds()
   const nw = map.latLngToContainerPoint(bounds.getNorthWest())

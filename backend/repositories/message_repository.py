@@ -1,3 +1,8 @@
+"""
+Message ORM 접근 계층 — CRUD·중복 검사·목록 조회.
+
+MessageService 가 비즈니스 로직, Repository 가 DB 쿼리만 담당.
+"""
 from sqlalchemy.orm import Session
 
 from backend.db.models import Message

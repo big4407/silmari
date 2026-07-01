@@ -1,3 +1,4 @@
+"""외부 API 날짜·시간 문자열 파싱 — message_service 수집 시 사용."""
 from datetime import date, datetime
 
 

@@ -1,3 +1,4 @@
+/** 관리자 콘솔 공통 빈 상태·통계·테이블 플레이스홀더 컴포넌트 */
 export function TableEmptyRow({ colSpan, message = "데이터가 없습니다." }) {
   return (
     <tr className="admin-table-empty">

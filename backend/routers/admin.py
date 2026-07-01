@@ -1,3 +1,9 @@
+"""
+관리자 API — 회원 승인·반려·역할 부여.
+
+[RBAC] require_roles(UserRole.ADMIN) — admin 역할만 접근
+[핵심] PATCH /admin/users/{id}/approval — pending → approved/rejected/suspended
+"""
 from datetime import timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
