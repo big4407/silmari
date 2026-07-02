@@ -4,7 +4,7 @@ FashionCLIP 기반 텍스트→이미지 유사도 검색 (오프라인 임베�
 [용도] CCTV에서 추출·중복 제거된 인물 크롭(data/results/embeddings)을
        안내문자 인상착의 텍스트 쿼리와 코사인 유사도로 랭킹한다.
 [연계] crop_embedding.py(임베딩 생성) · check_same_person.py(동일인 병합)
-[상태] search_similar_images() 반환값 미구현 — matcher.py 쪽이 실제 탐지에 사용됨
+[상태] 오프라인 스크립트용 — API 파이프라인은 crop_embedding + search_embedding 경로 사용
 """
 from fashion_clip.fashion_clip import FashionCLIP
 from pathlib import Path

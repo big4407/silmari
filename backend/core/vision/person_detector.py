@@ -3,7 +3,7 @@ YOLOv8 인물 탐지 + HSV 기반 의류 색상 필터.
 
 [모델] data/yolo/yolov8n.pt (class 0 = person, conf ≥ 0.85)
 [색상] COLOR_RANGES — 한국어 색상명 → OpenCV HSV 구간
-[호출] matcher.match_persons_in_frame() 에서 detect_persons + check_color_in_region 사용
+[호출] person_detect() · detect_persons() — pipeline / crop_embedding 경로에서 사용
 """
 from pathlib import Path
 

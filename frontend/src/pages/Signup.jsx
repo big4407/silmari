@@ -1,4 +1,4 @@
-/** 회원가입 UI — POST /member/auth/signup (승인 대기 상태로 신청) */
+/** 회원가입 UI — POST /api/v1/auth/signup (승인 대기 상태로 신청) */
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import LandingHeader from '../components/LandingHeader';
