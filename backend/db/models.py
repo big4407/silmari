@@ -22,12 +22,22 @@ from sqlalchemy import (
     JSON,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import enum
 import uuid
 
 from backend.db.database import Base  # ← 단일 Base 사용
 from backend.utils.timeutils import kst_now
+
+
+def _default_start_date() -> date:
+    """검색 기본 시작일 — 오늘(KST) 기준 7일 전."""
+    return (kst_now() - timedelta(days=7)).date()
+
+
+def _default_end_date() -> date:
+    """검색 기본 종료일 — 오늘(KST)."""
+    return kst_now().date()
 
 
 class DetectionRecord(Base):
@@ -381,6 +391,18 @@ class Search(Base):
     )
     searched_at: Mapped[datetime] = mapped_column(
         DateTime, default=kst_now, nullable=False, comment="검색한 일시"
+    )
+    start_date: Mapped[date] = mapped_column(
+        Date,
+        nullable=False,
+        default=_default_start_date,
+        comment="영상 검색 시작일자 (기본: 오늘 기준 7일 전)",
+    )
+    end_date: Mapped[date] = mapped_column(
+        Date,
+        nullable=False,
+        default=_default_end_date,
+        comment="영상 검색 종료일자 (기본: 오늘)",
     )
     search_type: Mapped[SearchType] = mapped_column(
         Enum(
