@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 from pydantic import BaseModel, Field
 
 
@@ -36,6 +36,8 @@ class SearchCreate(BaseModel):
     clothing: str | None = Field(default=None, max_length=100)
     missing_location: str | None = Field(default=None, max_length=20)
     missing_time: datetime | None = None
+    start_date: date = Field(..., description="검색 시작 날짜")
+    end_date: date = Field(..., description="검색 종료 날짜")
 
     search_type: str = Field(
         default="1", max_length=1
