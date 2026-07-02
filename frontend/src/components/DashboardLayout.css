@@ -198,3 +198,10 @@
     font-size: var(--font-size-sm);
   }
 }
+
+/* 로그아웃 버튼 — util-link 스타일을 button에도 동일 적용 (기본 UA 스타일 리셋) */
+button.dashboard-layout__util-link {
+  background: none;
+  border: none;
+  cursor: pointer;
+}

@@ -27,6 +27,7 @@ import enum
 import uuid
 
 from backend.db.database import Base  # ← 단일 Base 사용
+from backend.utils.timeutils import kst_now
 
 
 class DetectionRecord(Base):
@@ -36,7 +37,7 @@ class DetectionRecord(Base):
     alert_text = Column(Text)
     video_filename = Column(String(255))
     result_json = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=kst_now)
 
 
 class SearchResult(Base):
@@ -54,7 +55,7 @@ class SearchResult(Base):
     clips_json = Column(Text)
     sms_info_json = Column(Text)
     description = Column(String(500), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=kst_now)
 
 
 class UserRole(str, enum.Enum):
@@ -111,12 +112,12 @@ class User(Base):
     rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+        DateTime(timezone=True), default=kst_now, nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
+        default=kst_now,
+        onupdate=kst_now,
         nullable=False,
     )
 
@@ -147,7 +148,7 @@ class AuthSession(Base):
     ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
     user_agent: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+        DateTime(timezone=True), default=kst_now, nullable=False
     )
 
     user: Mapped[User] = relationship(back_populates="sessions")
@@ -199,14 +200,14 @@ class ChatbotSession(Base):
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
-        server_default=func.now(),
+        default=kst_now,
         nullable=False,
     )
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
-        server_default=func.now(),
-        onupdate=func.now(),
+        default=kst_now,
+        onupdate=kst_now,
         nullable=False,
     )
 
@@ -238,7 +239,7 @@ class Region(Base):
         comment="상위 지역코드(self-FK)",
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), nullable=False, comment="입력일시"
+        DateTime, default=kst_now, nullable=False, comment="입력일시"
     )
 
     parent: Mapped["Region | None"] = relationship(
@@ -265,7 +266,7 @@ class Video(Base):
         DateTime, nullable=True, comment="영상이 녹화된 일시"
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), nullable=False, comment="입력일시"
+        DateTime, default=kst_now, nullable=False, comment="입력일시"
     )
     embedding_id: Mapped[str | None] = mapped_column(
         String(50),
@@ -334,7 +335,7 @@ class Search(Base):
         DateTime, nullable=True, comment="실종시각"
     )
     searched_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), nullable=False, comment="검색한 일시"
+        DateTime, default=kst_now, nullable=False, comment="검색한 일시"
     )
     search_type: Mapped[str] = mapped_column(
         CHAR(1),
@@ -369,7 +370,7 @@ class Analysis(Base):
         comment="0:분석 전, 1:부분분석완료, 2:완료",
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), nullable=False, comment="결과도출 시간"
+        DateTime, default=kst_now, nullable=False, comment="결과도출 시간"
     )
 
     user: Mapped["User"] = relationship(foreign_keys=[user_id])
