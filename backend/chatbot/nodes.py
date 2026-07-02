@@ -62,7 +62,7 @@ def create_search_node(state, config):
         clothing=state.get("appearance"),
         missing_location=state.get("region"),
         missing_time=state.get("start_time"),
-        search_type="C",
+        search_type="2",
     )
 
     search = service.create_search(search_data)
