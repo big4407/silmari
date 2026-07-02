@@ -1,251 +1,365 @@
-import { useCallback, useEffect, useRef } from "react"
-import L from "leaflet"
-import "leaflet/dist/leaflet.css"
-import useMapDrilldown from "../hooks/useMapDrilldown"
-import { countAlertsForSido } from "../utils/regionMatch"
+/**
+ * Leaflet 행정구역 드릴다운 지도.
+ *
+ * [데이터] TopoJSON 시·도/구·군 + admdongkor 동 경계
+ * [연동] Dashboard — 지역 클릭 시 mapFilter 변경 → 안내문자 필터
+ */
+import { useCallback, useEffect, useRef, useState } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import useMapDrilldown from '../hooks/useMapDrilldown';
+import { hasDongDrilldown } from '../data/dongRegions';
+import { countAlertsForSido } from '../utils/regionMatch';
 import {
   getLabelLatLng,
   shouldShowPermanentLabel,
-} from "../utils/geoLabelUtils"
+} from '../utils/geoLabelUtils';
 import {
   findRegionForFeature,
   getRegionStyle,
   getShortLabel,
   isRegionSelected,
   loadMapGeoJson,
-} from "../utils/mapGeoData"
-import "./MapDrilldown.css"
+} from '../utils/mapGeoData';
+import { getGuLabelFromPath } from '../utils/admDongLoader';
+import './MapDrilldown.css';
 
-const KOREA_BOUNDS = L.latLngBounds([33.0, 124.5], [39.0, 132.1])
+const KOREA_BOUNDS = L.latLngBounds([33.0, 124.5], [39.0, 132.1]);
 
 function getDisplayLabel(_selected, shortLabel, geoName) {
-  const compound = (geoName || "").match(/^(.+시)(.+[구군])$/)
-  if (compound) return compound[2]
-  return shortLabel
+  const compound = (geoName || '').match(/^(.+시)(.+[구군])$/);
+  if (compound) return compound[2];
+  return shortLabel;
 }
 
 function getFeatureCenter(layer) {
-  return layer.getBounds().getCenter()
+  return layer.getBounds().getCenter();
 }
 
 function createLabelIcon(shortLabel, count, isActive, permanent) {
-  const countHtml = count > 0
-    ? `<span class="map-region-label__count">${count}</span>`
-    : ""
+  const countHtml =
+    count > 0 ? `<span class="map-region-label__count">${count}</span>` : '';
   return L.divIcon({
-    className: "",
-    html: `<span class="map-region-label ${isActive ? "map-region-label--active" : ""} ${count > 0 ? "map-region-label--has-count" : ""} ${permanent ? "" : "map-region-label--hover"}"><span class="map-region-label__name">${shortLabel}</span>${countHtml}</span>`,
+    className: '',
+    html: `<span class="map-region-label ${isActive ? 'map-region-label--active' : ''} ${count > 0 ? 'map-region-label--has-count' : ''} ${permanent ? '' : 'map-region-label--hover'}"><span class="map-region-label__name">${shortLabel}</span>${countHtml}</span>`,
     iconSize: [0, 0],
     iconAnchor: [0, 0],
-  })
+  });
 }
 
-export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] }) {
-  const mapRef = useRef(null)
-  const mapInstanceRef = useRef(null)
-  const geoLayerRef = useRef(null)
-  const labelMarkersRef = useRef([])
-  const featureMetaRef = useRef([])
-  const geojsonRef = useRef(null)
-  const currentKeyRef = useRef("root")
-  const selectedRegionRef = useRef("전국")
+export default function MapDrilldown({
+  onRegionSelect,
+  focusTarget,
+  alerts = [],
+}) {
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const geoLayerRef = useRef(null);
+  const labelMarkersRef = useRef([]);
+  const featureMetaRef = useRef([]);
+  const geojsonRef = useRef(null);
+  const currentKeyRef = useRef('root');
+  const selectedRegionRef = useRef('전국');
 
   const {
+    path,
     currentKey,
+    activeGu,
     breadcrumbs,
     selectedRegion,
     selectRegion,
     navigateTo,
     resetMap,
     applyFocus,
-  } = useMapDrilldown(onRegionSelect)
+  } = useMapDrilldown(onRegionSelect);
 
-  const selectRegionRef = useRef(selectRegion)
-  selectRegionRef.current = selectRegion
+  const [geoLoading, setGeoLoading] = useState(false);
 
-  const applyFocusRef = useRef(applyFocus)
-  applyFocusRef.current = applyFocus
+  const selectRegionRef = useRef(selectRegion);
+  selectRegionRef.current = selectRegion;
 
-  const lastFocusKeyRef = useRef(null)
-  const prevCurrentKeyRef = useRef("root")
+  const applyFocusRef = useRef(applyFocus);
+  applyFocusRef.current = applyFocus;
 
-  currentKeyRef.current = currentKey
-  selectedRegionRef.current = selectedRegion
+  const lastFocusKeyRef = useRef(null);
+  const prevCurrentKeyRef = useRef('root');
+  const renderGenRef = useRef(0);
+  const pathRef = useRef(path);
+  const activeGuRef = useRef(activeGu);
+
+  currentKeyRef.current = currentKey;
+  selectedRegionRef.current = selectedRegion;
+  pathRef.current = path;
+  activeGuRef.current = activeGu;
 
   const clearLabelMarkers = () => {
-    labelMarkersRef.current.forEach(m => m.remove())
-    labelMarkersRef.current = []
-  }
+    labelMarkersRef.current.forEach((m) => m.remove());
+    labelMarkersRef.current = [];
+  };
 
   const clearGeoLayer = () => {
     if (geoLayerRef.current) {
-      geoLayerRef.current.remove()
-      geoLayerRef.current = null
+      geoLayerRef.current.remove();
+      geoLayerRef.current = null;
     }
-    featureMetaRef.current = []
-    clearLabelMarkers()
-  }
+    featureMetaRef.current = [];
+    clearLabelMarkers();
+  };
 
-  const updateLayerPresentation = useCallback((map, geojson, key, selected) => {
-    clearLabelMarkers()
+  const updateLayerPresentation = useCallback(
+    (map, geojson, key, selected) => {
+      clearLabelMarkers();
 
-    featureMetaRef.current.forEach(({ featureLayer, feature, region, shortLabel, labelText, geoName, alertCount }) => {
-      const isActive = isRegionSelected(selected, region.label, geoName, shortLabel)
-      const displayLabel = getDisplayLabel(selected, shortLabel, geoName)
-      const idx = geojson.features.indexOf(feature)
-      featureLayer.setStyle(getRegionStyle({ isActive, colorIndex: idx, alertCount }))
-
-      const labelLatLng = getLabelLatLng(feature, shortLabel, key)
-      const count = alertCount || 0
-      const showPermanent = labelLatLng && (
-        isActive
-        || count > 0
-        || (key !== "root" && shouldShowPermanentLabel(featureLayer, map, key, { isActive }))
-      )
-
-      if (labelLatLng && showPermanent) {
-        const labelMarker = L.marker(labelLatLng, {
-          icon: createLabelIcon(displayLabel, alertCount || 0, isActive, true),
-          interactive: false,
-        }).addTo(map)
-        labelMarkersRef.current.push(labelMarker)
-      }
-
-      const tooltip = featureLayer.getTooltip()
-      if (tooltip) {
-        tooltip.setContent(labelText)
-      }
-    })
-  }, [])
-
-  const fitMapToLayer = useCallback((map, layer, key) => {
-    if (!layer.getBounds().isValid()) return
-    map.fitBounds(layer.getBounds(), {
-      padding: [8, 8],
-      maxZoom: key === "root" ? 9 : 11,
-      animate: false,
-    })
-    requestAnimationFrame(() => map.invalidateSize())
-  }, [])
-
-  const fitMapToSelection = useCallback((map, selected, key) => {
-    if (!selected || selected === "전국") return false
-
-    const activeLayers = featureMetaRef.current
-      .filter(({ region, shortLabel, geoName }) =>
-        isRegionSelected(selected, region.label, geoName, shortLabel),
-      )
-      .map(({ featureLayer }) => featureLayer)
-
-    if (activeLayers.length === 0) return false
-
-    const group = L.featureGroup(activeLayers)
-    if (!group.getBounds().isValid()) return false
-
-    map.fitBounds(group.getBounds(), {
-      padding: [48, 48],
-      maxZoom: key === "root" ? 8 : 13,
-      animate: false,
-    })
-    requestAnimationFrame(() => map.invalidateSize())
-    return true
-  }, [])
-
-  const fitMapView = useCallback((map, layer, key, selected) => {
-    if (fitMapToSelection(map, selected, key)) return
-    fitMapToLayer(map, layer, key)
-  }, [fitMapToLayer, fitMapToSelection])
-
-  const renderGeoLayer = useCallback(async (map) => {
-    clearGeoLayer()
-
-    const key = currentKeyRef.current
-    let geojson
-    try {
-      geojson = await loadMapGeoJson(key)
-    } catch {
-      return
-    }
-
-    if (!mapInstanceRef.current || currentKeyRef.current !== key) return
-
-    geojsonRef.current = geojson
-    const selected = selectedRegionRef.current
-
-    const layer = L.geoJSON(geojson, {
-      smoothFactor: 0.25,
-      style: (feature) => {
-        const region = findRegionForFeature(feature, key)
-        const geoName = feature.properties?.name || region?.label
-        const shortLabel = getShortLabel(geoName || region?.label || "", key)
-        const isActive = region
-          ? isRegionSelected(selected, region.label, geoName, shortLabel)
-          : false
-        const idx = geojson.features.indexOf(feature)
-        const count = key === "root" && region
-          ? countAlertsForSido(alerts, region.label)
-          : 0
-        return getRegionStyle({ isActive, colorIndex: idx, alertCount: count })
-      },
-      onEachFeature: (feature, featureLayer) => {
-        const region = findRegionForFeature(feature, key)
-        if (!region) return
-
-        const geoName = feature.properties?.name || region.label
-        const shortLabel = getShortLabel(geoName || region.label, key)
-        const count = key === "root" ? countAlertsForSido(alerts, region.label) : 0
-        const labelText = count > 0 ? `${shortLabel} (${count})` : shortLabel
-
-        featureMetaRef.current.push({
+      featureMetaRef.current.forEach(
+        ({
           featureLayer,
           feature,
           region,
           shortLabel,
           labelText,
           geoName,
-          alertCount: count,
-        })
-
-        featureLayer.bindTooltip(labelText, {
-          permanent: false,
-          sticky: true,
-          direction: "top",
-          className: `map-region-tooltip${count > 0 ? " map-region-tooltip--has-count" : ""}`,
-          opacity: 1,
-        })
-
-        featureLayer.on("mouseover", function () {
-          const active = isRegionSelected(
-            selectedRegionRef.current,
+          alertCount: storedCount,
+        }) => {
+          const alertCount =
+            key === 'root' && region
+              ? countAlertsForSido(alerts, region.label)
+              : storedCount || 0;
+          const isActive = isRegionSelected(
+            selected,
             region.label,
             geoName,
             shortLabel,
-          )
-          if (!active) {
-            this.setStyle({ fillOpacity: 0.82, weight: 1.2, color: "#94a3b8" })
-          }
-        })
-        featureLayer.on("mouseout", function () {
-          layer.resetStyle(this)
-        })
-        featureLayer.on("click", () => {
-          const center = getFeatureCenter(featureLayer)
-          selectRegionRef.current({
-            ...region,
-            lat: region.lat ?? center.lat,
-            lng: region.lng ?? center.lng,
-          })
-        })
-      },
-    }).addTo(map)
+            key,
+          );
+          const displayLabel = getDisplayLabel(selected, shortLabel, geoName);
+          featureLayer.setStyle(getRegionStyle({ isActive, alertCount }));
 
-    geoLayerRef.current = layer
-    updateLayerPresentation(map, geojson, key, selected)
-    fitMapView(map, layer, key, selected)
-  }, [alerts, updateLayerPresentation, fitMapView])
+          const labelLatLng = getLabelLatLng(feature, shortLabel, key);
+          const count = alertCount || 0;
+          const showPermanent =
+            labelLatLng &&
+            (isActive ||
+              count > 0 ||
+              (key !== 'root' &&
+                shouldShowPermanentLabel(featureLayer, map, key, {
+                  isActive,
+                })));
+
+          if (labelLatLng && showPermanent) {
+            const labelMarker = L.marker(labelLatLng, {
+              icon: createLabelIcon(
+                displayLabel,
+                alertCount || 0,
+                isActive,
+                true,
+              ),
+              interactive: false,
+            }).addTo(map);
+            labelMarkersRef.current.push(labelMarker);
+          }
+
+          const tooltip = featureLayer.getTooltip();
+          if (tooltip) {
+            const nextLabelText =
+              count > 0 ? `${shortLabel} (${count})` : shortLabel;
+            tooltip.setContent(nextLabelText);
+          }
+        },
+      );
+    },
+    [alerts],
+  );
+
+  const fitMapToLayer = useCallback((map, layer, key) => {
+    if (!layer.getBounds().isValid()) return;
+    map.fitBounds(layer.getBounds(), {
+      padding: [12, 12],
+      maxZoom: key === 'root' ? 9 : hasDongDrilldown(key) ? 15 : 11,
+      animate: true,
+      duration: 0.65,
+    });
+    requestAnimationFrame(() => map.invalidateSize());
+  }, []);
+
+  const fitMapToSelection = useCallback((map, selected, key) => {
+    if (!selected || selected === '전국') return false;
+
+    const activeLayers = featureMetaRef.current
+      .filter(({ region, shortLabel, geoName }) =>
+        isRegionSelected(selected, region.label, geoName, shortLabel, key),
+      )
+      .map(({ featureLayer }) => featureLayer);
+
+    if (activeLayers.length === 0) return false;
+
+    const group = L.featureGroup(activeLayers);
+    if (!group.getBounds().isValid()) return false;
+
+    map.fitBounds(group.getBounds(), {
+      padding: [48, 48],
+      maxZoom: key === 'root' ? 8 : hasDongDrilldown(key) ? 16 : 13,
+      animate: true,
+      duration: 0.65,
+    });
+    requestAnimationFrame(() => map.invalidateSize());
+    return true;
+  }, []);
+
+  const fitMapView = useCallback(
+    (map, layer, key, selected) => {
+      if (fitMapToSelection(map, selected, key)) return;
+      fitMapToLayer(map, layer, key);
+    },
+    [fitMapToLayer, fitMapToSelection],
+  );
+
+  const handleResetMap = useCallback(() => {
+    const wasNationwide =
+      currentKeyRef.current === 'root' && selectedRegionRef.current === '전국';
+    resetMap();
+    if (!wasNationwide) return;
+    const map = mapInstanceRef.current;
+    const layer = geoLayerRef.current;
+    if (!map || !layer) return;
+    fitMapView(map, layer, 'root', '전국');
+  }, [resetMap, fitMapView]);
+
+  const renderGeoLayer = useCallback(
+    async (map) => {
+      const key = currentKeyRef.current;
+      const gen = ++renderGenRef.current;
+
+      setGeoLoading(true);
+      let geojson;
+      try {
+        const mapPath = pathRef.current;
+        const sidoId = mapPath.length >= 2 ? mapPath[1] : null;
+        const guLabel =
+          activeGuRef.current?.label ||
+          getGuLabelFromPath(mapPath, selectedRegionRef.current);
+        geojson = await loadMapGeoJson(key, { sidoId, guLabel });
+      } catch {
+        setGeoLoading(false);
+        return;
+      } finally {
+        if (gen === renderGenRef.current) {
+          setGeoLoading(false);
+        }
+      }
+
+      if (
+        !mapInstanceRef.current ||
+        gen !== renderGenRef.current ||
+        currentKeyRef.current !== key
+      ) {
+        return;
+      }
+
+      clearGeoLayer();
+
+      geojsonRef.current = geojson;
+      const selected = selectedRegionRef.current;
+
+      const layer = L.geoJSON(geojson, {
+        smoothFactor: 0.25,
+        style: (feature) => {
+          const region = findRegionForFeature(feature, key);
+          const geoName = feature.properties?.name || region?.label;
+          const shortLabel = getShortLabel(geoName || region?.label || '', key);
+          const isActive = region
+            ? isRegionSelected(selected, region.label, geoName, shortLabel, key)
+            : false;
+          const count =
+            key === 'root' && region
+              ? countAlertsForSido(alerts, region.label)
+              : 0;
+          return getRegionStyle({ isActive, alertCount: count });
+        },
+        onEachFeature: (feature, featureLayer) => {
+          const region = findRegionForFeature(feature, key);
+          if (!region) return;
+
+          const geoName = feature.properties?.name || region.label;
+          const shortLabel = getShortLabel(geoName || region.label, key);
+          const count =
+            key === 'root' ? countAlertsForSido(alerts, region.label) : 0;
+          const labelText = count > 0 ? `${shortLabel} (${count})` : shortLabel;
+
+          featureMetaRef.current.push({
+            featureLayer,
+            feature,
+            region,
+            shortLabel,
+            labelText,
+            geoName,
+            alertCount: count,
+          });
+
+          featureLayer.bindTooltip(labelText, {
+            permanent: false,
+            sticky: true,
+            direction: 'top',
+            className: `map-region-tooltip${count > 0 ? ' map-region-tooltip--has-count' : ''}`,
+            opacity: 1,
+          });
+
+          const applyFeatureStyle = () => {
+            const active = isRegionSelected(
+              selectedRegionRef.current,
+              region.label,
+              geoName,
+              shortLabel,
+              key,
+            );
+            const alertCount =
+              key === 'root' ? countAlertsForSido(alerts, region.label) : 0;
+            featureLayer.setStyle(
+              getRegionStyle({ isActive: active, alertCount }),
+            );
+          };
+
+          featureLayer.on('mouseover', function () {
+            const active = isRegionSelected(
+              selectedRegionRef.current,
+              region.label,
+              geoName,
+              shortLabel,
+              key,
+            );
+            if (!active) {
+              this.setStyle({
+                fillOpacity: 0.82,
+                weight: 1.2,
+                color: '#94a3b8',
+              });
+            }
+          });
+          featureLayer.on('mouseout', applyFeatureStyle);
+          featureLayer.on('click', () => {
+            const center = getFeatureCenter(featureLayer);
+            selectRegionRef.current({
+              ...region,
+              lat: region.lat ?? center.lat,
+              lng: region.lng ?? center.lng,
+            });
+          });
+        },
+      }).addTo(map);
+
+      if (gen !== renderGenRef.current || currentKeyRef.current !== key) {
+        layer.remove();
+        return;
+      }
+
+      geoLayerRef.current = layer;
+      updateLayerPresentation(map, geojson, key, selected);
+      fitMapView(map, layer, key, selected);
+    },
+    [alerts, updateLayerPresentation, fitMapView],
+  );
 
   useEffect(() => {
-    if (!mapRef.current || mapInstanceRef.current) return
+    if (!mapRef.current || mapInstanceRef.current) return;
 
     const map = L.map(mapRef.current, {
       center: [36.2, 127.8],
@@ -256,59 +370,63 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
       minZoom: 6,
       attributionControl: false,
       preferCanvas: true,
-    })
+      zoomAnimation: true,
+      fadeAnimation: true,
+      markerZoomAnimation: true,
+      wheelPxPerZoomLevel: 80,
+    });
 
-    mapInstanceRef.current = map
-    renderGeoLayer(map)
+    mapInstanceRef.current = map;
+    renderGeoLayer(map);
 
     return () => {
-      map.remove()
-      mapInstanceRef.current = null
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+      map.remove();
+      mapInstanceRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
-    const map = mapInstanceRef.current
-    if (!map) return
-    renderGeoLayer(map)
-  }, [currentKey, alerts, renderGeoLayer])
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    renderGeoLayer(map);
+  }, [currentKey, renderGeoLayer]);
 
   useEffect(() => {
-    const map = mapInstanceRef.current
-    const geojson = geojsonRef.current
-    if (!map || !geoLayerRef.current || !geojson) return
-    updateLayerPresentation(map, geojson, currentKey, selectedRegion)
-  }, [selectedRegion, currentKey, updateLayerPresentation])
+    const map = mapInstanceRef.current;
+    const geojson = geojsonRef.current;
+    if (!map || !geoLayerRef.current || !geojson) return;
+    updateLayerPresentation(map, geojson, currentKey, selectedRegion);
+  }, [selectedRegion, currentKey, alerts, updateLayerPresentation]);
 
   useEffect(() => {
-    const keyChanged = prevCurrentKeyRef.current !== currentKey
-    prevCurrentKeyRef.current = currentKey
-    if (keyChanged) return
+    const keyChanged = prevCurrentKeyRef.current !== currentKey;
+    prevCurrentKeyRef.current = currentKey;
+    if (keyChanged) return;
 
-    const map = mapInstanceRef.current
-    const layer = geoLayerRef.current
-    if (!map || !layer) return
-    fitMapView(map, layer, currentKey, selectedRegion)
-  }, [selectedRegion, currentKey, fitMapView])
-
-  useEffect(() => {
-    if (!focusTarget?.key) return
-    if (lastFocusKeyRef.current === focusTarget.key) return
-    lastFocusKeyRef.current = focusTarget.key
-    applyFocusRef.current(focusTarget)
-  }, [focusTarget?.key])
+    const map = mapInstanceRef.current;
+    const layer = geoLayerRef.current;
+    if (!map || !layer) return;
+    fitMapView(map, layer, currentKey, selectedRegion);
+  }, [selectedRegion, currentKey, fitMapView]);
 
   useEffect(() => {
-    const map = mapInstanceRef.current
-    if (!map || !mapRef.current) return
+    if (!focusTarget?.key) return;
+    if (lastFocusKeyRef.current === focusTarget.key) return;
+    lastFocusKeyRef.current = focusTarget.key;
+    applyFocusRef.current(focusTarget);
+  }, [focusTarget?.key]);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !mapRef.current) return;
 
     const observer = new ResizeObserver(() => {
-      map.invalidateSize()
-    })
-    observer.observe(mapRef.current)
-    return () => observer.disconnect()
-  }, [])
+      map.invalidateSize();
+    });
+    observer.observe(mapRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <div className="map-container">
@@ -320,19 +438,28 @@ export default function MapDrilldown({ onRegionSelect, focusTarget, alerts = [] 
               <span key={crumb.key}>
                 {i > 0 && <span className="map-breadcrumb__sep"> › </span>}
                 {i < breadcrumbs.length - 1 ? (
-                  <button type="button" onClick={() => navigateTo(i)}>{crumb.label}</button>
+                  <button type="button" onClick={() => navigateTo(i)}>
+                    {crumb.label}
+                  </button>
                 ) : (
                   <strong>{crumb.label}</strong>
                 )}
               </span>
             ))}
           </div>
-          <button type="button" className="map-reset-btn" onClick={resetMap}>전국 보기</button>
+          <button
+            type="button"
+            className="map-reset-btn"
+            onClick={handleResetMap}
+          >
+            전국 보기
+          </button>
         </div>
       </div>
       <div className="map-body">
+        {geoLoading && <div className="map-loading">행정구역 불러오는 중…</div>}
         <div ref={mapRef} className="leaflet-map" />
       </div>
     </div>
-  )
+  );
 }

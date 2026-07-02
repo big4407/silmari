@@ -5,6 +5,22 @@
   background: linear-gradient(165deg, #dce8f4 0%, #eef2f6 45%, #f4f6f8 100%);
 }
 
+.map-loading {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 500;
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--color-border);
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  box-shadow: 0 2px 8px rgba(0, 56, 118, 0.1);
+  pointer-events: none;
+}
+
 .leaflet-map {
   width: 100%;
   height: 100%;
@@ -37,7 +53,9 @@
   color: var(--color-primary) !important;
   background: var(--color-surface) !important;
   border-bottom: 1px solid var(--color-border) !important;
-  transition: background 0.15s, color 0.15s !important;
+  transition:
+    background 0.15s,
+    color 0.15s !important;
 }
 
 .leaflet-control-zoom a:hover {
@@ -149,10 +167,12 @@
   align-items: center;
   gap: var(--space-md);
   flex-wrap: wrap;
-  padding: var(--space-sm) var(--space-lg);
-  background: var(--color-surface-muted);
+  height: var(--panel-header-height, 44px);
+  min-height: var(--panel-header-height, 44px);
+  padding: 0 var(--space-lg);
+  background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
-  min-height: 40px;
+  flex-shrink: 0;
 }
 
 .map-header__title {
@@ -203,23 +223,27 @@
 }
 
 .map-reset-btn {
-  padding: 4px 12px;
-  border: 1px solid var(--color-border-strong);
+  padding: 6px 14px;
+  border: none;
   border-radius: var(--radius-md);
-  background: var(--color-surface);
+  background: var(--color-accent);
   font-family: inherit;
   font-size: var(--font-size-xs);
-  font-weight: 500;
-  color: var(--color-text-secondary);
+  font-weight: 700;
+  color: var(--color-text-inverse);
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.28);
+  transition:
+    background 0.15s,
+    box-shadow 0.15s,
+    transform 0.15s;
 }
 
 .map-reset-btn:hover {
-  background: var(--color-surface-muted);
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+  background: var(--color-accent-hover);
+  box-shadow: 0 3px 10px rgba(0, 102, 204, 0.35);
+  transform: translateY(-1px);
 }
 
 .map-marker {

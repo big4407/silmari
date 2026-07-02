@@ -1,6 +1,7 @@
-import { Link } from "react-router-dom"
-import LandingHeader from "../components/LandingHeader"
-import "./AuthPage.css"
+/** 회원가입 UI — POST /api/v1/auth/signup (승인 대기 상태로 신청) */
+import { Link } from 'react-router-dom';
+import LandingHeader from '../components/LandingHeader';
+import './AuthPage.css';
 
 export default function Signup() {
   return (
@@ -10,7 +11,9 @@ export default function Signup() {
       <main className="auth-page__main">
         <div className="auth-card">
           <h1 className="auth-card__title">회원가입</h1>
-          <p className="auth-card__desc">실마리 서비스 이용을 위해 계정을 만드세요.</p>
+          <p className="auth-card__desc">
+            실마리 서비스 이용을 위해 계정을 만드세요.
+          </p>
 
           <form className="auth-form" onSubmit={(e) => e.preventDefault()}>
             <label className="auth-form__label" htmlFor="signup-name">
@@ -46,7 +49,10 @@ export default function Signup() {
               autoComplete="new-password"
             />
 
-            <label className="auth-form__label" htmlFor="signup-password-confirm">
+            <label
+              className="auth-form__label"
+              htmlFor="signup-password-confirm"
+            >
               비밀번호 확인
             </label>
             <input
@@ -70,5 +76,5 @@ export default function Signup() {
 
       <footer className="auth-page__footer" />
     </div>
-  )
+  );
 }

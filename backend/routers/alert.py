@@ -1,3 +1,9 @@
+"""
+안내문자 파싱 API.
+
+POST /parse   — 인상착의 구조화 (프론트·챗봇에서 미리보기용)
+POST /receive — 외부 SMS 수신 연동 (sms_receiver)
+"""
 from fastapi import APIRouter
 
 from backend.schemas.alert_schema import AlertRequest, AlertInfo

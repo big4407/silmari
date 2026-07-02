@@ -8,7 +8,9 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  transition: box-shadow 0.15s, border-color 0.15s;
+  transition:
+    box-shadow 0.15s,
+    border-color 0.15s;
 }
 
 .person-card:hover {

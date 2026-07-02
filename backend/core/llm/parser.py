@@ -1,3 +1,10 @@
+"""
+안내문자 인상착의 파싱 (정규식 기반).
+
+[입력] 실종 안전안내문자 원문
+[출력] AlertInfo — name, age, gender, clothes, clothes_part
+[향후] LangChain LLM 체인으로 교체 예정 (chain.py 참고)
+"""
 import re
 
 from backend.schemas.alert_schema import AlertInfo

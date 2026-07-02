@@ -1,3 +1,16 @@
+"""
+FastAPI 애플리케이션 진입점.
+
+[시작 시 lifespan]
+  1. ensure_dirs() — data/uploads, CCTV, results 폴더 생성
+  2. Base.metadata.create_all() — ORM 테이블 자동 생성
+  3. bootstrap_admin() — .env 기반 최초 관리자 계정 생성
+
+[라우터]
+  /api/v1/*  — 인증·사용자·관리자·운영
+  /api/alert, /api/cctv, /api/result, /api/alerts — 탐지·결과·재난문자
+  /api/sms, /api/video, /api/missing — 레거시 경로 (하위 호환)
+"""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -12,11 +25,16 @@ from secrets import token_urlsafe
 
 from sqlalchemy import or_, select
 
-from backend.routers import admin, auth, operations, users, search
+from backend.routers import admin, auth, operations, users, search, chatbot
 from backend.core.config import get_settings
 from backend.core.security import hash_password
 from backend.core.runtime import ensure_supported_python
 from backend.db.models import ApprovalStatus, User, UserRole
+
+from backend.core.scheduler import start_scheduler
+# scheduler의 logging을 위한 import
+# 아래에서 모듈 사용하지 않는다고 지우면 동작하지 않음
+import backend.core.scheduler_logging
 
 ensure_supported_python()
 settings = get_settings()
@@ -72,6 +90,7 @@ async def lifespan(_: FastAPI):
     ensure_dirs()                              # startup에 있던 것 이동
     Base.metadata.create_all(bind=engine)      # ← 단 1회
     bootstrap_admin()
+    start_scheduler() # 메시지 수집 스케줄러 시작
     yield
 
 
@@ -89,23 +108,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth.router, prefix="/api/v1")
-app.include_router(users.router, prefix="/api/v1")
-app.include_router(admin.router, prefix="/api/v1")
-app.include_router(operations.router, prefix="/api/v1")
+app.include_router(auth.router, prefix="/member", tags=["member"])
+app.include_router(users.router, prefix="/member", tags=["member"])
+app.include_router(admin.router, prefix="/member", tags=["member"])
+app.include_router(operations.router, prefix="/member", tags=["member"])
 
-app.include_router(messages.router)
+app.include_router(messages.router, prefix="/message", tags=["message"])
+app.include_router(chatbot.router, prefix="/chatbot", tags=["chatbot"])
 
-app.include_router(alert.router, prefix="/api/alert", tags=["alert"])
-app.include_router(cctv.router, prefix="/api/cctv", tags=["cctv"])
-app.include_router(result.router, prefix="/api/result", tags=["result"])
-app.include_router(disaster_alerts.router, prefix="/api/alerts", tags=["alerts"])
 app.include_router(search.router, prefix="/search", tags=["search"])
 
-# 하위 호환: 기존 프론트엔드 경로
+# 태윤이 숙제
+# app.include_router(video.router, prefix="/video", tags=["video"])
+
+# legacy 미사용 라우터 추후 확인 및 처리
+app.include_router(disaster_alerts.router, prefix="/api/alerts", tags=["legacy"])
 app.include_router(alert.router, prefix="/api/sms", tags=["legacy"])
 app.include_router(cctv.router, prefix="/api/video", tags=["legacy"])
 app.include_router(result.router, prefix="/api/missing", tags=["legacy"])
+
 
 @app.get("/health")
 def health_check():

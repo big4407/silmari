@@ -1,3 +1,9 @@
+"""
+재난안전데이터 API 프록시 — 대시보드 재난문자 목록용.
+
+GET /list — safetydata_client.fetch_disaster_alerts()
+            missing_only, force_refresh, cache_only 등 쿼리 지원
+"""
 from fastapi import APIRouter, Query
 
 from backend.services.safetydata_client import fetch_disaster_alerts

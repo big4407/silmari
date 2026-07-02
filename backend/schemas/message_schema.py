@@ -1,8 +1,7 @@
+"""재난문자(Message) API 요청/응답 Pydantic 스키마."""
 from datetime import date, datetime
 
 from pydantic import BaseModel, Field
-
-# Message의 CRUD에 관한 schema
 
 
 class MessageCreate(BaseModel):

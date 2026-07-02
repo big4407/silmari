@@ -11,6 +11,7 @@ frontend/dist/
 # Data & uploads
 data/uploads/
 data/CCTV/**/*.mp4
+data/chroma/**
 
 # Models
 # models/yolo/*.pt
@@ -28,6 +29,9 @@ __pycache__/
 venv/
 .env/
 .venv/
+.venv-*/
+.venv-root-install-test/
+**/.venv-install-test/
 .env
 
 # =========================
@@ -83,3 +87,8 @@ db.sqlite3
 *.mp4
 *.jpg
 *.json
+*.npy
+
+data/chroma/
+*.sqlite3
+*.bin

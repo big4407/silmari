@@ -1,12 +1,17 @@
-import { Link, NavLink, Outlet } from "react-router-dom"
-import "./DashboardLayout.css"
+/**
+ * 수사관 대시보드 공통 레이아웃 — 상단 탭 + Outlet.
+ *
+ * 하위: Dashboard, ChatbotPage, SearchHistory, SearchResults
+ */
+import { Link, NavLink, Outlet } from 'react-router-dom';
+import './DashboardLayout.css';
 
 const TABS = [
-  { to: "/dashboard", label: "실종자 검색", end: true },
-  { to: "/dashboard/chatbot", label: "챗봇 검색" },
-  { to: "/search-results", label: "검색 결과" },
-  { to: "/dashboard/history", label: "검색 이력" },
-]
+  { to: '/dashboard', label: '실종자 검색', end: true },
+  { to: '/dashboard/chatbot', label: '챗봇 검색' },
+  { to: '/search-results', label: '검색 결과' },
+  { to: '/dashboard/history', label: '검색 이력' },
+];
 
 export default function DashboardLayout() {
   return (
@@ -18,28 +23,32 @@ export default function DashboardLayout() {
               <NavLink to="/" className="dashboard-layout__logo">
                 실마리
               </NavLink>
-              <span className="dashboard-layout__subtitle">실종자 통합 검색 시스템</span>
+              <span className="dashboard-layout__subtitle">
+                실종자 통합 검색 시스템
+              </span>
             </div>
             <div className="dashboard-layout__util">
+              <Link
+                to="/admin"
+                className="dashboard-layout__util-link dashboard-layout__util-link--temp"
+              >
+                관리자
+              </Link>
               <Link to="/login" className="dashboard-layout__util-link">
                 로그인
               </Link>
-              <span className="dashboard-layout__util-divider" aria-hidden="true" />
-              <button type="button" className="dashboard-layout__util-link">
-                도움말
-              </button>
             </div>
           </div>
         </div>
         <div className="dashboard-layout__nav-wrap">
-          <nav className="dashboard-layout__container dashboard-layout__nav" aria-label="주요 메뉴">
+          <nav className="dashboard-layout__nav" aria-label="주요 메뉴">
             {TABS.map((tab) => (
               <NavLink
                 key={tab.to}
                 to={tab.to}
                 end={tab.end}
                 className={({ isActive }) =>
-                  `dashboard-layout__tab${isActive ? " dashboard-layout__tab--active" : ""}`
+                  `dashboard-layout__tab${isActive ? ' dashboard-layout__tab--active' : ''}`
                 }
               >
                 {tab.label}
@@ -57,5 +66,5 @@ export default function DashboardLayout() {
         <span>실마리 실종자 통합 검색 시스템</span>
       </footer>
     </div>
-  )
+  );
 }

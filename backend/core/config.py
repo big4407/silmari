@@ -1,4 +1,9 @@
-# core/config.py
+"""
+실마리(Silmari) 전역 설정 — .env 와 1:1 매핑되는 단일 Settings.
+
+[발표 포인트] DB·JWT·외부 API 키·파일 경로가 모두 여기서 관리됨.
+             Docker compose는 DB_HOST=db 등을 환경변수로 덮어씀.
+"""
 from functools import lru_cache
 from pathlib import Path
 
@@ -22,6 +27,9 @@ class Settings(BaseSettings):
     DB_USER: str = "root"
     DB_PASSWORD: str = ""
     DB_CHARSET: str = "utf8mb4"
+    
+    # --- DB (Chroma DB) ---
+    chroma_dir: Path = PROJECT_ROOT / "data" / "chroma"
 
     # 로컬 개발 시 SQLite 등으로 강제 override 하고 싶을 때만 사용
     DATABASE_URL_OVERRIDE: str | None = None
@@ -63,6 +71,8 @@ class Settings(BaseSettings):
     bootstrap_admin_email: str | None = None
     bootstrap_admin_password: str | None = None
     bootstrap_admin_no_password: bool = False
+
+    openai_api_key: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -1,3 +1,9 @@
+"""
+업로드·결과 파일 저장 유틸.
+
+[경로] core/config.py — upload_dir, cctv_data_dir, results_dir
+[사용] routes/cctv.py(영상 업로드), clip_generator(클립·썸네일)
+"""
 import os
 import shutil
 import uuid

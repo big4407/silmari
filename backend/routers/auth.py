@@ -1,3 +1,9 @@
+"""
+인증 API — 회원가입·로그인·토큰 갱신·로그아웃.
+
+[승인 흐름] signup(pending) → admin 승인 → login → JWT 발급
+[개발용]    POST /auth/dev/bootstrap-login — 로컬 전용, NO_PASSWORD 모드
+"""
 import logging
 from datetime import timezone
 
@@ -15,7 +21,7 @@ from backend.services.auth_service import authenticate_user, create_session_and_
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
-router = APIRouter(prefix="/auth", tags=["Authentication"])
+router = APIRouter(prefix="/auth")
 
 
 def _is_local_request(request: Request) -> bool:

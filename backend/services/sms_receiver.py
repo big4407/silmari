@@ -1,3 +1,9 @@
+"""
+실종자 정보 외부 API 연동 (safe182.go.kr).
+
+fetch_missing_persons — 실종자 목록 (result.py /list)
+receive_alert         — SMS 수신 시 파이프라인 트리거 (향후)
+"""
 import httpx
 
 from backend.core.config import settings
