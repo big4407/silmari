@@ -59,16 +59,43 @@ class SearchResult(Base):
 
 
 class UserRole(str, enum.Enum):
-    INVESTIGATOR = "investigator"
-    PUBLIC_OFFICIAL = "public_official"
-    ADMIN = "admin"
+    """사용자 역할. value 는 DB 저장용 코드값."""
+
+    ADMIN = "1"
+    INVESTIGATOR = "2"
+    PUBLIC_OFFICIAL = "3"
 
 
 class ApprovalStatus(str, enum.Enum):
-    PENDING = "pending"
-    APPROVED = "approved"
-    REJECTED = "rejected"
-    SUSPENDED = "suspended"
+    """가입 승인 상태. value 는 DB 저장용 코드값."""
+
+    PENDING = "0"
+    APPROVED = "1"
+    REJECTED = "2"
+    SUSPENDED = "3"
+
+
+class SearchType(str, enum.Enum):
+    """검색 요청 출처. value 는 기존 CHAR(1) 코드값을 유지(DB 호환)."""
+
+    SMS = "1"  # 안내문자(SMS) 파싱
+    CHATBOT = "2"  # 챗봇
+    AUTO = "3"  # 자동검색
+
+
+class AnalysisStatus(str, enum.Enum):
+    """분석(실행) 상태. value 는 기존 CHAR(1) 코드값을 유지(DB 호환)."""
+
+    NOT_STARTED = "0"  # 분석 전
+    PARTIAL = "1"  # 부분분석완료
+    COMPLETED = "2"  # 완료
+
+
+class Gender(str, enum.Enum):
+    """성별. value 는 기존 CHAR(1) 코드값을 유지(DB 호환)."""
+
+    MALE = "M"
+    FEMALE = "F"
 
 
 class User(Base):
@@ -92,13 +119,24 @@ class User(Base):
     phone: Mapped[str] = mapped_column(String(30), nullable=False)
 
     requested_role: Mapped[UserRole] = mapped_column(
-        Enum(UserRole, native_enum=False), nullable=False, default=UserRole.INVESTIGATOR
+        Enum(
+            UserRole, native_enum=False, values_callable=lambda e: [m.value for m in e]
+        ),
+        nullable=False,
+        default=UserRole.INVESTIGATOR,
     )
     role: Mapped[UserRole | None] = mapped_column(
-        Enum(UserRole, native_enum=False), nullable=True
+        Enum(
+            UserRole, native_enum=False, values_callable=lambda e: [m.value for m in e]
+        ),
+        nullable=True,
     )
     approval_status: Mapped[ApprovalStatus] = mapped_column(
-        Enum(ApprovalStatus, native_enum=False),
+        Enum(
+            ApprovalStatus,
+            native_enum=False,
+            values_callable=lambda e: [m.value for m in e],
+        ),
         nullable=False,
         default=ApprovalStatus.PENDING,
         index=True,
@@ -321,8 +359,15 @@ class Search(Base):
     missing_name: Mapped[str | None] = mapped_column(
         String(20), nullable=True, comment="이름"
     )
-    gender: Mapped[str | None] = mapped_column(
-        CHAR(1), nullable=True, comment="성별 (M:남성, F:여성)"
+    gender: Mapped[Gender | None] = mapped_column(
+        Enum(
+            Gender,
+            native_enum=False,
+            length=1,
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        nullable=True,
+        comment="성별 (M:남성, F:여성)",
     )
     age: Mapped[int | None] = mapped_column(Integer, nullable=True, comment="나이")
     clothing: Mapped[str | None] = mapped_column(
@@ -337,10 +382,15 @@ class Search(Base):
     searched_at: Mapped[datetime] = mapped_column(
         DateTime, default=kst_now, nullable=False, comment="검색한 일시"
     )
-    search_type: Mapped[str] = mapped_column(
-        CHAR(1),
+    search_type: Mapped[SearchType] = mapped_column(
+        Enum(
+            SearchType,
+            native_enum=False,
+            length=1,
+            values_callable=lambda e: [m.value for m in e],
+        ),
         nullable=False,
-        default="1",
+        default=SearchType.SMS,
         comment="1:SMS 파싱, 2:챗봇, 3:자동검색",
     )
 
@@ -363,10 +413,15 @@ class Analysis(Base):
     search_id: Mapped[int] = mapped_column(
         ForeignKey("search.id"), nullable=False, comment="search 테이블 pk"
     )
-    analysis_status: Mapped[str] = mapped_column(
-        CHAR(1),
+    analysis_status: Mapped[AnalysisStatus] = mapped_column(
+        Enum(
+            AnalysisStatus,
+            native_enum=False,
+            length=1,
+            values_callable=lambda e: [m.value for m in e],
+        ),
         nullable=False,
-        default="0",
+        default=AnalysisStatus.NOT_STARTED,
         comment="0:분석 전, 1:부분분석완료, 2:완료",
     )
     created_at: Mapped[datetime] = mapped_column(
