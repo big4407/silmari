@@ -164,6 +164,16 @@ class Search(Base):
         server_default=func.current_timestamp(),
     )
 
+    start_date: Mapped[date] = mapped_column(
+        Date,
+        nullable=False,
+    )
+    
+    end_date: Mapped[date] = mapped_column(
+        Date,
+        nullable=False,
+    )
+
     search_type: Mapped[str] = mapped_column(
         CHAR(1),
         nullable=False,
