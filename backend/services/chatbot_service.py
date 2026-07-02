@@ -35,8 +35,11 @@ class ChatbotService:
         )
 
         response = result["response"]
-
-        chatbot_session.state_json = result
+        if result.get("search_inserted"):
+            chatbot_session.state_json = create_initial_state(user_id=f"{session_id}")
+        else:
+            chatbot_session.state_json = result            
+        
         self.db.commit()
         self.db.refresh(chatbot_session)
 
