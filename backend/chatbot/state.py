@@ -10,8 +10,8 @@ class ChatState(TypedDict):
     age: int | None
 
     region: str | None
-    start_time: str | None
-    end_time: str | None
+    start_date: str | None
+    end_date: str | None
     appearance: str | None
 
     missing_slots: list[str]
@@ -19,3 +19,5 @@ class ChatState(TypedDict):
 
     response: str
     messages: list[dict[str, Any]]
+
+    search_inserted: bool = False
