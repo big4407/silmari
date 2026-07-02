@@ -41,7 +41,7 @@ def ask_missing_node(state):
     if "region" in missing_slots:
         response = "검색할 지역을 알려주세요. 예: 대전 동구, 고흥읍 등암리"
     elif "time" in missing_slots:
-        response = "검색할 일자를 알려주세요. 예: 2026년 6월 28일부터 29일까지"
+        response = "검색할 일자를 알려주세요. 예: 2026년 6월 28일 ~ 6월 29일"
     else:
         response = "인상착의를 알려주세요. 예: 검은 후드티, 회색 바지, 검은 백팩"
 
@@ -71,4 +71,5 @@ def create_search_node(state, config):
     return {
         "search_id": search.id,
         "response": f"검색 조건을 저장했습니다. 검색 ID는 {search.id}입니다.",
+        "search_inserted": True,
     }
