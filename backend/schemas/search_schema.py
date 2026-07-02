@@ -88,3 +88,11 @@ class SearchListResponse(BaseModel):
 
     items: list[SearchItem]
     page_info: PagingInfo
+
+class SearchStatus(BaseModel):
+    id: int
+    status: str
+    progress: int = Field(ge=0, le=100)
+    message: str | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
