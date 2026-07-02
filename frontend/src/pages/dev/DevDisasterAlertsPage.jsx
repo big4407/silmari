@@ -1,14 +1,16 @@
 import { useState } from "react"
-import { fetchDisasterAlerts } from "../../api/client"
+import { fetchDisasterAlerts, API_V1 } from "../../api/client"
 import ApiResult, { parseApiError } from "./components/ApiResult"
 import "./DevCommon.css"
 
+/** Dev — GET /api/v1/disaster-alerts (대시보드와 동일 API) */
 export default function DevDisasterAlertsPage() {
   const [missingOnly, setMissingOnly] = useState(true)
   const [status, setStatus] = useState("idle")
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
 
+  /** missing_only 쿼리로 실종 관련 재난문자만 필터링 조회 */
   const load = async () => {
     setStatus("loading")
     setError(null)
@@ -28,7 +30,7 @@ export default function DevDisasterAlertsPage() {
       <p className="dev-page__desc">대시보드에서 사용하는 재난문자 목록 API입니다.</p>
 
       <div className="dev-section">
-        <h2>GET /api/alerts/list</h2>
+        <h2>GET {API_V1}/disaster-alerts</h2>
         <div className="dev-form">
           <label>
             <input

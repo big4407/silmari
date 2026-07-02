@@ -2,6 +2,7 @@ import { Link } from "react-router-dom"
 import { DEV_PAGES } from "./devConfig"
 import "./DevCommon.css"
 
+/** /dev 홈 — devConfig 메뉴 목록을 카드 그리드로 표시 */
 export default function DevHub() {
   return (
     <>

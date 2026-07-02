@@ -1,8 +1,10 @@
 import { useState } from "react"
 import { sendChatMessage } from "../../api/chatbot_api"
+import { API_V1 } from "../../api/client"
 import ApiResult, { parseApiError } from "./components/ApiResult"
 import "./DevCommon.css"
 
+/** Dev — POST /api/v1/chatbot/chat (세션 기반 대화) */
 export default function DevChatbotPage() {
   const [sessionId, setSessionId] = useState(() => `dev-${Date.now()}`)
   const [message, setMessage] = useState("서울 종로구에서 실종된 70대 남성을 찾고 있어요.")
@@ -10,6 +12,7 @@ export default function DevChatbotPage() {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
 
+  /** 메시지 전송 — 서버가 session_id를 갱신하면 로컬 state 동기화 */
   const send = async () => {
     setStatus("loading")
     setError(null)
@@ -27,7 +30,7 @@ export default function DevChatbotPage() {
   return (
     <>
       <h1 className="dev-page__title">챗봇</h1>
-      <p className="dev-page__desc">POST /chatbot/chat — 세션 ID로 대화를 이어갑니다.</p>
+      <p className="dev-page__desc">POST {API_V1}/chatbot/chat — 세션 ID로 대화를 이어갑니다.</p>
 
       <div className="dev-section">
         <h2>메시지 전송</h2>

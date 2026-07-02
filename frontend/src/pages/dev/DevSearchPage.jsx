@@ -1,16 +1,21 @@
 import { useState } from "react"
 import { createSearch, fetchSearches, fetchSearch, deleteSearch } from "../../api/search_api"
 import { fetchMe } from "../../api/auth_api"
+import { API_V1 } from "../../api/client"
 import ApiResult, { parseApiError } from "./components/ApiResult"
 import "./DevCommon.css"
 
+/** Dev — 검색 요청 CRUD 테스트 (POST/GET/DELETE /api/v1/search-requests) */
 export default function DevSearchPage() {
+  // 폼 입력: 검색 ID, 실종자 이름
   const [searchId, setSearchId] = useState("")
   const [missingName, setMissingName] = useState("홍길동")
+  // API 호출 상태: idle | loading | ok | err
   const [status, setStatus] = useState("idle")
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
 
+  /** 목록·상세·삭제 등 단순 API 호출 공통 래퍼 */
   const run = async (fn) => {
     setStatus("loading")
     setError(null)
@@ -24,6 +29,7 @@ export default function DevSearchPage() {
     }
   }
 
+  /** 생성: 로그인 사용자 ID를 /users/me에서 가져와 검색 요청 POST */
   const create = async () => {
     setStatus("loading")
     setError(null)
@@ -64,7 +70,7 @@ export default function DevSearchPage() {
             onChange={(e) => setMissingName(e.target.value)}
           />
           <button type="button" className="dev-btn" onClick={create}>
-            POST /search
+            POST {API_V1}/search-requests
           </button>
         </div>
       </div>
@@ -80,7 +86,7 @@ export default function DevSearchPage() {
               className="dev-btn dev-btn--secondary"
               onClick={() => run(() => fetchSearches({ page: 1, size: 10 }))}
             >
-              GET /search (목록)
+              GET {API_V1}/search-requests (목록)
             </button>
             <button
               type="button"
@@ -88,7 +94,7 @@ export default function DevSearchPage() {
               disabled={!searchId}
               onClick={() => run(() => fetchSearch(searchId))}
             >
-              GET /search/{"{id}"}
+              GET {API_V1}/search-requests/{"{id}"}
             </button>
             <button
               type="button"
@@ -96,7 +102,7 @@ export default function DevSearchPage() {
               disabled={!searchId}
               onClick={() => run(() => deleteSearch(searchId))}
             >
-              DELETE /search/{"{id}"}
+              DELETE {API_V1}/search-requests/{"{id}"}
             </button>
           </div>
         </div>

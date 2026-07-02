@@ -6,9 +6,11 @@ import {
   createMessage,
   deleteMessage,
 } from "../../api/messages_api"
+import { API_V1 } from "../../api/client"
 import ApiResult, { parseApiError } from "./components/ApiResult"
 import "./DevCommon.css"
 
+/** Dev — 재난문자 수집·조회·수동등록·삭제 테스트 */
 export default function DevMessagesPage() {
   const [page, setPage] = useState("1")
   const [sn, setSn] = useState("")
@@ -17,6 +19,7 @@ export default function DevMessagesPage() {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
 
+  /** API 호출 + 로딩/성공/에러 상태 갱신 (204 응답은 빈 본문 처리) */
   const run = async (fn) => {
     setStatus("loading")
     setError(null)
@@ -43,14 +46,14 @@ export default function DevMessagesPage() {
             className="dev-btn"
             onClick={() => run(() => collectMessages({ page_no: 1, num_of_rows: 5 }))}
           >
-            POST /messages/collect
+            POST {API_V1}/messages/collect
           </button>
           <button
             type="button"
             className="dev-btn dev-btn--secondary"
             onClick={() => run(() => fetchMessages({ page: Number(page) || 1, per_page: 10 }))}
           >
-            GET /messages
+            GET {API_V1}/messages
           </button>
         </div>
         <div className="dev-form" style={{ marginTop: "0.75rem" }}>
@@ -71,7 +74,7 @@ export default function DevMessagesPage() {
               disabled={!sn}
               onClick={() => run(() => fetchMessage(sn))}
             >
-              GET /messages/{"{sn}"}
+              GET {API_V1}/messages/{"{sn}"}
             </button>
             <button
               type="button"
@@ -79,7 +82,7 @@ export default function DevMessagesPage() {
               disabled={!sn}
               onClick={() => run(() => deleteMessage(sn))}
             >
-              DELETE /messages/{"{sn}"}
+              DELETE {API_V1}/messages/{"{sn}"}
             </button>
           </div>
         </div>
@@ -103,7 +106,7 @@ export default function DevMessagesPage() {
               )
             }
           >
-            POST /messages/manual_input
+            POST {API_V1}/messages/manual_input
           </button>
         </div>
         <ApiResult status={status} data={data} error={error} />

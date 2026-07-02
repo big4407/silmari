@@ -1,11 +1,12 @@
 import { useState } from "react"
-import { analyzeVideo } from "../../api/client"
+import { analyzeVideo, API_V1 } from "../../api/client"
 import ApiResult, { parseApiError } from "./components/ApiResult"
 import "./DevCommon.css"
 
 const SAMPLE_SMS =
   "실종자 안내\n이름: 김철수\n나이: 75세\n성별: 남\n착의: 검은 패딩"
 
+/** Dev — POST /api/v1/cctv/analyze (영상+안내문자 업로드 → 탐지 파이프라인) */
 export default function DevCctvPage() {
   const [smsText, setSmsText] = useState(SAMPLE_SMS)
   const [videoFile, setVideoFile] = useState(null)
@@ -15,6 +16,7 @@ export default function DevCctvPage() {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
 
+  /** multipart/form-data로 영상·문자·참조사진·지역 전송 */
   const analyze = async () => {
     if (!videoFile) return
     setStatus("loading")
@@ -42,7 +44,7 @@ export default function DevCctvPage() {
       </p>
 
       <div className="dev-section">
-        <h2>POST /api/cctv/analyze</h2>
+        <h2>POST {API_V1}/cctv/analyze</h2>
         <div className="dev-form">
           <label htmlFor="dev-cctv-sms">안내문자</label>
           <textarea

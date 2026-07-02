@@ -4,8 +4,12 @@
  */
 import axios from "axios"
 
-export const API_BASE = "http://localhost:8000"
+/** 백엔드 주소 (로컬 FastAPI) */
+export const API_BASE = "http://127.0.0.1:8000"
+/** sessionStorage 키 — 로그인 후 access/refresh 토큰 JSON 저장 */
 const TOKEN_KEY = "silmari_dev_tokens"
+
+// --- 토큰 저장소 (sessionStorage) ---
 
 export function getStoredTokens() {
   try {
@@ -23,6 +27,8 @@ export function setStoredTokens(tokens) {
 export function clearStoredTokens() {
   sessionStorage.removeItem(TOKEN_KEY)
 }
+
+// --- axios 인스턴스 + 요청 인터셉터 (Bearer 토큰 자동 첨부) ---
 
 const devClient = axios.create({ baseURL: API_BASE })
 

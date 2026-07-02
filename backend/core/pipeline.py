@@ -153,12 +153,7 @@ def run_detection_pipeline(
         "deprecated": True,
     }
 
-# 엄태윤 파이프라인
-from backend.core.vision.frame_extractor import frame_extract
-from backend.core.vision.person_detector import person_detect
-from backend.core.vision.check_same_person import check_same_person
-from backend.core.vision.crop_embedding import *
-from backend.core.vision.search_embedding import search_embedding
+# 엄태윤 파이프라인 — 호출 시에만 무거운 vision 모듈 로드
 def detect_missing_person_pipeline(
         query:str,
         video_path:str="data/CCTV/output_video_1_1_1.mp4", 
@@ -168,6 +163,18 @@ def detect_missing_person_pipeline(
         unique_person_path:str="data/results/unique_persons",
         max_results:int=5
 ):
+    from backend.core.vision.frame_extractor import frame_extract
+    from backend.core.vision.person_detector import person_detect
+    from backend.core.vision.check_same_person import check_same_person
+    from backend.core.vision.crop_embedding import (
+        get_image_paths,
+        create_image_embeddings,
+        normalize_embeddings,
+        make_metadata,
+        save_embedding,
+    )
+    from backend.core.vision.search_embedding import search_embedding
+
     frame_extract(video_path, frame_interval)
     person_detect(frame_path)
     check_same_person(detected_path)

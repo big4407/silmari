@@ -1,22 +1,25 @@
 import { useState } from "react"
 import devClient from "../../api/devClient"
+import { API_V1 } from "../../api/client"
 import ApiResult, { parseApiError } from "./components/ApiResult"
 import "./DevCommon.css"
 
 const SAMPLE_TEXT =
   "실종자 안내\n이름: 김철수\n나이: 75세\n성별: 남\n착의: 검은 패딩, 청바지\n실종장소: 서울 종로구"
 
+/** Dev — POST /api/v1/alerts/parse (LLM으로 안내문자 → 구조화 JSON) */
 export default function DevAlertPage() {
   const [text, setText] = useState(SAMPLE_TEXT)
   const [status, setStatus] = useState("idle")
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
 
+  /** 안내문자 원문을 JSON(이름·나이·착의 등)으로 파싱 */
   const parse = async () => {
     setStatus("loading")
     setError(null)
     try {
-      const { data: res } = await devClient.post("/api/alert/parse", { text })
+      const { data: res } = await devClient.post(`${API_V1}/alerts/parse`, { text })
       setData(res)
       setStatus("ok")
     } catch (err) {
@@ -31,7 +34,7 @@ export default function DevAlertPage() {
       <p className="dev-page__desc">LLM으로 안내문자에서 인상착의를 구조화합니다.</p>
 
       <div className="dev-section">
-        <h2>POST /api/alert/parse</h2>
+        <h2>POST {API_V1}/alerts/parse</h2>
         <div className="dev-form">
           <label htmlFor="dev-alert-text">안내문자 원문</label>
           <textarea

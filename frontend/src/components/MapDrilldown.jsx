@@ -45,7 +45,7 @@ function createLabelIcon(shortLabel, count, isActive, permanent) {
     iconSize: [0, 0],
     iconAnchor: [0, 0],
   });
-}
+ㅛ}
 
 export default function MapDrilldown({
   onRegionSelect,

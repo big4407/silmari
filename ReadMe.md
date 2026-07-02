@@ -188,7 +188,7 @@ docker compose up
 
 (`/alert` → `/cctv`, `/result` → `/search-results` 로 리다이렉트)
 
-행정구역 지도 데이터는 `frontend/public/geodata/`에 있습니다(상세는 해당 폴더의 README 참고).
+행정구역 지도 데이터는 `frontend/public/geodata/`에 있습니다(시·도: `sido/`, 시·군·구: `sigungu/`).
 
 ---
 
@@ -250,4 +250,4 @@ python scripts/smoke_test_auth.py
 ## 참고 문서
 
 - [FashionCLIP 의류 속성 분류 기준](fashionclip-taxonomy.md)
-- 행정구역 지도 데이터: `frontend/public/geodata/README.md`
+- 행정구역 지도 데이터: `frontend/public/geodata/`

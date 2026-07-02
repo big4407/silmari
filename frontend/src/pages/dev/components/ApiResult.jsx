@@ -1,12 +1,17 @@
 import "../DevCommon.css"
 
+/** API 응답 본문을 pre 태그에 표시할 문자열로 변환 */
 function formatBody(body) {
   if (body == null) return "(empty)"
   if (typeof body === "string") return body
   return JSON.stringify(body, null, 2)
 }
 
+/**
+ * Dev 페이지 공통 결과 패널 — 요청 상태(로딩/성공/에러)와 JSON 응답을 표시
+ */
 export default function ApiResult({ status, data, error }) {
+  // 상태바 색상·문구 결정
   const barClass =
     status === "loading"
       ? "dev-api-result__bar--loading"
@@ -25,6 +30,7 @@ export default function ApiResult({ status, data, error }) {
           ? `오류${error?.status ? ` (${error.status})` : ""}`
           : "응답 대기"
 
+  // 에러 시 FastAPI detail, 성공 시 data JSON 출력
   const body =
     status === "err"
       ? error?.detail ?? error?.message ?? formatBody(error)

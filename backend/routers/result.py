@@ -1,9 +1,9 @@
 """
 탐지 결과·검색 이력·미디어 제공 API.
 
-[조회] /search, /search/{id} — SearchResult + 클립·썸네일 URL
+[조회] GET / — SearchResult 목록 (구: /search)
 [미디어] /media/thumbnails, /media/clips — data/results/ 정적 파일
-[삭제] DELETE /search — DB 레코드 + 디스크 클립·썸네일 함께 제거
+[삭제] DELETE /{id} — DB 레코드 + 디스크 클립·썸네일 함께 제거
 """
 import json
 import os
@@ -25,7 +25,7 @@ from backend.core.config import settings
 
 router = APIRouter()
 
-MEDIA_BASE = "/api/result/media"
+MEDIA_BASE = "/api/v1/detection-results/media"
 
 
 def _serialize_search_result(record) -> dict:
@@ -81,6 +81,7 @@ def detection_history(limit: int = 20):
     ]
 
 
+@router.get("")
 @router.get("/search")
 def search_results(
     person_name: str = None,
@@ -97,6 +98,7 @@ def search_results(
     return [_serialize_search_result(r) for r in records]
 
 
+@router.get("/{result_id}")
 @router.get("/search/{result_id}")
 def search_result_detail(result_id: int):
     record = get_search_result_by_id(result_id)
@@ -114,6 +116,7 @@ def _remove_result_media(record) -> None:
             remove_file(os.path.join(settings.results_dir, "clips", filename))
 
 
+@router.delete("/{result_id}")
 @router.delete("/search/{result_id}")
 def delete_search_result_endpoint(result_id: int):
     record = delete_search_result(result_id)
@@ -123,6 +126,7 @@ def delete_search_result_endpoint(result_id: int):
     return {"ok": True, "deleted_id": result_id}
 
 
+@router.delete("")
 @router.delete("/search")
 def delete_search_results_endpoint(
     person_name: str = None,

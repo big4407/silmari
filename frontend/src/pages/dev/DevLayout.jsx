@@ -3,9 +3,11 @@ import { API_BASE, getStoredTokens } from "../../api/devClient"
 import { DEV_PAGES } from "./devConfig"
 import "./DevLayout.css"
 
+/** /dev/* 공통 레이아웃 — 좌측 사이드바 + 우측 페이지(Outlet) */
 export default function DevLayout() {
   const { pathname } = useLocation()
   const tokens = getStoredTokens()
+  // /dev/search → "search" (활성 메뉴 하이라이트용)
   const subPath = pathname.replace(/^\/dev\/?/, "")
 
   return (

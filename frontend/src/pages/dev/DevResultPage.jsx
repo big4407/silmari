@@ -4,10 +4,12 @@ import {
   fetchSearchResultDetail,
   fetchMissingList,
   deleteSearchResult,
+  API_V1,
 } from "../../api/client"
 import ApiResult, { parseApiError } from "./components/ApiResult"
 import "./DevCommon.css"
 
+/** Dev — CCTV 분석 결과(detection-results) 목록·상세·삭제 테스트 */
 export default function DevResultPage() {
   const [resultId, setResultId] = useState("")
   const [status, setStatus] = useState("idle")
@@ -40,14 +42,14 @@ export default function DevResultPage() {
             className="dev-btn"
             onClick={() => run(() => fetchSearchResults({ limit: 10 }))}
           >
-            GET /api/result/search
+            GET {API_V1}/detection-results
           </button>
           <button
             type="button"
             className="dev-btn dev-btn--secondary"
             onClick={() => run(() => fetchMissingList())}
           >
-            GET /api/result/list
+            GET {API_V1}/detection-results/list
           </button>
         </div>
         <div className="dev-form" style={{ marginTop: "0.75rem" }}>
@@ -60,7 +62,7 @@ export default function DevResultPage() {
               disabled={!resultId}
               onClick={() => run(() => fetchSearchResultDetail(resultId))}
             >
-              GET /api/result/search/{"{id}"}
+              GET {API_V1}/detection-results/{"{id}"}
             </button>
             <button
               type="button"
@@ -68,7 +70,7 @@ export default function DevResultPage() {
               disabled={!resultId}
               onClick={() => run(() => deleteSearchResult(resultId))}
             >
-              DELETE /api/result/search/{"{id}"}
+              DELETE {API_V1}/detection-results/{"{id}"}
             </button>
           </div>
         </div>
