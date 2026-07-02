@@ -27,6 +27,7 @@ import enum
 import uuid
 
 from backend.db.database import Base  # ← 단일 Base 사용
+from backend.utils.timeutils import kst_now
 
 
 class DetectionRecord(Base):
@@ -36,7 +37,7 @@ class DetectionRecord(Base):
     alert_text = Column(Text)
     video_filename = Column(String(255))
     result_json = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=kst_now)
 
 
 class SearchResult(Base):
@@ -54,24 +55,51 @@ class SearchResult(Base):
     clips_json = Column(Text)
     sms_info_json = Column(Text)
     description = Column(String(500), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=kst_now)
 
 
 class UserRole(str, enum.Enum):
-    INVESTIGATOR = "investigator"
-    PUBLIC_OFFICIAL = "public_official"
-    ADMIN = "admin"
+    """사용자 역할. value 는 DB 저장용 코드값."""
+
+    ADMIN = "1"
+    INVESTIGATOR = "2"
+    PUBLIC_OFFICIAL = "3"
 
 
 class ApprovalStatus(str, enum.Enum):
-    PENDING = "pending"
-    APPROVED = "approved"
-    REJECTED = "rejected"
-    SUSPENDED = "suspended"
+    """가입 승인 상태. value 는 DB 저장용 코드값."""
+
+    PENDING = "0"
+    APPROVED = "1"
+    REJECTED = "2"
+    SUSPENDED = "3"
+
+
+class SearchType(str, enum.Enum):
+    """검색 요청 출처. value 는 기존 CHAR(1) 코드값을 유지(DB 호환)."""
+
+    SMS = "1"  # 안내문자(SMS) 파싱
+    CHATBOT = "2"  # 챗봇
+    AUTO = "3"  # 자동검색
+
+
+class AnalysisStatus(str, enum.Enum):
+    """분석(실행) 상태. value 는 기존 CHAR(1) 코드값을 유지(DB 호환)."""
+
+    NOT_STARTED = "0"  # 분석 전
+    PARTIAL = "1"  # 부분분석완료
+    COMPLETED = "2"  # 완료
+
+
+class Gender(str, enum.Enum):
+    """성별. value 는 기존 CHAR(1) 코드값을 유지(DB 호환)."""
+
+    MALE = "M"
+    FEMALE = "F"
 
 
 class User(Base):
-    __tablename__ = "users"
+    __tablename__ = "user"
 
     id: Mapped[str] = mapped_column(
         String(36), primary_key=True, default=lambda: str(uuid.uuid4())
@@ -91,13 +119,24 @@ class User(Base):
     phone: Mapped[str] = mapped_column(String(30), nullable=False)
 
     requested_role: Mapped[UserRole] = mapped_column(
-        Enum(UserRole, native_enum=False), nullable=False, default=UserRole.INVESTIGATOR
+        Enum(
+            UserRole, native_enum=False, values_callable=lambda e: [m.value for m in e]
+        ),
+        nullable=False,
+        default=UserRole.INVESTIGATOR,
     )
     role: Mapped[UserRole | None] = mapped_column(
-        Enum(UserRole, native_enum=False), nullable=True
+        Enum(
+            UserRole, native_enum=False, values_callable=lambda e: [m.value for m in e]
+        ),
+        nullable=True,
     )
     approval_status: Mapped[ApprovalStatus] = mapped_column(
-        Enum(ApprovalStatus, native_enum=False),
+        Enum(
+            ApprovalStatus,
+            native_enum=False,
+            values_callable=lambda e: [m.value for m in e],
+        ),
         nullable=False,
         default=ApprovalStatus.PENDING,
         index=True,
@@ -106,17 +145,17 @@ class User(Base):
         DateTime(timezone=True), nullable=True
     )
     approved_by_id: Mapped[str | None] = mapped_column(
-        ForeignKey("users.id"), nullable=True
+        ForeignKey("user.id"), nullable=True
     )
     rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+        DateTime(timezone=True), default=kst_now, nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
+        default=kst_now,
+        onupdate=kst_now,
         nullable=False,
     )
 
@@ -135,7 +174,7 @@ class AuthSession(Base):
         String(36), primary_key=True, default=lambda: str(uuid.uuid4())
     )
     user_id: Mapped[str] = mapped_column(
-        ForeignKey("users.id"), index=True, nullable=False
+        ForeignKey("user.id"), index=True, nullable=False
     )
     refresh_token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(
@@ -147,7 +186,7 @@ class AuthSession(Base):
     ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
     user_agent: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+        DateTime(timezone=True), default=kst_now, nullable=False
     )
 
     user: Mapped[User] = relationship(back_populates="sessions")
@@ -199,14 +238,14 @@ class ChatbotSession(Base):
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
-        server_default=func.now(),
+        default=kst_now,
         nullable=False,
     )
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
-        server_default=func.now(),
-        onupdate=func.now(),
+        default=kst_now,
+        onupdate=kst_now,
         nullable=False,
     )
 
@@ -238,7 +277,7 @@ class Region(Base):
         comment="상위 지역코드(self-FK)",
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), nullable=False, comment="입력일시"
+        DateTime, default=kst_now, nullable=False, comment="입력일시"
     )
 
     parent: Mapped["Region | None"] = relationship(
@@ -265,7 +304,7 @@ class Video(Base):
         DateTime, nullable=True, comment="영상이 녹화된 일시"
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), nullable=False, comment="입력일시"
+        DateTime, default=kst_now, nullable=False, comment="입력일시"
     )
     embedding_id: Mapped[str | None] = mapped_column(
         String(50),
@@ -308,7 +347,7 @@ class Search(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[str] = mapped_column(
-        ForeignKey("users.id"),
+        ForeignKey("user.id"),
         nullable=False,
         comment="검색 요청한 유저 id (user의 PK)",
     )
@@ -320,8 +359,15 @@ class Search(Base):
     missing_name: Mapped[str | None] = mapped_column(
         String(20), nullable=True, comment="이름"
     )
-    gender: Mapped[str | None] = mapped_column(
-        CHAR(1), nullable=True, comment="성별 (M:남성, F:여성)"
+    gender: Mapped[Gender | None] = mapped_column(
+        Enum(
+            Gender,
+            native_enum=False,
+            length=1,
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        nullable=True,
+        comment="성별 (M:남성, F:여성)",
     )
     age: Mapped[int | None] = mapped_column(Integer, nullable=True, comment="나이")
     clothing: Mapped[str | None] = mapped_column(
@@ -334,12 +380,17 @@ class Search(Base):
         DateTime, nullable=True, comment="실종시각"
     )
     searched_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), nullable=False, comment="검색한 일시"
+        DateTime, default=kst_now, nullable=False, comment="검색한 일시"
     )
-    search_type: Mapped[str] = mapped_column(
-        CHAR(1),
+    search_type: Mapped[SearchType] = mapped_column(
+        Enum(
+            SearchType,
+            native_enum=False,
+            length=1,
+            values_callable=lambda e: [m.value for m in e],
+        ),
         nullable=False,
-        default="1",
+        default=SearchType.SMS,
         comment="1:SMS 파싱, 2:챗봇, 3:자동검색",
     )
 
@@ -357,19 +408,24 @@ class Analysis(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[str] = mapped_column(
-        ForeignKey("users.id"), nullable=False, comment="user 테이블 pk"
+        ForeignKey("user.id"), nullable=False, comment="user 테이블 pk"
     )
     search_id: Mapped[int] = mapped_column(
         ForeignKey("search.id"), nullable=False, comment="search 테이블 pk"
     )
-    analysis_status: Mapped[str] = mapped_column(
-        CHAR(1),
+    analysis_status: Mapped[AnalysisStatus] = mapped_column(
+        Enum(
+            AnalysisStatus,
+            native_enum=False,
+            length=1,
+            values_callable=lambda e: [m.value for m in e],
+        ),
         nullable=False,
-        default="0",
+        default=AnalysisStatus.NOT_STARTED,
         comment="0:분석 전, 1:부분분석완료, 2:완료",
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), nullable=False, comment="결과도출 시간"
+        DateTime, default=kst_now, nullable=False, comment="결과도출 시간"
     )
 
     user: Mapped["User"] = relationship(foreign_keys=[user_id])

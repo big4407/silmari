@@ -4,6 +4,8 @@
  * 하위: Dashboard, ChatbotPage, SearchHistory, SearchResults
  */
 import { Link, NavLink, Outlet } from 'react-router-dom';
+import { isAuthenticated, isAdmin } from '../api/client';
+import useLogout from '../hooks/useLogout';
 import './DashboardLayout.css';
 
 const TABS = [
@@ -14,6 +16,9 @@ const TABS = [
 ];
 
 export default function DashboardLayout() {
+  const authed = isAuthenticated();
+  const admin = isAdmin();
+  const { doLogout } = useLogout();
   return (
     <div className="dashboard-layout">
       <header className="dashboard-layout__header">
@@ -34,15 +39,27 @@ export default function DashboardLayout() {
               >
                 API 테스트
               </Link>
-              <Link
-                to="/admin"
-                className="dashboard-layout__util-link dashboard-layout__util-link--temp"
-              >
-                관리자
-              </Link>
-              <Link to="/login" className="dashboard-layout__util-link">
-                로그인
-              </Link>
+              {admin && (
+                <Link
+                  to="/admin"
+                  className="dashboard-layout__util-link dashboard-layout__util-link--temp"
+                >
+                  관리자
+                </Link>
+              )}
+              {authed ? (
+                <button
+                  type="button"
+                  className="dashboard-layout__util-link"
+                  onClick={doLogout}
+                >
+                  로그아웃
+                </button>
+              ) : (
+                <Link to="/login" className="dashboard-layout__util-link">
+                  로그인
+                </Link>
+              )}
             </div>
           </div>
         </div>

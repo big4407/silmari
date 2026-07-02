@@ -4,15 +4,16 @@
  * 하위: AdminViewPage (:viewId) — 회원·메시지·검색운영·감사 등
  */
 import { useState } from 'react';
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet } from 'react-router-dom';
 import { NAV } from './navConfig';
+import useLogout from '../../hooks/useLogout';
 import './AdminLayout.css';
 
 export default function AdminLayout() {
   const [collapsed, setCollapsed] = useState(() =>
     Object.fromEntries(NAV.map((node, i) => [node.group || node.id, i > 3])),
   );
-  const navigate = useNavigate();
+  const { doLogout } = useLogout();
 
   const toggleGroup = (key) => {
     setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -39,7 +40,7 @@ export default function AdminLayout() {
             href="#logout"
             onClick={(e) => {
               e.preventDefault();
-              navigate('/login');
+              doLogout();
             }}
           >
             로그아웃
