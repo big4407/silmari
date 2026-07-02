@@ -72,7 +72,7 @@ class ApprovalStatus(str, enum.Enum):
 
 
 class User(Base):
-    __tablename__ = "users"
+    __tablename__ = "user"
 
     id: Mapped[str] = mapped_column(
         String(36), primary_key=True, default=lambda: str(uuid.uuid4())
@@ -107,7 +107,7 @@ class User(Base):
         DateTime(timezone=True), nullable=True
     )
     approved_by_id: Mapped[str | None] = mapped_column(
-        ForeignKey("users.id"), nullable=True
+        ForeignKey("user.id"), nullable=True
     )
     rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
@@ -136,7 +136,7 @@ class AuthSession(Base):
         String(36), primary_key=True, default=lambda: str(uuid.uuid4())
     )
     user_id: Mapped[str] = mapped_column(
-        ForeignKey("users.id"), index=True, nullable=False
+        ForeignKey("user.id"), index=True, nullable=False
     )
     refresh_token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(
@@ -309,7 +309,7 @@ class Search(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[str] = mapped_column(
-        ForeignKey("users.id"),
+        ForeignKey("user.id"),
         nullable=False,
         comment="검색 요청한 유저 id (user의 PK)",
     )
@@ -358,7 +358,7 @@ class Analysis(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[str] = mapped_column(
-        ForeignKey("users.id"), nullable=False, comment="user 테이블 pk"
+        ForeignKey("user.id"), nullable=False, comment="user 테이블 pk"
     )
     search_id: Mapped[int] = mapped_column(
         ForeignKey("search.id"), nullable=False, comment="search 테이블 pk"
