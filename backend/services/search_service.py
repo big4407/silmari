@@ -57,3 +57,8 @@ class SearchService:
             raise ValueError("검색 기록을 찾을 수 없습니다.")
 
         self.repository.delete(search)
+
+    def execute_search(self, search_id: int):
+        search = self.repo.get_by_id(search_id)
+
+        
