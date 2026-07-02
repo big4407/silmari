@@ -336,6 +336,17 @@ class Search(Base):
     searched_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False, comment="검색한 일시"
     )
+
+    start_date: Mapped[date] = mapped_column(
+        Date,
+        nullable=False,
+    )
+    
+    end_date: Mapped[date] = mapped_column(
+        Date,
+        nullable=False,
+    )
+
     search_type: Mapped[str] = mapped_column(
         CHAR(1),
         nullable=False,
