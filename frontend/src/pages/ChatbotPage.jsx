@@ -8,7 +8,7 @@ export default function ChatbotPage() {
   const [messages, setMessages] = useState([
     {
       role: 'bot',
-      text: '안녕하세요! 실마리 챗봇입니다. 사진이나 인상착의를 입력해 주세요.',
+      text: '안녕하세요! 실마리 챗봇입니다. 영상을 검색할 지역 및 일자, 인상착의를 입력해 주세요.',
     },
   ]);
   const getSessionId = () => {
