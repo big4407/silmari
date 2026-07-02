@@ -1,5 +1,7 @@
 /** 랜딩·인증 페이지 공통 헤더 네비게이션 */
 import { Link, NavLink, useLocation } from 'react-router-dom';
+import { isAuthenticated, isAdmin } from '../api/client';
+import useLogout from '../hooks/useLogout';
 import './LandingHeader.css';
 
 const TABS = [
@@ -11,6 +13,9 @@ const TABS = [
 
 export default function LandingHeader() {
   const { pathname } = useLocation();
+  const authed = isAuthenticated();
+  const admin = isAdmin();
+  const { doLogout } = useLogout();
 
   return (
     <header className="landing-header">
@@ -25,24 +30,38 @@ export default function LandingHeader() {
             </span>
           </div>
           <div className="landing-header__util">
-            <Link
-              to="/admin"
-              className="landing-header__util-link landing-header__util-link--temp"
-            >
-              관리자
-            </Link>
-            <Link
-              to="/login"
-              className={`landing-header__util-link${pathname === '/login' ? ' landing-header__util-link--active' : ''}`}
-            >
-              로그인
-            </Link>
-            <Link
-              to="/signup"
-              className={`landing-header__util-link${pathname === '/signup' ? ' landing-header__util-link--active' : ''}`}
-            >
-              회원가입
-            </Link>
+            {admin && (
+              <Link
+                to="/admin"
+                className="landing-header__util-link landing-header__util-link--temp"
+              >
+                관리자
+              </Link>
+            )}
+            {authed ? (
+              <button
+                type="button"
+                className="landing-header__util-link"
+                onClick={doLogout}
+              >
+                로그아웃
+              </button>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className={`landing-header__util-link${pathname === '/login' ? ' landing-header__util-link--active' : ''}`}
+                >
+                  로그인
+                </Link>
+                <Link
+                  to="/signup"
+                  className={`landing-header__util-link${pathname === '/signup' ? ' landing-header__util-link--active' : ''}`}
+                >
+                  회원가입
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>
