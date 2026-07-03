@@ -12,6 +12,11 @@ def create_initial_state(user_id: str):
         "missing_slots": [],
         "search_id": None,
         "response": "",
-        "messages": [],
+        "messages": [
+            {
+                "role": "assistant",
+                "content": "안녕하세요! 실마리 챗봇입니다. 영상을 검색할 지역 및 일자, 인상착의를 입력해 주세요.",
+            }
+        ],
         "search_inserted": False,
     }
