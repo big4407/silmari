@@ -38,6 +38,13 @@ class ChatbotService:
         )
 
         response = result["response"]
+        result["messages"].append(
+            {
+                "role": "assistant",
+                "content": response,
+            }
+        )
+
         if result.get("search_inserted"):
             chatbot_session.state_json = create_initial_state(user_id=user_id)
         else:
@@ -77,3 +84,15 @@ class ChatbotService:
         self.db.refresh(chatbot_session)
 
         return chatbot_session
+
+    def get_session_messages(self, user_id: str, session_id: str):
+        chatbot_session = self.get_or_create_session(
+            user_id=user_id, session_id=session_id
+        )
+
+        state = chatbot_session.state_json or {}
+
+        return {
+            "session_id": session_id,
+            "messages": state.get("messages", []),
+        }
