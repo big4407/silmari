@@ -12,7 +12,7 @@ def extract_slots_node(state, config):
     return {
         "region": slots.region or state.get("region"),
         "start_date": slots.start_date or state.get("start_date"),
-        "end_date": slots.start_date or state.get("end_date"),
+        "end_date": slots.end_date or state.get("end_date"),
         "appearance": slots.appearance or state.get("appearance"),
         "missing_name": slots.missing_name or state.get("missing_name"),
         "gender": slots.gender or state.get("gender"),
