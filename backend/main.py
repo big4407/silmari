@@ -118,7 +118,6 @@ app.include_router(chatbot.router, prefix="/chatbot", tags=["chatbot"])
 
 app.include_router(search.router, prefix="/search", tags=["search"])
 
-# 태윤이 숙제
 # app.include_router(video.router, prefix="/video", tags=["video"])
 
 # legacy 미사용 라우터 추후 확인 및 처리

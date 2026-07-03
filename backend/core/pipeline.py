@@ -153,7 +153,6 @@ def run_detection_pipeline(
         "deprecated": True,
     }
 
-# 엄태윤 파이프라인
 from backend.core.vision.frame_extractor import frame_extract
 from backend.core.vision.person_detector import person_detect
 from backend.core.vision.check_same_person import check_same_person
