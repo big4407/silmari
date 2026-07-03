@@ -29,3 +29,13 @@ def chat(
         response=result["response"],
         session_id=result["session_id"],
     )
+
+
+@router.get("/session/{session_id}")
+def get_chat_session(
+    session_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = ChatbotService(db)
+    return service.get_session_messages(user_id=current_user.id, session_id=session_id)
