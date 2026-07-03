@@ -139,6 +139,20 @@ export const updateApproval = (userId, payload) =>
     .patch(`/member/admin/users/${userId}/approval`, payload)
     .then((r) => r.data);
 
+// ===============================
+// 안내문자 관련
+// ===============================
+export const getMessageList = () => {
+  return client
+    .get('/message', {
+      params: {
+        page: 1,
+        per_page: 10,
+      },
+    })
+    .then((r) => r.data);
+};
+
 // ══════════════════════════════════════════════════════════
 // 레거시 (초기 단발 파이프라인) — /api/video, /api/missing, /api/alerts
 // ══════════════════════════════════════════════════════════
