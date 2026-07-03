@@ -12,8 +12,11 @@ class ChatbotService:
         self.graph = build_chatbot_graph()
         self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=settings.openai_api_key,)
 
-    def chat(self, session_id: str, message: str):
-        chatbot_session = self.get_or_create_session(session_id)
+    def chat(self, session_id: str, user_id: str, message: str):
+        chatbot_session = self.get_or_create_session(
+            user_id=user_id,
+            session_id=session_id,
+        )
 
         state = chatbot_session.state_json
 
@@ -36,7 +39,7 @@ class ChatbotService:
 
         response = result["response"]
         if result.get("search_inserted"):
-            chatbot_session.state_json = create_initial_state(user_id=f"{session_id}")
+            chatbot_session.state_json = create_initial_state(user_id=user_id)
         else:
             chatbot_session.state_json = result            
         
@@ -48,21 +51,24 @@ class ChatbotService:
             "session_id": session_id,
         }
 
-    def get_or_create_session(self, session_id: str) -> ChatbotSession:
+    def get_or_create_session(self, session_id: str, user_id: str) -> ChatbotSession:
         chatbot_session = (
             self.db.query(ChatbotSession)
-            .filter(ChatbotSession.session_id == session_id)
+            .filter(
+                ChatbotSession.session_id == session_id,
+                ChatbotSession.user_id == user_id,
+            )
             .first()
         )
 
         if chatbot_session is not None:
             return chatbot_session
 
-        state = create_initial_state(user_id=f"{session_id}")
+        state = create_initial_state(user_id=user_id)
 
         chatbot_session = ChatbotSession(
             session_id=session_id,
-            user_id=None,
+            user_id=user_id,
             state_json=state,
         )
 
