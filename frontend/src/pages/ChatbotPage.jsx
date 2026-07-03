@@ -1,16 +1,12 @@
 /** 챗봇 UI — 현재 로컬 목 응답만 (향후 LLM·비전 API 연동 예정) */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './ChatbotPage.css';
-import { sendChatMessage } from '../api/chatbot_api';
+import { sendChatMessage, getChatSession } from '../api/chatbot_api';
 
 export default function ChatbotPage() {
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState([
-    {
-      role: 'bot',
-      text: '안녕하세요! 실마리 챗봇입니다. 영상을 검색할 지역 및 일자, 인상착의를 입력해 주세요.',
-    },
-  ]);
+  const [messages, setMessages] = useState([]);
+
   const getSessionId = () => {
     let sessionId = localStorage.getItem('chatbot_session_id');
 
@@ -21,6 +17,30 @@ export default function ChatbotPage() {
 
     return sessionId;
   };
+
+  useEffect(() => {
+    const loadMessages = async () => {
+      try {
+        const data = await getChatSession(getSessionId());
+
+        setMessages(
+          data.messages.map((m) => ({
+            role: m.role === 'assistant' ? 'bot' : 'user',
+            text: m.content,
+          })),
+        );
+      } catch {
+        setMessages([
+          {
+            role: 'bot',
+            text: '챗봇 세션을 불러오지 못했습니다.',
+          },
+        ]);
+      }
+    };
+
+    loadMessages();
+  }, []);
 
   const handleSend = async () => {
     if (!input.trim()) return;
