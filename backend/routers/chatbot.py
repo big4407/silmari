@@ -17,6 +17,9 @@ def chat(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    """ 
+    챗봇을 직접 호출하는데 사용하는 함수. 사용자 요청(채팅 등)과 사용자 정보를 받아서 챗봇의 응답을 받아온다.
+    """
     service = ChatbotService(db)
 
     result = service.chat(
@@ -37,5 +40,8 @@ def get_chat_session(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    """
+    챗봇과의 채팅 세션을 읽어오는 함수. session_id와 사용자 정보를 이용하여 채팅 세션을 읽어온다.
+    """
     service = ChatbotService(db)
     return service.get_session_messages(user_id=current_user.id, session_id=session_id)
