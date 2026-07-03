@@ -92,3 +92,16 @@
   border-top: 2px solid #333;
   background: #fff;
 }
+
+/* 로그인/회원가입 연동 — 에러 메시지 & 비활성 버튼 */
+.auth-form__error {
+  margin: 4px 0 0;
+  color: #d92d20;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.auth-form__btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
