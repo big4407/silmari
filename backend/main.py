@@ -11,6 +11,7 @@ FastAPI 애플리케이션 진입점.
   /api/alert, /api/cctv, /api/result, /api/alerts — 탐지·결과·재난문자
   /api/sms, /api/video, /api/missing — 레거시 경로 (하위 호환)
 """
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -32,12 +33,14 @@ from backend.core.runtime import ensure_supported_python
 from backend.db.models import ApprovalStatus, User, UserRole
 
 from backend.core.scheduler import start_scheduler
+
 # scheduler의 logging을 위한 import
 # 아래에서 모듈 사용하지 않는다고 지우면 동작하지 않음
 import backend.core.scheduler_logging
 
 ensure_supported_python()
 settings = get_settings()
+
 
 def bootstrap_admin() -> None:
     """Create the first administrator once.
@@ -47,11 +50,15 @@ def bootstrap_admin() -> None:
     administrator with an unknown random password; the local-only development
     endpoint then issues a test token without an administrator password.
     """
-    has_admin_identity = bool(settings.bootstrap_admin_username and settings.bootstrap_admin_email)
+    has_admin_identity = bool(
+        settings.bootstrap_admin_username and settings.bootstrap_admin_email
+    )
     has_password_bootstrap = bool(settings.bootstrap_admin_password)
     has_dev_no_password_bootstrap = settings.bootstrap_admin_no_password
 
-    if not has_admin_identity or not (has_password_bootstrap or has_dev_no_password_bootstrap):
+    if not has_admin_identity or not (
+        has_password_bootstrap or has_dev_no_password_bootstrap
+    ):
         return
 
     with SessionLocal() as db:
@@ -87,18 +94,14 @@ def bootstrap_admin() -> None:
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     ensure_supported_python()
-    ensure_dirs()                              # startup에 있던 것 이동
-    Base.metadata.create_all(bind=engine)      # ← 단 1회
+    ensure_dirs()  # startup에 있던 것 이동
+    Base.metadata.create_all(bind=engine)  # ← 단 1회
     bootstrap_admin()
-    start_scheduler() # 메시지 수집 스케줄러 시작
+    start_scheduler()  # 메시지 수집 스케줄러 시작
     yield
 
 
-app = FastAPI(
-    title="Silmari API", 
-    version="1.1.0", 
-    lifespan=lifespan
-)
+app = FastAPI(title="Silmari API", version="1.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -131,6 +134,7 @@ app.include_router(result.router, prefix="/api/missing", tags=["legacy"])
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+
 
 @app.get("/")
 def root():
