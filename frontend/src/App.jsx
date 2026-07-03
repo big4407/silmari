@@ -22,6 +22,8 @@ import CCTVUpload from './pages/CCTVUpload';
 import SearchResults from './pages/SearchResults';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminViewPage from './pages/admin/AdminViewPage';
+import RequireAuth from './components/RequireAuth';
+import RequireAdmin from './components/RequireAdmin';
 import './App.css';
 
 export default function App() {
@@ -32,20 +34,24 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
 
-        <Route element={<DashboardLayout />}>
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/dashboard/chatbot" element={<ChatbotPage />} />
-          <Route path="/dashboard/history" element={<SearchHistory />} />
-          <Route path="/search-results" element={<SearchResults />} />
+        <Route element={<RequireAuth />}>
+          <Route element={<DashboardLayout />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/dashboard/chatbot" element={<ChatbotPage />} />
+            <Route path="/dashboard/history" element={<SearchHistory />} />
+            <Route path="/search-results" element={<SearchResults />} />
+          </Route>
+
+          <Route element={<AppLayout />}>
+            <Route path="/cctv" element={<CCTVUpload />} />
+          </Route>
         </Route>
 
-        <Route element={<AppLayout />}>
-          <Route path="/cctv" element={<CCTVUpload />} />
-        </Route>
-
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<AdminViewPage />} />
-          <Route path=":viewId" element={<AdminViewPage />} />
+        <Route element={<RequireAdmin />}>
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminViewPage />} />
+            <Route path=":viewId" element={<AdminViewPage />} />
+          </Route>
         </Route>
 
         <Route path="/alert" element={<Navigate to="/cctv" replace />} />
