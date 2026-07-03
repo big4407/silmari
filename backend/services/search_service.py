@@ -56,16 +56,4 @@ class SearchService:
         if search is None:
             raise ValueError("검색 기록을 찾을 수 없습니다.")
 
-        self.repository.delete(search)
-
-
-
-    def execute_search(self, search_id: int) -> SearchItem:
-        search = self.repository.find_by_id(search_id)
-
-        if search is None:
-            raise ValueError("검색 기록을 찾을 수 없습니다.")
-        
-        video_path = search.video_path
-
-        
+        self.repository.delete(search)       

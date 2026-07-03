@@ -48,25 +48,6 @@ def get_search_list(
     return service.get_search_list(page=page, size=size)
 
 
-
-# 작성중
-@router.post("/{search_id}/execute",
-            response_model=SearchItem)
-def execute_search(
-    search_id: int,
-    service: SearchService = Depends(get_search_service),
-):
-    return service.execute_search(search_id)
-
-@router.get("/{search_id}/status",
-            response_model=SearchStatus)
-def get_search_status(
-    search_id: int,
-    service: SearchService = Depends(get_search_service),
-):
-    return service.get_search_status(search_id)
-
-
 # response_model => 단건이라 SearchDetail로 바꾸는게 좋아보임
 @router.get(
     "/{search_id}",
