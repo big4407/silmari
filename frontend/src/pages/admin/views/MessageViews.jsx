@@ -1,8 +1,25 @@
 /** 안내문자 관리 뷰 — 목록·인상착의 파싱 검수 (목 UI) */
 import PageHead from '../components/PageHead';
 import EmptyState, { TableEmptyRow } from '../components/EmptyState';
+import {ReportRow} from '../components/MessageBody'
+import { useState, useEffect } from 'react';
+import {getMessageList} from '../../../api/client';
 
 export function ReportsView() {
+  const [reports, setReports] = useState([]);
+  // API 호출
+  useEffect(() => {
+    async function fetchReports() {
+      try {
+        const data = await getMessageList();
+        setReports(data.items);
+      } catch (error) {
+        setReports([]);
+      }
+    }
+    fetchReports();
+  }, []);
+
   return (
     <>
       <PageHead
@@ -34,7 +51,13 @@ export function ReportsView() {
             </tr>
           </thead>
           <tbody>
-            <TableEmptyRow colSpan={6} />
+            {reports.length === 0 ? (
+              <TableEmptyRow colSpan={6} />
+            ) : (
+              reports.map((report) => (
+                <ReportRow key={report.sn} report={report} />
+              ))
+            )}
           </tbody>
         </table>
       </div>
