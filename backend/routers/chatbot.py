@@ -5,6 +5,8 @@ from backend.db.database import get_db
 from backend.chatbot.schemas import ChatbotRequest, ChatbotResponse
 from backend.services.chatbot_service import ChatbotService
 
+from backend.deps import get_current_user
+from backend.db.models import User
 
 router = APIRouter()
 
@@ -13,12 +15,14 @@ router = APIRouter()
 def chat(
     request: ChatbotRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     service = ChatbotService(db)
 
     result = service.chat(
         session_id=request.session_id,
         message=request.message,
+        user_id=current_user.id,
     )
 
     return ChatbotResponse(
