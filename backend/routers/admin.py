@@ -75,19 +75,31 @@ def update_approval(
     was_approved = target.approval_status == ApprovalStatus.APPROVED
 
     if payload.status == ApprovalStatus.APPROVED:
-        assigned_role = payload.role or target.requested_role
-        target.role = assigned_role
-        target.approval_status = ApprovalStatus.APPROVED
-        target.approved_at = utc_now()
-        target.approved_by_id = admin.id
-        target.rejection_reason = None
-        # 반려·정지 상태에서 다시 승인이면 재승인(REACTIVATE), 아니면 승인(APPROVE)
-        action = (
-            AdminAction.APPROVE
-            if before["approval_status"] == "0"
-            else AdminAction.REACTIVATE
-        )
-        reason = None
+        # [안전장치] 승인된 적 없는 계정(role 없음)을 정지 해제하는 경우,
+        # 승인으로 바로 넘기지 않고 '승인 대기'로 되돌린다. 검토 없이 승인되는 것을 방지.
+        never_approved = target.role is None and payload.role is None
+        if never_approved and before["approval_status"] in ("2", "3"):
+            # 정지·반려 상태 + 승인 이력 없음 → 대기로 복귀
+            target.approval_status = ApprovalStatus.PENDING
+            target.approved_at = None
+            target.approved_by_id = None
+            target.rejection_reason = None
+            action = AdminAction.REACTIVATE
+            reason = "승인 이력이 없어 승인 대기 상태로 되돌림"
+        else:
+            assigned_role = payload.role or target.requested_role
+            target.role = assigned_role
+            target.approval_status = ApprovalStatus.APPROVED
+            target.approved_at = utc_now()
+            target.approved_by_id = admin.id
+            target.rejection_reason = None
+            # 반려·정지에서 다시 승인이면 재승인(REACTIVATE), 신규 대기 승인이면 APPROVE
+            action = (
+                AdminAction.APPROVE
+                if before["approval_status"] == "0"
+                else AdminAction.REACTIVATE
+            )
+            reason = None
     elif payload.status == ApprovalStatus.REJECTED:
         target.role = None
         target.approval_status = ApprovalStatus.REJECTED
