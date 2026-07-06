@@ -39,6 +39,51 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
+// ── 응답 인터셉터: access 토큰 만료(401) 시 refresh 로 자동 재발급 후 원요청 재시도 ──
+// 동시에 여러 요청이 401 나도 refresh 는 한 번만 수행하고, 나머지는 그 결과를 기다린다.
+let _refreshing = null;
+
+const doRefresh = async () => {
+  const refreshToken = tokenStore.getRefresh();
+  if (!refreshToken) throw new Error('no refresh token');
+  // 인터셉터 무한루프 방지를 위해 raw axios 로 호출(client 대신)
+  const { data } = await axios.post(`${API_BASE}/member/auth/refresh`, {
+    refresh_token: refreshToken,
+  });
+  tokenStore.set(data.access_token, data.refresh_token);
+  return data.access_token;
+};
+
+client.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const original = error.config;
+    const status = error.response?.status;
+
+    // 401 이고, 아직 재시도 안 했고, refresh 요청 자체가 아닌 경우에만
+    const isRefreshCall = original?.url?.includes('/member/auth/refresh');
+    if (status === 401 && !original?._retry && !isRefreshCall) {
+      original._retry = true;
+      try {
+        // 이미 갱신 중이면 그 Promise 를 공유(중복 refresh 방지)
+        if (!_refreshing)
+          _refreshing = doRefresh().finally(() => (_refreshing = null));
+        const newAccess = await _refreshing;
+        original.headers.Authorization = `Bearer ${newAccess}`;
+        return client(original); // 새 토큰으로 원요청 재시도
+      } catch (e) {
+        // refresh 도 실패(만료/무효) → 토큰 정리 후 로그인 유도
+        tokenStore.clear();
+        if (typeof window !== 'undefined') {
+          window.location.assign('/login');
+        }
+        return Promise.reject(e);
+      }
+    }
+    return Promise.reject(error);
+  },
+);
+
 // ══════════════════════════════════════════════════════════
 // 인증 (auth) — /member/auth/*
 // ══════════════════════════════════════════════════════════
@@ -138,6 +183,45 @@ export const updateApproval = (userId, payload) =>
   client
     .patch(`/member/admin/users/${userId}/approval`, payload)
     .then((r) => r.data);
+
+// ══════════════════════════════════════════════════════════
+// 감사 로그 — 로그인 이력 (/member/admin/login-history)
+// ══════════════════════════════════════════════════════════
+
+/** 로그인 이력(감사 로그) 조회. */
+export const fetchLoginHistory = (params = {}) =>
+  client.get('/member/admin/login-history', { params }).then((r) => r.data);
+
+/** 관리자 행동 이력(감사 로그) 조회. approval_only=true 면 승인·권한 변경만. */
+export const fetchAdminHistory = (params = {}) =>
+  client.get('/member/admin/admin-history', { params }).then((r) => r.data);
+
+// 관리자 행동 유형 코드 → 한글 라벨 (AdminAction enum)
+//   "1" 승인 / "2" 반려 / "3" 정지 / "4" 재승인 / "5" 삭제 / "6" 수정
+export const ADMIN_ACTION_LABELS = {
+  1: '승인',
+  2: '반려',
+  3: '정지',
+  4: '재승인',
+  5: '삭제',
+  6: '수정',
+};
+
+// 로그인 실패 사유 — 화면 표시용 라벨.
+// DB/응답에는 숫자 코드("1"~"5")로 저장·전달되고(LoginFailReason enum),
+// 사용자에게는 아래 한글로 변환해 보여준다. (성공 시 fail_reason 은 없음)
+//   "1" 아이디 없음 또는 비밀번호 불일치
+//   "2" 승인 대기 중인 계정
+//   "3" 가입 반려된 계정
+//   "4" 정지된 계정
+//   "5" 역할 미부여 계정
+export const LOGIN_FAIL_LABELS = {
+  1: '비밀번호 불일치',
+  2: '승인 대기',
+  3: '반려된 계정',
+  4: '정지된 계정',
+  5: '역할 미부여',
+};
 
 // ══════════════════════════════════════════════════════════
 // 레거시 (초기 단발 파이프라인) — /api/video, /api/missing, /api/alerts
