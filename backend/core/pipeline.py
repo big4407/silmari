@@ -129,25 +129,31 @@ def search_pipeline(
 def run_detection_pipeline(
     video_path: str, sms_text: str, reference_img_path: Optional[str] = None
 ) -> dict:
+    from backend.core.config import get_settings
+    from backend.core.vision.demo_detection import build_demo_detections_from_video
+
     # 1단계: 실종 안내문자에서 이름·나이·의류색 등 인상착의 추출
-    run_alert_parse_chain(sms_text)
+    sms_info = run_alert_parse_chain(sms_text)
+    if hasattr(sms_info, "model_dump"):
+        sms_dict = sms_info.model_dump()
+    else:
+        sms_dict = dict(sms_info)
 
-    # 2단계: detect_missing_person_pipeline() 으로 대체 예정 (현재 스텁)
+    settings = get_settings()
+    detections: list = []
+
+    # TODO: detect_missing_person_pipeline / YOLO 경로로 교체
+  # 개발 환경에서는 업로드 영상 기반 데모 탐지로 결과 UI 흐름 검증
+    if settings.environment == "development":
+        detections = build_demo_detections_from_video(video_path)
+
     return {
-        "sms_info": {"raw_text": sms_text},
-        "total_detections": 0,
+        "sms_info": sms_dict,
+        "total_detections": len(detections),
         "face_recognition_used": reference_img_path is not None,
-        "detections": [],
-        "deprecated": True,
+        "detections": detections,
+        "demo_mode": bool(detections) and settings.environment == "development",
     }
-
-
-# 엄태윤 파이프라인
-from backend.core.vision.frame_extractor import frame_extract
-from backend.core.vision.person_detector import person_detect
-from backend.core.vision.check_same_person import check_same_person
-from backend.core.vision.crop_embedding import *
-from backend.core.vision.search_embedding import search_embedding
 
 
 def detect_missing_person_pipeline(
@@ -159,6 +165,19 @@ def detect_missing_person_pipeline(
     unique_person_path: str = "data/results/unique_persons",
     max_results: int = 5,
 ):
+    # ML 스택(torchreid, FashionCLIP 등)은 이 함수 호출 시에만 로드
+    from backend.core.vision.frame_extractor import frame_extract
+    from backend.core.vision.person_detector import person_detect
+    from backend.core.vision.check_same_person import check_same_person
+    from backend.core.vision.crop_embedding import (
+        create_image_embeddings,
+        get_image_paths,
+        make_metadata,
+        normalize_embeddings,
+        save_embedding,
+    )
+    from backend.core.vision.search_embedding import search_embedding
+
     frame_extract(video_path, frame_interval)
     person_detect(frame_path)
     check_same_person(detected_path)

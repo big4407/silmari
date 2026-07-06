@@ -9,6 +9,145 @@
   margin-bottom: 0.5rem;
 }
 
+.form-page__back {
+  display: inline-block;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  color: #003876;
+  text-decoration: none;
+}
+
+.form-page__back:hover {
+  text-decoration: underline;
+}
+
+.form-page__steps {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 1.25rem;
+  padding: 0;
+  list-style: none;
+}
+
+.form-page__steps li {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #f9fafb;
+  font-size: 0.82rem;
+  color: #6b7280;
+}
+
+.form-page__steps li span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #e5e7eb;
+  color: #374151;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.form-page__step--done {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1e40af;
+}
+
+.form-page__step--done span {
+  background: #003876;
+  color: #fff;
+}
+
+.form-page__context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 1rem;
+}
+
+.form-page__chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  font-size: 0.78rem;
+  color: #4b5563;
+}
+
+.form-page__chip--primary {
+  background: #e8f0fe;
+  border-color: #bfdbfe;
+  color: #003876;
+  font-weight: 600;
+}
+
+.form-page__hint {
+  margin: -0.5rem 0 1rem;
+  font-size: 0.78rem;
+  color: #9ca3af;
+}
+
+.form-page__file-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0.5rem 0 1rem;
+  padding: 8px 12px;
+  border: 1px solid #dbeafe;
+  border-radius: 6px;
+  background: #f8fafc;
+  font-size: 0.85rem;
+}
+
+.form-page__file-size {
+  color: #6b7280;
+  font-size: 0.78rem;
+  flex-shrink: 0;
+}
+
+.form-page__loading {
+  margin-top: 1rem;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f0f6fc;
+  border: 1px solid #bfdbfe;
+}
+
+.form-page__loading-bar {
+  height: 4px;
+  margin-bottom: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #003876 0%, #60a5fa 50%, #003876 100%);
+  background-size: 200% 100%;
+  animation: form-loading-slide 1.2s linear infinite;
+}
+
+.form-page__loading p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #003876;
+  font-weight: 500;
+}
+
+@keyframes form-loading-slide {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
 .form-page__desc {
   color: #666;
   margin-bottom: 1.5rem;

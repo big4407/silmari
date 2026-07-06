@@ -157,6 +157,14 @@ export const fetchMissingList = (params = {}) =>
 export const fetchSearchResults = (params = {}) =>
   client.get(`${API_V1}/detection-results`, { params }).then((r) => r.data);
 
+/** CCTV 분석 검색 이력 — GET /api/v1/detection-results/history */
+export const fetchSearchHistory = (params = {}) =>
+  client.get(`${API_V1}/detection-results/history`, { params }).then((r) => r.data);
+
+/** 개발용 임시 검색 결과 시드 — POST /api/v1/detection-results/seed-demo */
+export const seedDemoSearchResults = () =>
+  client.post(`${API_V1}/detection-results/seed-demo`).then((r) => r.data);
+
 export const fetchSearchResultDetail = (id) =>
   client.get(`${API_V1}/detection-results/${id}`).then((r) => r.data);
 

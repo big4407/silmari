@@ -4,18 +4,37 @@ import './ClipSequencePlayer.css';
 
 /**
  * clips: [{ url, start_sec, end_sec }, ...] — SearchResults에서 탐지 구간 목록 전달
+ * currentIndex / onClipChange: 후보 목록과 동기화
  * onBack: 목록 화면으로 돌아가는 콜백
  */
-export default function ClipSequencePlayer({ clips, onBack }) {
+export default function ClipSequencePlayer({
+  clips,
+  currentIndex: controlledIndex,
+  onClipChange,
+  onBack,
+}) {
   const videoRef = useRef(null);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [internalIndex, setInternalIndex] = useState(0);
   const [playError, setPlayError] = useState(null);
+
+  const isControlled = controlledIndex != null;
+  const currentIndex = isControlled ? controlledIndex : internalIndex;
+
+  const setCurrentIndex = (next) => {
+    if (isControlled) {
+      onClipChange?.(next);
+    } else {
+      setInternalIndex(next);
+    }
+  };
 
   // clips 배열이 바뀌면 첫 번째 클립부터 다시 재생
   useEffect(() => {
-    setCurrentIndex(0);
+    if (!isControlled) {
+      setInternalIndex(0);
+    }
     setPlayError(null);
-  }, [clips]);
+  }, [clips, isControlled]);
 
   // currentIndex 변경 시 해당 클립 로드 후 자동 재생 시도
   useEffect(() => {
@@ -31,7 +50,7 @@ export default function ClipSequencePlayer({ clips, onBack }) {
   /** 한 클립 재생이 끝나면 다음 구간으로 이동 */
   const handleEnded = () => {
     if (currentIndex < clips.length - 1) {
-      setCurrentIndex((prev) => prev + 1);
+      setCurrentIndex(currentIndex + 1);
     }
   };
 

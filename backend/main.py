@@ -152,17 +152,17 @@ app.include_router(admin.router, prefix=API_V1)      # /api/v1/admin — 회원 
 app.include_router(operations.router, prefix=API_V1)  # /api/v1/operations — RBAC 데모
 
 # 재난·검색·분석 도메인
-app.include_router(messages.router, prefix=API_V1)   # /api/v1/messages — 재난문자 수집·조회
+app.include_router(messages.router, prefix=f"{API_V1}/messages", tags=["Messages"])
 app.include_router(disaster_alerts.router, prefix=f"{API_V1}/disaster-alerts", tags=["Disaster Alerts"])
 app.include_router(alert.router, prefix=f"{API_V1}/alerts", tags=["Alert Parsing"])       # 안내문자 인상착의 파싱
 app.include_router(search.router, prefix=f"{API_V1}/search-requests", tags=["Search Requests"])
 app.include_router(result.router, prefix=f"{API_V1}/detection-results", tags=["Detection Results"])
 app.include_router(cctv.router, prefix=f"{API_V1}/cctv", tags=["CCTV"])                   # 영상 업로드·YOLO 분석
-app.include_router(chatbot.router, prefix=API_V1)    # /api/v1/chatbot — 대화형 검색
+app.include_router(chatbot.router, prefix=f"{API_V1}/chatbot", tags=["Chatbot"])
 
 # ── legacy (deprecated) — 구 프론트·스크립트 하위 호환, 제거 예정 ────────
 # 동일 router를 예전 URL prefix로 한 번 더 등록 (handler는 v1과 동일)
-app.include_router(messages.router, tags=["legacy (deprecated)"])
+app.include_router(messages.router, prefix="/messages", tags=["legacy (deprecated)"])
 app.include_router(disaster_alerts.router, prefix="/api/alerts", tags=["legacy (deprecated)"])
 app.include_router(alert.router, prefix="/api/alert", tags=["legacy (deprecated)"])
 app.include_router(search.router, prefix="/search", tags=["legacy (deprecated)"])
