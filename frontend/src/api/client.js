@@ -142,12 +142,12 @@ export const updateApproval = (userId, payload) =>
 // ===============================
 // 안내문자 관련
 // ===============================
-export const getMessageList = () => {
+export const getMessageList = ({page, per_page}) => {
   return client
     .get('/message', {
       params: {
-        page: 1,
-        per_page: 10,
+        page: page,
+        per_page: per_page,
       },
     })
     .then((r) => r.data);
