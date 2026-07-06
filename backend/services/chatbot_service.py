@@ -10,6 +10,7 @@ from backend.db.models import ChatbotSession
 import json
 from pathlib import Path
 from datetime import datetime
+import time
 
 
 class ChatbotService:
@@ -22,29 +23,11 @@ class ChatbotService:
             api_key=settings.openai_api_key,
         )
 
-    USAGE_FILE = Path("chatbot_usage.json")
+    USAGE_FILE = Path("llm_call_log.jsonl")
 
-    def save_usage(self, session_id: str, cb):
-        usage = {
-            "timestamp": datetime.now().isoformat(),
-            "session_id": session_id,
-            "prompt_tokens": cb.prompt_tokens,
-            "completion_tokens": cb.completion_tokens,
-            "total_tokens": cb.total_tokens,
-            "total_cost_usd": cb.total_cost,
-            "successful_requests": cb.successful_requests,
-        }
-
-        if self.USAGE_FILE.exists():
-            with open(self.USAGE_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        else:
-            data = []
-
-        data.append(usage)
-
-        with open(self.USAGE_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+    def save_llm_call_jsonl(self, record: dict):
+        with self.USAGE_FILE.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
     def chat(self, session_id: str, message: str):
         chatbot_session = self.get_or_create_session(session_id)
@@ -58,24 +41,57 @@ class ChatbotService:
             }
         )
 
-        with get_openai_callback() as cb:
-            result = self.graph.invoke(
-                state,
-                config={
-                    "configurable": {
-                        "db": self.db,
-                        "llm": self.llm,
-                    }
-                },
-            )
+        start = time.perf_counter()
+        status = "1"
+        error_msg = None
+        response = None
+        result = None
 
-        response = result["response"]
+        try:
+            with get_openai_callback() as cb:
+                result = self.graph.invoke(
+                    state,
+                    config={
+                        "configurable": {
+                            "db": self.db,
+                            "llm": self.llm,
+                        }
+                    },
+                )
+
+            response = result.get("response")
+
+        except Exception as e:
+            status = "0"
+            error_msg = str(e)[:255]
+            cb = None
+            raise
+
+        finally:
+            latency_ms = int((time.perf_counter() - start) * 1000)
+
+            record = {
+                "call_type": "2",  # 챗봇
+                "search_id": None,
+                "user_id": None,
+                "conversation_id": None,
+                "model_name": getattr(self.llm, "model_name", "gpt-4o-mini"),
+                "prompt": message,
+                "response": response,
+                "input_tokens": cb.prompt_tokens if cb else None,
+                "output_tokens": cb.completion_tokens if cb else None,
+                "latency_ms": latency_ms,
+                "cost": cb.total_cost if cb else None,
+                "status": status,
+                "error_msg": error_msg,
+                "created_at": datetime.now().isoformat(),
+            }
+
+            self.save_llm_call_jsonl(record)
 
         chatbot_session.state_json = result
         self.db.commit()
         self.db.refresh(chatbot_session)
-        
-        self.save_usage(session_id, cb)
 
         return {
             "response": response,
