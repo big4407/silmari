@@ -57,7 +57,7 @@ class VideoService:
             crop_id = detail["crop_id"],
             position = detail["position"]
             )
-            save_video_detail = self.repository.create_detail(video_detail)
+            self.repository.create_detail(video_detail)
 
     def frame_extract(
             self, video_path:str, every_nth: int = 5
