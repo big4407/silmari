@@ -589,6 +589,13 @@
   color: var(--admin-ink);
 }
 
+.admin-pagination {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+
 .admin-tree {
   display: flex;
   flex-direction: column;
