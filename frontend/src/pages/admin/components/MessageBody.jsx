@@ -4,9 +4,7 @@ export function ReportRow({ report }) {
       <td>{report.sn}</td>
       <td>{new Date(report.crt_dt).toLocaleString()}</td>
       <td>{report.rcptn_rgn_nm}</td>
-      <td>{report.emrg_step_nm}</td>
       <td>{report.msg_cn}</td>
-      <td>실종</td>
     </tr>
   );
 }

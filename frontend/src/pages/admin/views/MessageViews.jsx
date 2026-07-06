@@ -72,15 +72,8 @@ export function ReportsView() {
 
       <div className="admin-toolbar">
         <input placeholder="내용·지역 검색" disabled />
-        <select disabled>
-          <option>긴급단계 전체</option>
-        </select>
-        <select disabled>
-          <option>재해구분 전체</option>
-        </select>
         <input type="date" disabled />
         <div className="admin-spacer" />
-        <span className="admin-pill admin-pill--muted">실종 관련만 표시</span>
       </div>
 
       <div className="admin-card admin-table-wrap">
@@ -90,9 +83,7 @@ export function ReportsView() {
               <th>일련번호</th>
               <th>수신 일시</th>
               <th>수신 지역</th>
-              <th>긴급단계</th>
               <th>내용</th>
-              <th>분류 상태</th>
             </tr>
           </thead>
           <tbody>
