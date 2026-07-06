@@ -287,6 +287,24 @@ export function MembersAllView() {
     }
   };
 
+  // 정지·반려된 계정을 다시 승인(복구). 백엔드가 APPROVED 전환을 허용.
+  const reactivate = async (u) => {
+    const label = u.approval_status === '3' ? '정지 해제' : '재승인';
+    if (!window.confirm(`${u.full_name} 님의 계정을 ${label}할까요?`)) return;
+    setBusy(true);
+    try {
+      await updateApproval(u.id, {
+        status: '1',
+        role: u.role || u.requested_role,
+      });
+      await load();
+    } catch {
+      setError('처리 중 오류가 발생했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <>
       <PageHead
@@ -341,7 +359,7 @@ export function MembersAllView() {
                   <td>{statusLabel(u.approval_status)}</td>
                   <td>{fmtDate(u.created_at)}</td>
                   <td style={{ textAlign: 'right' }}>
-                    {u.approval_status !== '3' && (
+                    {u.approval_status === '1' && (
                       <button
                         type="button"
                         className="admin-btn"
@@ -349,6 +367,17 @@ export function MembersAllView() {
                         disabled={busy}
                       >
                         정지
+                      </button>
+                    )}
+                    {(u.approval_status === '2' ||
+                      u.approval_status === '3') && (
+                      <button
+                        type="button"
+                        className="admin-btn admin-btn--primary"
+                        onClick={() => reactivate(u)}
+                        disabled={busy}
+                      >
+                        {u.approval_status === '3' ? '정지 해제' : '재승인'}
                       </button>
                     )}
                   </td>
