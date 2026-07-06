@@ -7,6 +7,11 @@ from backend.services.video_service import (
     frame_extract,
     person_detect,
     check_same_person,
+    create_image_embeddings,
+    get_image_paths,
+    normalize_embeddings,
+    make_metadata,
+    save_embedding
 )
 
 
