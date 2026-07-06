@@ -1,24 +1,36 @@
 /** 안내문자 관리 뷰 — 목록·인상착의 파싱 검수 (목 UI) */
 import PageHead from '../components/PageHead';
 import EmptyState, { TableEmptyRow } from '../components/EmptyState';
-import {ReportRow} from '../components/MessageBody'
+import { ReportRow } from '../components/MessageBody';
 import { useState, useEffect } from 'react';
-import {getMessageList} from '../../../api/client';
+import { getMessageList } from '../../../api/client';
 
+// 문자 목록을 보여주는 함수
 export function ReportsView() {
+  const PAGE_SIZE = 10; // 한 페이지에 보여줄 문자 수
   const [reports, setReports] = useState([]);
-  // API 호출
+  const [page, setPage] = useState(1); // 현재 페이지
+  const [total, setTotal] = useState(0); // 총 문자 수
+
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+
   useEffect(() => {
     async function fetchReports() {
       try {
-        const data = await getMessageList();
+        const data = await getMessageList({
+          page,
+          per_page: PAGE_SIZE,
+        });
         setReports(data.items);
+        setTotal(data.total);
       } catch (error) {
         setReports([]);
+        setTotal(0);
       }
     }
+
     fetchReports();
-  }, []);
+  }, [page, PAGE_SIZE]);
 
   return (
     <>
@@ -26,6 +38,7 @@ export function ReportsView() {
         viewId="reports"
         desc="수집된 재난문자 중 실종 관련 안내문자를 조회합니다. 선택한 문자는 인상착의 파싱 검수와 CCTV 검색의 입력으로 사용됩니다."
       />
+
       <div className="admin-toolbar">
         <input placeholder="내용·지역 검색" disabled />
         <select disabled>
@@ -38,6 +51,7 @@ export function ReportsView() {
         <div className="admin-spacer" />
         <span className="admin-pill admin-pill--muted">실종 관련만 표시</span>
       </div>
+
       <div className="admin-card admin-table-wrap">
         <table>
           <thead>
@@ -61,6 +75,46 @@ export function ReportsView() {
           </tbody>
         </table>
       </div>
+
+      <div className="admin-pagination">
+        <button
+          className="admin-btn"
+          type="button"
+          disabled={page === 1}
+          onClick={() => setPage((prev) => prev - 1)}
+        >
+          이전
+        </button>
+
+        {Array.from({ length: totalPages }, (_, index) => {
+          const pageNumber = index + 1;
+
+          return (
+            <button
+              key={pageNumber}
+              type="button"
+              className={
+                page === pageNumber
+                  ? 'admin-btn admin-btn--primary'
+                  : 'admin-btn'
+              }
+              onClick={() => setPage(pageNumber)}
+            >
+              {pageNumber}
+            </button>
+          );
+        })}
+
+        <button
+          className="admin-btn"
+          type="button"
+          disabled={page === totalPages || totalPages === 0}
+          onClick={() => setPage((prev) => prev + 1)}
+        >
+          다음
+        </button>
+      </div>
+
       <p className="admin-footnote">
         ※ 재난문자 원천 데이터(<code>message</code>)에서 재해구분·키워드로 실종
         관련 건만 필터링해 표시합니다.
