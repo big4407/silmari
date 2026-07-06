@@ -142,12 +142,25 @@ export const updateApproval = (userId, payload) =>
 // ===============================
 // 안내문자 관련
 // ===============================
-export const getMessageList = ({page, per_page}) => {
+export const getMessageList = ({
+  page,
+  per_page,
+  content,
+  region,
+  startDate,
+  endDate,
+  orderBy,
+}) => {
   return client
     .get('/message', {
       params: {
         page: page,
         per_page: per_page,
+        search_content: content || null,
+        region: region || null,
+        start_date: startDate,
+        end_date: endDate,
+        order_by: orderBy,
       },
     })
     .then((r) => r.data);
