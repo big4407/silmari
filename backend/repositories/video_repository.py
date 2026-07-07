@@ -24,15 +24,16 @@ class VideoRepository:
     def get_by_id(self, video_id: int) -> Video | None:
         return self.db.query(Video).filter(Video.id == video_id).first()
 
-    def update_embedding_id(
-        self,
-        video: Video,
-        embedding_id: str,
-    ) -> Video:
-        video.embedding_id = embedding_id
-        self.db.commit()
-        self.db.refresh(video)
-        return video
+    def get_by_file_path(self, file_path: str) -> Video | None:
+        """file_path 로 영상 1건 조회 — 중복 처리 방지용."""
+        return self.db.query(Video).filter(Video.file_path == file_path).first()
+
+    def exists_by_file_path(self, file_path: str) -> bool:
+        """해당 경로의 영상이 이미 처리(저장)되었는지 여부."""
+        return (
+            self.db.query(Video.id).filter(Video.file_path == file_path).first()
+            is not None
+        )
 
     def find_by_region_and_time(
         self,

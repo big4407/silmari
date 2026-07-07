@@ -1,10 +1,9 @@
 import cv2
-from typing import Generator, Tuple
 import numpy as np
 import os
 from pathlib import Path
 from ultralytics import YOLO
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from backend.core.config import settings
 from torchreid.utils import FeatureExtractor
 import torch.nn.functional as F
@@ -14,11 +13,18 @@ from fashion_clip.fashion_clip import FashionCLIP
 from backend.db.database import get_chromadb
 from sqlalchemy.orm import Session
 from backend.repositories.video_repository import VideoRepository
-from backend.schemas.video_schema import VideoCreate, VideoDetail
-from backend.db.models import Video
+from backend.schemas.video_schema import VideoCreate, VideoDetailCreate
+from backend.db.models import Video, VideoDetail
 
 _model_path = Path(settings.yolo_model_path)
 model = YOLO(str(_model_path) if _model_path.exists() else "yolov8n.pt")
+
+# FashionCLIP 은 로드가 매우 무거우므로(수 초~수십 초) 모듈 로드 시 1회만 생성해 재사용한다.
+# (기존 코드는 임베딩 함수 호출마다 새로 생성해 영상 처리량에 비례해 느려졌다.)
+_fclip = FashionCLIP("fashion-clip")
+
+# 처리 대상 영상 확장자
+_VIDEO_EXTENSIONS = {".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm"}
 
 
 class VideoService:
@@ -32,32 +38,75 @@ class VideoService:
     # ──────────────────────────────────────────────────────────────────────────
     # video_path = region_code/YYYYMMDD/cctv_serial_no/
     # "11680/20260701/CCTV001/video1.mp4"
-    def process_videos(self, video_paths: list[str]):
+    def collect_video_paths(self, start_date: date, end_date: date) -> list[str]:
+        """지정한 날짜 범위(양끝 포함)의 CCTV 영상 경로를 수집한다.
+
+        경로 규칙: {cctv_data_dir}/{region_code}/{YYYYMMDD}/{cctv_serial_no}/*.mp4
+        start_date 부터 end_date 까지 하루씩 순회하며, 각 날짜 폴더의
+        모든 region·cctv 하위 영상을 모은다.
+        """
+        base_dir = Path(settings.cctv_data_dir)
+        if not base_dir.exists():
+            return []
+
+        video_paths: list[str] = []
+        current = start_date
+        while current <= end_date:
+            day_str = current.strftime("%Y%m%d")
+            for region_dir in base_dir.iterdir():
+                if not region_dir.is_dir():
+                    continue
+                day_dir = region_dir / day_str
+                if not day_dir.is_dir():
+                    continue
+                for file in day_dir.rglob("*"):
+                    if file.suffix.lower() in _VIDEO_EXTENSIONS:
+                        video_paths.append(str(file.resolve()))
+            current += timedelta(days=1)
+
+        return video_paths
+
+    def process_videos(self, video_paths: list[str]) -> dict:
+        """영상 목록을 처리해 Video/VideoDetail 및 Chroma 에 저장.
+
+        같은 file_path 가 이미 처리되어 있으면 건너뛴다(중복 방지).
+        반환: {"processed": 처리 건수, "skipped": 중복 건수}
+        """
+        processed = 0
+        skipped = 0
         for video_path in video_paths:
             path = Path(video_path)
+            file_path = str(path)
+
+            # 중복 방지 — 이미 처리한 경로면 건너뜀
+            if self.repository.exists_by_file_path(file_path):
+                skipped += 1
+                continue
+
             video = VideoCreate(
                 region_code=path.parts[-4],
                 cctv_serial_no=path.parts[-2],
-                recorded_at=datetime.strptime(path.parts[-3], "%Y%m%d"),
-                file_path=str(path),
+                recorded_at=datetime.strptime(path.parts[-3], "%Y%m%d").date(),
+                file_path=file_path,
             )
             save_video = self.repository.create(Video(**video.model_dump()))
-            embedding_id = f"video_{save_video.id}"
-            self.repository.update_embedding_id(save_video, embedding_id)
             frames = self.frame_extract(video_path)
             details, crop_paths = self.person_detect(frames)
             self.save_embeddings_to_chroma(save_video.id, crop_paths, details)
             self.process_video_detail(save_video.id, details)
+            processed += 1
+
+        return {"processed": processed, "skipped": skipped}
 
     def process_video_detail(self, video_id: int, details: list[dict]):
         for detail in details:
-            video_detail = VideoDetail(
+            video_detail = VideoDetailCreate(
                 video_id=video_id,
                 video_timestamp=detail["video_timestamp"],
                 crop_id=detail["crop_id"],
                 position=detail["position"],
             )
-            self.repository.create_detail(video_detail)
+            self.repository.create_detail(VideoDetail(**video_detail.model_dump()))
 
     def frame_extract(self, video_path: str, every_nth: int = 5):
         cap = cv2.VideoCapture(video_path)
@@ -65,8 +114,7 @@ class VideoService:
         video_name = path.stem
 
         if not cap.isOpened():
-            print("오류: 영상을 열지 못했습니다.")
-            exit()
+            raise RuntimeError(f"영상을 열지 못했습니다: {video_path}")
 
         save_dir = Path("data/results/frames")
         save_dir.mkdir(parents=True, exist_ok=True)
@@ -102,17 +150,6 @@ class VideoService:
                 else:
                     print(f"저장 실패: {save_path}")
 
-        # ──────────────────────────────────────────────────────────────────────────
-        # db 에 저장하는 로직 생성
-        # ──────────────────────────────────────────────────────────────────────────
-
-        # Video 테이블에 데이터 저장하고
-        # self.repository.VideoCreate(변수 이것저것)
-        # Video Detail 테이블에 데이터 저장하고
-        # self.repository.VideoDetailCreate(변수 이것저것)
-
-        # return 성공했는지 안했는지 뭐이런거
-
         cap.release()
         print(f"저장된 프레임 수: {saved_count}")
         return saved_paths
@@ -142,10 +179,7 @@ class VideoService:
             for person_idx, box in enumerate(r.boxes, 1):
                 x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
 
-                confidence = float(box.conf[0].cpu().item())
-                label = f"person {confidence:.2f}"
                 person_crop = frame[y1:y2, x1:x2]
-
                 save_path = save_dir / f"{image_path.stem}_person_{person_idx}.jpg"
                 success = cv2.imwrite(str(save_path), person_crop)
                 if success:
@@ -159,7 +193,7 @@ class VideoService:
                     )
         return details, crop_paths
 
-    def check_same_person(detected_path: str):
+    def check_same_person(self, detected_path: str):
         image_dir = Path(detected_path)
         save_dir = Path("data/results/unique_persons")
         save_dir.mkdir(parents=True, exist_ok=True)
@@ -172,8 +206,7 @@ class VideoService:
         image_paths = sorted(image_paths)
 
         if not image_paths:
-            print("사람 crop 이미지가 없습니다.")
-            raise SystemExit
+            raise ValueError(f"사람 crop 이미지가 없습니다: {detected_path}")
 
         features = extractor([str(path) for path in image_paths])
 
@@ -217,9 +250,8 @@ class VideoService:
 
     # crop embedding ------------------------------------------------------
     def create_image_embeddings(self, crop_paths: list[str]):
-        fclip = FashionCLIP("fashion-clip")
         path_strings = [str(path) for path in crop_paths]
-        embeddings = fclip.encode_images(path_strings, batch_size=32)
+        embeddings = _fclip.encode_images(path_strings, batch_size=32)
         norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
         return embeddings / norms
 
@@ -229,7 +261,6 @@ class VideoService:
         collection = get_chromadb()
         embeddings = self.create_image_embeddings(crop_paths)
         for crop_path, embedding, detail in zip(crop_paths, embeddings, details):
-            parts = Path(crop_path).stem.split("_")
             # 20260706_103000_frame_00010s_person_1.jpg
             # ["20260706", "103000", "frame", "00010s", "person", "1"]
             metadata = {
@@ -255,8 +286,7 @@ class VideoService:
         return result
 
     def search_embeddings(self, query: str, video_id: int, n_results: int = 5):
-        fclip = FashionCLIP("fashion-clip")
-        text_embeddings = fclip.encode_text([query], batch_size=1)
+        text_embeddings = _fclip.encode_text([query], batch_size=1)
         text_embeddings = text_embeddings / np.linalg.norm(
             text_embeddings, axis=1, keepdims=True
         )
@@ -267,84 +297,3 @@ class VideoService:
             where={"video_id": video_id},
         )
         return result  # result["metadatas"][0]에  image_path가 있어 crop을 볼 수 있음.
-
-
-# crop embedding 완료 -------------------------------------------------
-
-# def get_image_paths(image_dir):
-#     """
-#     동일인물 제거를한 unique_persons 폴더에서 jpg 이미지 경로 목록 반환
-#     """
-#     image_dir = Path(image_dir)
-#     image_paths = sorted(image_dir.glob("*.jpg"))
-#     return image_paths
-
-# def create_image_embeddings(image_paths):
-#     """
-#         이미지 경로 목록을 FashionCLIP 이미지 임베딩으로 변환
-#     """
-#     fclip = FashionCLIP("fashion-clip")
-#     path_strings = [str(path) for path in image_paths]
-#     embeddings = fclip.encode_images(path_strings, batch_size=32)
-#     return embeddings
-
-# def normalize_embeddings(embeddings):
-#     """
-#         코사인 유사도 계산용으로 정규화된 임베딩 반환:
-#     """
-#     norms = np.linalg.norm(
-#         embeddings,
-#         axis=1,
-#         keepdims=True
-#     )
-#     return embeddings / norms
-
-# def make_metadata(image_paths):
-#     """
-#         index, group_id, image_path 목록 생성
-#     """
-#     metadata = []
-#     for index, image_path in enumerate(image_paths):
-#         metadata.append({
-#             "index": index,
-#             "image_path": str(image_path)
-#             # "crop_id"
-#             # embedding,
-#             # video_id,
-#             # frame_number,
-#             # timestamp,
-#             # location,
-#             # person_index
-#         })
-#     return metadata
-
-
-# # ──────────────────────────────────────────────────────────────────────────
-# # DB 접근 함수
-# # crop_embedding /
-# # ──────────────────────────────────────────────────────────────────────────
-#     def save_embedding(id, embedding, metadata):
-#         collection = get_chromadb()
-#         collection.upsert(
-#             ids=[id],
-#             embeddings=[embedding],
-#             metadatas=[metadata]
-#         )
-
-
-#     def crop_embedding(self, image_dir):
-#         image_paths = self.get_image_paths(image_dir)
-#         embeddings = self.create_image_embeddings(image_paths)
-#         normalized_embeddings = self.normalize_embeddings(embeddings)
-#         metadata_list = self.make_metadata(image_paths)
-
-#         for index, (embedding, metadata) in enumerate(
-#             zip(normalized_embeddings, metadata_list)
-#         ):
-#             embedding_id = f"crop_{index}"
-
-#             self.save_embedding(
-#                 id=embedding_id,
-#                 embedding=embedding.tolist(),
-#                 metadata=metadata,
-#             )

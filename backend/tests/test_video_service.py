@@ -24,11 +24,24 @@ def get_video_files(folder_path):
 
 def test_logic():
     service = VideoService(next(get_db()))
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # Video 테이블 저장
+    # Video / Video_Detail
+    # ──────────────────────────────────────────────────────────────────────────
+
     video_paths = get_video_files(
-        Path(settings.cctv_data_dir) / "41110" / "20260628" / "CCTV1234"
+        Path(settings.cctv_data_dir) / "1114052000" / "20260628" / "CCTV1234"
     )
 
     service.process_videos(video_paths)
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # ChromaDb 데이터 조회
+    # ChromaDb
+    # ──────────────────────────────────────────────────────────────────────────
+    chromaDb_data = service.get_embeddings_by_video_id(3)
+    print(chromaDb_data)
 
 
 if __name__ == "__main__":

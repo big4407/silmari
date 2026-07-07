@@ -4,6 +4,7 @@
 [발표 포인트] DB·JWT·외부 API 키·파일 경로가 모두 여기서 관리됨.
              Docker compose는 DB_HOST=db 등을 환경변수로 덮어씀.
 """
+
 from functools import lru_cache
 from pathlib import Path
 
@@ -27,7 +28,7 @@ class Settings(BaseSettings):
     DB_USER: str = "root"
     DB_PASSWORD: str = ""
     DB_CHARSET: str = "utf8mb4"
-    
+
     # --- DB (Chroma DB) ---
     chroma_dir: Path = PROJECT_ROOT / "data" / "chroma"
 
@@ -53,9 +54,10 @@ class Settings(BaseSettings):
     upload_dir: Path = PROJECT_ROOT / "data" / "uploads"
     yolo_model_path: Path = PROJECT_ROOT / "data" / "yolo" / "yolov8n.pt"
     cctv_data_dir: Path = PROJECT_ROOT / "data" / "CCTV"
-    results_dir: Path = PROJECT_ROOT / "data" / "results" 
+    results_dir: Path = PROJECT_ROOT / "data" / "results"
     image_save_dir: Path = PROJECT_ROOT / "data" / "results" / "unique_persons"
     frame_dir: Path = PROJECT_ROOT / "data" / "results" / "frames"
+    detected_dir: Path = PROJECT_ROOT / "data" / "results" / "detected"
 
     # --- JWT / 인증 (MemberSettings에서 흡수) ---
     jwt_secret_key: str = Field(
@@ -111,11 +113,17 @@ class Settings(BaseSettings):
         self.environment = self.environment.strip().lower()
         if self.bootstrap_admin_no_password:
             if self.environment not in {"development", "test"}:
-                raise ValueError("BOOTSTRAP_ADMIN_NO_PASSWORD는 development/test에서만 사용 가능합니다.")
+                raise ValueError(
+                    "BOOTSTRAP_ADMIN_NO_PASSWORD는 development/test에서만 사용 가능합니다."
+                )
             if self.bootstrap_admin_password:
-                raise ValueError("no_password 모드에서는 BOOTSTRAP_ADMIN_PASSWORD를 비워두세요.")
+                raise ValueError(
+                    "no_password 모드에서는 BOOTSTRAP_ADMIN_PASSWORD를 비워두세요."
+                )
             if not (self.bootstrap_admin_username and self.bootstrap_admin_email):
-                raise ValueError("no_password bootstrap에는 username/email이 필요합니다.")
+                raise ValueError(
+                    "no_password bootstrap에는 username/email이 필요합니다."
+                )
         return self
 
 
