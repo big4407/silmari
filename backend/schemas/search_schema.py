@@ -1,5 +1,7 @@
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pydantic import BaseModel, Field
+
+from backend.utils.timeutils import kst_now
 
 
 # 페이징 처리에 필요한 스키마
@@ -20,6 +22,16 @@ class PagingInfo(BaseModel):
     has_next: bool  # 다음 페이지 존재 여부
 
 
+def _default_start_date() -> date:
+    """검색 기본 시작일 — 오늘(KST) 기준 7일 전."""
+    return (kst_now() - timedelta(days=7)).date()
+
+
+def _default_end_date() -> date:
+    """검색 기본 종료일 — 오늘(KST)."""
+    return kst_now().date()
+
+
 class SearchCreate(BaseModel):
     """
     검색을 시도할 때 필요한 schema
@@ -36,6 +48,13 @@ class SearchCreate(BaseModel):
     clothing: str | None = Field(default=None, max_length=100)
     missing_location: str | None = Field(default=None, max_length=20)
     missing_time: datetime | None = None
+
+    start_date: date = Field(
+        default_factory=_default_start_date
+    )  # 영상 검색 시작일 (기본: 7일 전)
+    end_date: date = Field(
+        default_factory=_default_end_date
+    )  # 영상 검색 종료일 (기본: 오늘)
 
     search_type: str = Field(
         default="1", max_length=1
@@ -57,6 +76,8 @@ class SearchDetail(BaseModel):
     missing_location: str | None
     missing_time: datetime | None
     searched_at: datetime
+    start_date: date
+    end_date: date
     search_type: str
 
     class Config:
@@ -88,3 +109,11 @@ class SearchListResponse(BaseModel):
 
     items: list[SearchItem]
     page_info: PagingInfo
+
+class SearchStatus(BaseModel):
+    id: int
+    status: str
+    progress: int = Field(ge=0, le=100)
+    message: str | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None

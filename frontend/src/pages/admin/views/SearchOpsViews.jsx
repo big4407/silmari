@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import PageHead from '../components/PageHead';
 import { StatValue, TableEmptyRow } from '../components/EmptyState';
+import AdminFeaturePending from '../components/AdminFeaturePending';
 
 export function CctvSourceView() {
   const [tab, setTab] = useState('region');
@@ -163,9 +164,7 @@ export function SearchRequestsView() {
         </select>
         <input type="date" disabled />
         <div className="admin-spacer" />
-        <button type="button" className="admin-btn" disabled>
-          CSV보내기
-        </button>
+        <AdminFeaturePending />
       </div>
       <div className="admin-card admin-table-wrap">
         <table>

@@ -3,9 +3,10 @@
  *
  * 하위: AdminViewPage (:viewId) — 회원·메시지·검색운영·감사 등
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { NAV } from './navConfig';
+import { fetchUsers } from '../../api/client';
 import useLogout from '../../hooks/useLogout';
 import './AdminLayout.css';
 
@@ -14,6 +15,35 @@ export default function AdminLayout() {
     Object.fromEntries(NAV.map((node, i) => [node.group || node.id, i > 3])),
   );
   const { doLogout } = useLogout();
+  const [pendingCount, setPendingCount] = useState(0);
+
+  // 가입 승인 대기 건수 — 사이드바 배지용
+  useEffect(() => {
+    let alive = true;
+    const refresh = () => {
+      fetchUsers('0')
+        .then((users) => {
+          if (alive) setPendingCount(Array.isArray(users) ? users.length : 0);
+        })
+        .catch(() => {
+          if (alive) setPendingCount(0);
+        });
+    };
+    refresh(); // 최초 로드
+
+    // 승인/반려로 대기 목록이 바뀌면 배지 갱신
+    const onChanged = (e) => {
+      const c = e?.detail?.count;
+      if (typeof c === 'number') setPendingCount(c);
+      else refresh();
+    };
+    window.addEventListener('members-pending-changed', onChanged);
+
+    return () => {
+      alive = false;
+      window.removeEventListener('members-pending-changed', onChanged);
+    };
+  }, []);
 
   const toggleGroup = (key) => {
     setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -90,7 +120,9 @@ export default function AdminLayout() {
                       }
                     >
                       <span>{it.label}</span>
-                      {it.badge ? (
+                      {it.id === 'members-pending' && pendingCount > 0 ? (
+                        <span className="admin-badge">{pendingCount}</span>
+                      ) : it.badge ? (
                         <span className="admin-badge">{it.badge}</span>
                       ) : null}
                     </NavLink>
