@@ -58,6 +58,9 @@ class Settings(BaseSettings):
     image_save_dir: Path = PROJECT_ROOT / "data" / "results" / "unique_persons"
     frame_dir: Path = PROJECT_ROOT / "data" / "results" / "frames"
     detected_dir: Path = PROJECT_ROOT / "data" / "results" / "detected"
+    administrative_dong_csv: Path = (
+        PROJECT_ROOT / "data" / "raw" / "administrative_dong.csv"
+    )
 
     # --- JWT / 인증 (MemberSettings에서 흡수) ---
     jwt_secret_key: str = Field(

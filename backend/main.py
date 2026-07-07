@@ -42,6 +42,8 @@ from backend.db.models import ApprovalStatus, User, UserRole
 from contextlib import asynccontextmanager
 from secrets import token_urlsafe
 from sqlalchemy import or_, select
+from backend.services.code_group_seed import seed_code_groups_if_empty
+from backend.services.retention_policy_seed import seed_retention_policies_if_empty
 from backend.core.scheduler import start_scheduler
 
 # scheduler의 logging을 위한 import — 사용하지 않아도 import만으로 로깅 설정이 적용됨
@@ -113,6 +115,9 @@ async def lifespan(_: FastAPI):
         bind=engine
     )  # ORM 모델 기준 테이블 자동 생성 (마이그레이션 없을 때)
     bootstrap_admin()  # .env 기반 최초 관리자 계정
+    with SessionLocal() as db:
+        seed_code_groups_if_empty(db)
+        seed_retention_policies_if_empty(db)
     start_scheduler()  # APScheduler — 재난문자 수집 등 cron 작업 시작
     yield  # 이 지점부터 HTTP 요청 수신
     # shutdown 시 정리 작업이 필요하면 yield 아래에 추가
