@@ -29,8 +29,9 @@ export default function AdminLayout() {
           if (alive) setPendingCount(0);
         });
     };
-    refresh();
+    refresh(); // 최초 로드
 
+    // 승인/반려로 대기 목록이 바뀌면 배지 갱신
     const onChanged = (e) => {
       const c = e?.detail?.count;
       if (typeof c === 'number') setPendingCount(c);

@@ -11,6 +11,7 @@ from sqlalchemy import (
     Column,
     Date,
     Integer,
+    Boolean,
     String,
     DateTime,
     Text,
@@ -108,6 +109,31 @@ class Gender(str, enum.Enum):
     FEMALE = "F"
 
 
+# 재난문자 원문 그대로, 단 date/datetime의 경우 파싱
+class LoginFailStatus(str, enum.Enum):
+    """로그인 실패 사유. value 는 DB 저장용 코드값(숫자).
+
+    성공(success=True)이면 fail_reason 은 NULL. 실패 시에만 아래 코드 중 하나.
+    """
+
+    BAD_CREDENTIALS = "1"  # 아이디 없음 또는 비밀번호 불일치
+    PENDING = "2"  # 승인 대기 중인 계정
+    REJECTED = "3"  # 가입 반려된 계정
+    SUSPENDED = "4"  # 정지된 계정
+    NO_ROLE = "5"  # 역할이 부여되지 않은 계정
+
+
+class AdminAction(str, enum.Enum):
+    """관리자 행동 유형. value 는 DB 저장용 코드값(숫자)."""
+
+    APPROVE = "1"  # 가입 승인
+    REJECT = "2"  # 가입 반려
+    SUSPEND = "3"  # 계정 정지
+    REACTIVATE = "4"  # 정지·반려 해제(재승인)
+    DELETE = "5"  # 데이터 삭제 (안내문자 등, 향후 확장)
+    UPDATE = "6"  # 데이터 수정 (향후 확장)
+
+
 class User(Base):
     __tablename__ = "user"
 
@@ -202,7 +228,78 @@ class AuthSession(Base):
     user: Mapped[User] = relationship(back_populates="sessions")
 
 
-# 재난문자 원문 그대로, 단 date/datetime의 경우 파싱
+class LoginHistory(Base):
+    """로그인 시도 이력 — 감사 로그. 성공·실패 모두 영구 기록."""
+
+    __tablename__ = "login_history"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    # 실패(없는 아이디)면 user_id 는 NULL, username 은 시도한 값을 항상 기록
+    user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("user.id"), index=True, nullable=True
+    )
+    username: Mapped[str] = mapped_column(String(50), index=True, nullable=False)
+    success: Mapped[bool] = mapped_column(Boolean, nullable=False, index=True)
+    # 실패 사유 — 성공 시 NULL. 다른 enum 과 동일하게 숫자 코드로 저장(values_callable).
+    fail_reason: Mapped[LoginFailStatus | None] = mapped_column(
+        Enum(
+            LoginFailStatus,
+            native_enum=False,
+            length=1,
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        nullable=True,
+    )
+    ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=kst_now,
+        nullable=False,
+        index=True,
+        comment="로그인 시도 일시",
+    )
+
+
+class AdminHistory(Base):
+    """관리자 행동 이력 — 감사 로그. 승인·반려·정지·삭제 등 모든 관리 작업을 기록."""
+
+    __tablename__ = "admin_history"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    # 행동한 관리자 (user의 PK)
+    actor_id: Mapped[str] = mapped_column(
+        ForeignKey("user.id"), index=True, nullable=False
+    )
+    action_type: Mapped[AdminAction] = mapped_column(
+        Enum(
+            AdminAction,
+            native_enum=False,
+            length=1,
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        nullable=False,
+        index=True,
+    )
+    # 대상 종류: "user" / "message" 등
+    target_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    # 대상 식별자 (user_id, message_sn 등)
+    target_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # 변경 내용 — JSON. 예: {"before": {"role": null}, "after": {"role": "2"}, "reason": "..."}
+    detail: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # 일괄 작업 묶음 ID (다중 대상 작업이면 같은 값). 단일 작업이면 NULL
+    batch_id: Mapped[str | None] = mapped_column(String(36), index=True, nullable=True)
+    success: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=kst_now, nullable=False, index=True, comment="행동 일시"
+    )
+
+
 class Message(Base):
     __tablename__ = "message"
 
