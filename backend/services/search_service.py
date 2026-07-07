@@ -56,4 +56,4 @@ class SearchService:
         if search is None:
             raise ValueError("검색 기록을 찾을 수 없습니다.")
 
-        self.repository.delete(search)
+        self.repository.delete(search)       

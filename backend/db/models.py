@@ -393,13 +393,13 @@ class Region(Base):
 
 
 class Video(Base):
-    """전체 영상에 대한 정보. embedding_id 로 Chroma 벡터와 매핑."""
+    """전체 영상에 대한 정보. Chroma 벡터는 video.id 로 매핑."""
 
     __tablename__ = "video"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     cctv_serial_no: Mapped[str | None] = mapped_column(
-        String(50), nullable=True, comment="CCTV 일련번호"
+        String(50), nullable=True, comment="CCTV 일련번호(Chroma DB 내 매핑할 ID)"
     )
     file_path: Mapped[str] = mapped_column(
         String(260), nullable=False, comment="영상 파일의 경로"
@@ -407,16 +407,11 @@ class Video(Base):
     region_code: Mapped[str | None] = mapped_column(
         ForeignKey("region.region_code"), nullable=True, comment="지역코드(region의 PK)"
     )
-    recorded_at: Mapped[datetime | None] = mapped_column(
-        DateTime, nullable=True, comment="영상이 녹화된 일시"
+    recorded_at: Mapped[date | None] = mapped_column(
+        Date, nullable=True, comment="영상이 녹화된 날짜(파일명에 시각 없음)"
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=kst_now, nullable=False, comment="입력일시"
-    )
-    embedding_id: Mapped[str | None] = mapped_column(
-        String(50),
-        nullable=True,
-        comment="Chroma DB 내 매핑할 ID (embedding, metadata 세트)",
     )
 
     region: Mapped["Region | None"] = relationship()

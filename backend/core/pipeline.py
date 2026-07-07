@@ -9,6 +9,7 @@
 하위 모듈: core/llm/chain, core/vision/frame_extractor, core/vision/crop_embedding,
           core/vision/search_embedding
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -46,7 +47,7 @@ def index_video_pipeline(
         recorded_at=recorded_at,
     )
     db.add(video)
-    db.flush()   # video.id 확보
+    db.flush()  # video.id 확보
 
     # 2) 영상 → crop 임베딩 → Chroma 저장 (crop_embedding 경로 — ISSUE-002)
     indexed = []
@@ -111,7 +112,7 @@ def search_pipeline(
 
         video_ids = [vid for (vid,) in db.execute(stmt).all()]
         if not video_ids:
-            return []   # 조건에 맞는 영상 자체가 없음 → 매칭 없음
+            return []  # 조건에 맞는 영상 자체가 없음 → 매칭 없음
 
     # 2) Chroma: 그 video 들의 임베딩 안에서만 텍스트 유사도 threshold 검색
     #    (벡터 유사도는 Chroma 담당. video_id 메타 $in 으로 범위 제한)
@@ -143,7 +144,7 @@ def run_detection_pipeline(
     detections: list = []
 
     # TODO: detect_missing_person_pipeline / YOLO 경로로 교체
-  # 개발 환경에서는 업로드 영상 기반 데모 탐지로 결과 UI 흐름 검증
+    # 개발 환경에서는 업로드 영상 기반 데모 탐지로 결과 UI 흐름 검증
     if settings.environment == "development":
         detections = build_demo_detections_from_video(video_path)
 

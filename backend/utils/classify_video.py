@@ -1,15 +1,18 @@
-import pandas as pd
-csv_path = r"D:\2025_langchain_aivision\silmari\data\raw\administrative_dong.csv"
-df_raw = pd.read_csv(
-    csv_path,
-    encoding="utf-8",
-    dtype=str
-)
-df = df_raw.copy()
-seoul_df = df[df["시도명"] == "서울특별시"]
-seoul_df = seoul_df.drop_duplicates(subset=["행정동코드"])
-seoul_df = seoul_df.drop(columns=["법정동명", ])
-print(seoul_df.head)
-# for row in seoul_df.itertuples(index=False):
-#     gu=row[]
-#     dong=row["행정동명"]
+from pathlib import Path
+import random
+import shutil
+
+base_dir = Path(__file__).resolve().parents[2]
+cctv_dir = base_dir / "data" / "CCTV"
+source_dir = cctv_dir / "unclassified"
+video_paths = list(source_dir.glob("*.mp4"))
+
+dong_dirs = [
+    path 
+    for path in cctv_dir.iterdir()
+    if path.is_dir() and path.name != "unclassified"
+]
+for video_path in video_paths:
+    target_dir = random.choice(dong_dirs)
+    shutil.move(video_path, target_dir / video_path.name)
+    print(target_dir)

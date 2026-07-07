@@ -15,9 +15,20 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # ── 도메인 라우터 (기능별 API 엔드포인트) ──────────────────────────────────
-from backend.routers import alert, cctv, result, disaster_alerts
-from backend.routers import messages
-from backend.routers import admin, auth, operations, users, search, chatbot
+from backend.routers import (
+    alert,
+    cctv,
+    result,
+    disaster_alerts,
+    messages,
+    admin,
+    auth,
+    operations,
+    users,
+    search,
+    chatbot,
+    video,
+)
 
 # ── 인프라: DB, 설정, 보안, 스토리지 ─────────────────────────────────────
 from backend.services.storage import ensure_dirs
@@ -118,20 +129,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── legacy (deprecated) — 구 프론트·스크립트 하위 호환, 제거 예정 ────────
-# 동일 router를 예전 URL prefix로 한 번 더 등록 (handler는 v1과 동일)
-app.include_router(messages.router, prefix="/messages", tags=["legacy (deprecated)"])
-app.include_router(
-    disaster_alerts.router, prefix="/api/alerts", tags=["legacy (deprecated)"]
-)
-app.include_router(alert.router, prefix="/api/alert", tags=["legacy (deprecated)"])
-app.include_router(search.router, prefix="/search", tags=["legacy (deprecated)"])
-app.include_router(result.router, prefix="/api/result", tags=["legacy (deprecated)"])
-app.include_router(cctv.router, prefix="/api/cctv", tags=["legacy (deprecated)"])
-app.include_router(chatbot.router, tags=["legacy (deprecated)"])
-app.include_router(alert.router, prefix="/api/sms", tags=["legacy (deprecated)"])
-app.include_router(cctv.router, prefix="/api/video", tags=["legacy (deprecated)"])
-app.include_router(result.router, prefix="/api/missing", tags=["legacy (deprecated)"])
+app.include_router(auth.router, prefix="/member", tags=["member"])
+app.include_router(users.router, prefix="/member", tags=["member"])
+app.include_router(admin.router, prefix="/member", tags=["member"])
+app.include_router(operations.router, prefix="/member", tags=["member"])
+
+app.include_router(messages.router, prefix="/message", tags=["message"])
+app.include_router(chatbot.router, prefix="/chatbot", tags=["chatbot"])
+
+app.include_router(search.router, prefix="/search", tags=["search"])
+
+app.include_router(video.router, prefix="/video", tags=["video"])
+
+# legacy 미사용 라우터 추후 확인 및 처리
+app.include_router(disaster_alerts.router, prefix="/api/alerts", tags=["legacy"])
+app.include_router(alert.router, prefix="/api/sms", tags=["legacy"])
+app.include_router(cctv.router, prefix="/api/video", tags=["legacy"])
+app.include_router(result.router, prefix="/api/missing", tags=["legacy"])
 
 
 @app.get("/health", tags=["System"])
