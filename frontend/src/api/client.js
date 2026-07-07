@@ -2,14 +2,15 @@
  * 백엔드 API 클라이언트 — axios 래퍼.
  *
  * [베이스] localhost:8000 (개발) — 배포 시 환경변수로 교체 필요
- * [인증]  signup, login, logout → /api/v1/auth/* (JWT + localStorage)
- * [탐지]  analyzeVideo → POST /api/v1/cctv/analyze
- * [결과]  fetchSearchResults, fetchSearchResultDetail → /api/v1/detection-results
- * [재난]  fetchDisasterAlerts → /api/v1/disaster-alerts (Dashboard)
+ * [인증]  signup, login, logout → /member/auth/* (JWT + localStorage)
+ * [탐지]  analyzeVideo → POST /api/video/analyze
+ * [결과]  fetchSearchResults, fetchSearchResultDetail → /api/missing/search
+ * [재난]  fetchDisasterAlerts → /api/alerts/list (Dashboard)
  */
 import axios from 'axios';
 
 export const API_BASE = 'http://localhost:8000';
+export const API_V1 = '/api/v1';
 
 // ── 토큰 저장소 (localStorage) ─────────────────────────────
 const ACCESS_KEY = 'silmari_access_token';
@@ -85,7 +86,7 @@ client.interceptors.response.use(
 );
 
 // ══════════════════════════════════════════════════════════
-// 인증 (auth) — /api/v1/auth/*
+// 인증 (auth) — /member/auth/*
 // ══════════════════════════════════════════════════════════
 
 /**
@@ -95,7 +96,7 @@ client.interceptors.response.use(
  * @returns {Promise<{message, user}>}
  */
 export const signup = (payload) =>
-  client.post(`${API_V1}/auth/signup`, payload).then((r) => r.data);
+  client.post('/member/auth/signup', payload).then((r) => r.data);
 
 /**
  * 로그인. 성공 시 토큰을 localStorage에 저장한다.
@@ -104,7 +105,7 @@ export const signup = (payload) =>
  * @returns {Promise<{access_token, refresh_token, token_type, access_expires_in_seconds}>}
  */
 export const login = async (username, password) => {
-  const { data } = await client.post(`${API_V1}/auth/login`, {
+  const { data } = await client.post('/member/auth/login', {
     username,
     password,
   });
@@ -118,7 +119,7 @@ export const login = async (username, password) => {
  */
 export const logout = async () => {
   try {
-    await client.post(`${API_V1}/auth/logout`);
+    await client.post('/member/auth/logout');
   } finally {
     tokenStore.clear();
   }
@@ -152,7 +153,7 @@ export const getRole = () => decodeAccessToken()?.role ?? null;
 export const isAdmin = () => getRole() === '1';
 
 // ══════════════════════════════════════════════════════════
-// 관리자 (admin) — /api/v1/admin/*
+// 관리자 (admin) — /member/admin/*
 // ══════════════════════════════════════════════════════════
 
 // 역할/상태 코드 ↔ 한글 라벨 (DB엔 숫자 코드로 저장됨)
@@ -169,7 +170,7 @@ export const statusLabel = (code) => STATUS_LABELS[code] ?? '-';
 export const fetchUsers = (approvalStatus) => {
   const params =
     approvalStatus != null ? { approval_status: approvalStatus } : {};
-  return client.get(`${API_V1}/admin/users`, { params }).then((r) => r.data);
+  return client.get('/member/admin/users', { params }).then((r) => r.data);
 };
 
 /**
@@ -181,7 +182,7 @@ export const fetchUsers = (approvalStatus) => {
  */
 export const updateApproval = (userId, payload) =>
   client
-    .patch(`${API_V1}/admin/users/${userId}/approval`, payload)
+    .patch(`/member/admin/users/${userId}/approval`, payload)
     .then((r) => r.data);
 
 // ══════════════════════════════════════════════════════════
@@ -251,5 +252,15 @@ export const deleteAllSearchResults = (params = {}) =>
 
 export const fetchDisasterAlerts = (params = {}) =>
   client.get('/api/alerts/list', { params }).then((r) => r.data);
+
+/** CCTV 분석 검색 이력 — GET /api/v1/detection-results/history */
+export const fetchSearchHistory = (params = {}) =>
+  client
+    .get(`${API_V1}/detection-results/history`, { params })
+    .then((r) => r.data);
+
+/** 개발용 임시 검색 결과 시드 — POST /api/v1/detection-results/seed-demo */
+export const seedDemoSearchResults = () =>
+  client.post(`${API_V1}/detection-results/seed-demo`).then((r) => r.data);
 
 export default client;

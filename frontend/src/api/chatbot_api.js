@@ -1,17 +1,11 @@
-/**
- * 챗봇 API — POST /api/v1/chatbot/chat
- * DevChatbotPage, ChatbotPage에서 사용.
- */
 import axios from 'axios';
-import { API_BASE, API_V1 } from './client';
 
 const api = axios.create({
-  baseURL: API_BASE,
+  baseURL: 'http://localhost:8000',
 });
 
-/** 세션 ID와 사용자 메시지를 보내고 봇 응답(JSON)을 반환 */
 export const sendChatMessage = async ({ sessionId, message }) => {
-  const response = await api.post(`${API_V1}/chatbot/chat`, {
+  const response = await api.post('/chatbot/chat', {
     session_id: sessionId,
     message,
   });
