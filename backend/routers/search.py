@@ -6,6 +6,8 @@ from backend.schemas.search_schema import (
     SearchCreate,
     SearchItem,
     SearchListResponse,
+    SearchDetail,
+    SearchStatus
 )
 from backend.services.search_service import SearchService
 
@@ -33,7 +35,6 @@ def create_search(
 ):
     return service.create_search(search_data)
 
-
 @router.get(
     "",
     response_model=SearchListResponse,
@@ -47,6 +48,7 @@ def get_search_list(
     return service.get_search_list(page=page, size=size)
 
 
+# response_model => 단건이라 SearchDetail로 바꾸는게 좋아보임
 @router.get(
     "/{search_id}",
     response_model=SearchItem,

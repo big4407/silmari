@@ -15,7 +15,23 @@ FastAPI 애플리케이션 진입점.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.routers import alert, cctv, result, disaster_alerts
+# ── 도메인 라우터 (기능별 API 엔드포인트) ──────────────────────────────────
+from backend.routers import (
+    alert,
+    cctv,
+    result,
+    disaster_alerts,
+    messages,
+    admin,
+    auth,
+    operations,
+    users,
+    search,
+    chatbot,
+    video,
+)
+
+# ── 인프라: DB, 설정, 보안, 스토리지 ─────────────────────────────────────
 from backend.services.storage import ensure_dirs
 
 from backend.db.database import Base, SessionLocal, engine, get_db
@@ -121,8 +137,7 @@ app.include_router(chatbot.router, prefix="/chatbot", tags=["chatbot"])
 
 app.include_router(search.router, prefix="/search", tags=["search"])
 
-# 태윤이 숙제
-# app.include_router(video.router, prefix="/video", tags=["video"])
+app.include_router(video.router, prefix="/video", tags=["video"])
 
 # legacy 미사용 라우터 추후 확인 및 처리
 app.include_router(disaster_alerts.router, prefix="/api/alerts", tags=["legacy"])
