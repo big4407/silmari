@@ -4,7 +4,7 @@ import { API_V1 } from "../../api/client"
 import ApiResult, { parseApiError } from "./components/ApiResult"
 import "./DevCommon.css"
 
-/** Dev — POST /api/v1/chatbot/chat (세션 기반 대화) */
+/** Dev — POST /api/chatbot/chat (세션 기반 대화) */
 export default function DevChatbotPage() {
   const [sessionId, setSessionId] = useState(() => `dev-${Date.now()}`)
   const [message, setMessage] = useState("서울 종로구에서 실종된 70대 남성을 찾고 있어요.")

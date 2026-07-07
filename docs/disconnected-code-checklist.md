@@ -25,7 +25,7 @@
 **담당 제안:** 백엔드 / 비전
 
 **현상**
-- `POST /api/v1/cctv/analyze` → `run_detection_pipeline()` 호출
+- `POST /api/cctv/analyze` → `run_detection_pipeline()` 호출
 - `run_detection_pipeline()` 이 **deprecated 스텁** → 항상 `detections: []`, `total_detections: 0`
 - 실제 비전 로직은 `detect_missing_person_pipeline()` 에 구현됨 (API 미연결)
 
@@ -42,7 +42,7 @@ backend/core/vision/person_detector.py
 **작업**
 - [ ] `run_detection_pipeline()` 에서 `detect_missing_person_pipeline()` 호출 또는 흡수
 - [ ] `crop_embedding` / `search_embedding` 흐름이 DB·Chroma 저장과 맞는지 확인
-- [ ] `POST /api/v1/cctv/analyze`로 실제 탐지 1건 이상 나오는지 수동 테스트
+- [ ] `POST /api/cctv/analyze`로 실제 탐지 1건 이상 나오는지 수동 테스트
 
 **완료 조건**
 - 영상 업로드 후 `detections` 배열에 후보가 1건 이상 반환됨
@@ -113,8 +113,8 @@ backend/routers/auth.py
 ```
 
 **작업**
-- [ ] Login → `POST /api/v1/auth/login`
-- [ ] Signup → `POST /api/v1/auth/signup`
+- [ ] Login → `POST /api/auth/login`
+- [ ] Signup → `POST /api/auth/signup`
 - [ ] JWT 저장 방식 결정 (sessionStorage vs httpOnly cookie)
 - [ ] `client.js`에 인증 헤더 인터셉터 추가
 - [ ] 로그인 후 `/dashboard` 리다이렉트
@@ -133,7 +133,7 @@ backend/routers/auth.py
 
 **현상**
 - `SearchHistory.jsx` — "준비 중입니다" 플레이스홀더
-- 백엔드 `GET /api/v1/detection-results/history` 존재하나 **프론트 미호출**
+- 백엔드 `GET /api/detection-results/history` 존재하나 **프론트 미호출**
 
 **관련 파일**
 ```
@@ -159,7 +159,7 @@ backend/routers/result.py
 **담당 제안:** 프론트엔드
 
 **현상**
-- `POST /api/v1/alerts/parse` — **DevAlertPage만** 호출
+- `POST /api/alerts/parse` — **DevAlertPage만** 호출
 - Dashboard / CCTV 업로드에서 파싱 API 직접 호출 없음 (CCTV analyze 시 백엔드 내부 파싱만)
 
 **관련 파일**
@@ -188,7 +188,7 @@ backend/routers/alert.py
 
 **현상**
 - `frontend/src/pages/admin/views/*` — 20개 뷰 UI 껍데기
-- `MemberViews.jsx` 등 주석: "/api/v1/admin 연동 예정"
+- `MemberViews.jsx` 등 주석: "/api/admin 연동 예정"
 - 실제 API 호출 거의 없음
 
 **관련 파일**
@@ -199,7 +199,7 @@ backend/routers/admin.py
 ```
 
 **작업 (우선순위 내부)**
-- [ ] `members-pending` → `GET/PATCH /api/v1/admin/users`
+- [ ] `members-pending` → `GET/PATCH /api/admin/users`
 - [ ] 나머지 뷰는 placeholder 유지 vs 제거 결정
 
 **완료 조건**
@@ -324,7 +324,7 @@ backend/routers/admin.py
 
 **선택**
 - [ ] A) `detect_missing_person_pipeline`을 `run_detection_pipeline`에 흡수 (권장)
-- [ ] B) 별도 dev API (`POST /api/v1/cctv/analyze-experimental`) 유지
+- [ ] B) 별도 dev API (`POST /api/cctv/analyze-experimental`) 유지
 
 ---
 
@@ -337,7 +337,7 @@ backend/routers/admin.py
 | Auth 스모크 테스트 | `scripts/smoke_test_auth.py` | |
 | 백엔드 테스트 | `backend/tests/*` | |
 | 챗봇 단독 테스트 | `backend/chatbot/chatbot_test.py` | |
-| RBAC 데모 API | `GET /api/v1/operations/case-search` | 테스트·dev만 |
+| RBAC 데모 API | `GET /api/operations/case-search` | 테스트·dev만 |
 | 레거시 API prefix | `main.py` 152–162행 | 하위 호환, 점진 제거 |
 | 로컬 SQLite | `silmari.db` | Git 미추적, 개인용 |
 

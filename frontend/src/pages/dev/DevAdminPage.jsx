@@ -53,7 +53,7 @@ export default function DevAdminPage() {
               run(() => fetchAdminUsers(approvalFilter || undefined))
             }
           >
-            GET /api/v1/admin/users
+            GET /api/admin/users
           </button>
         </div>
       </div>

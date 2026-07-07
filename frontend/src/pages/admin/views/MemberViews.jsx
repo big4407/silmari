@@ -1,4 +1,4 @@
-/** 회원 관리 뷰 — 가입 승인 대기·전체 회원 (/api/v1/admin 연동) */
+/** 회원 관리 뷰 — 가입 승인 대기·전체 회원 (/api/admin 연동) */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import PageHead from '../components/PageHead';
 import { TableEmptyRow } from '../components/EmptyState';

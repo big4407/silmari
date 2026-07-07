@@ -7,14 +7,14 @@ FastAPI 애플리케이션 진입점.
   3. bootstrap_admin() — .env 기반 최초 관리자 계정 생성
 
 [라우터 — canonical]
-  /api/v1/auth|users|admin|operations  — 인증·RBAC
-  /api/v1/messages                     — 재난문자 수집·조회
-  /api/v1/disaster-alerts              — 대시보드 재난 알림
-  /api/v1/alerts                       — 안내문자 파싱
-  /api/v1/search-requests              — 검색 요청 CRUD
-  /api/v1/detection-results            — CCTV 탐지 결과·미디어
-  /api/v1/cctv                         — 영상 분석
-  /api/v1/chatbot                      — 챗봇
+  /api/auth|users|admin|operations  — 인증·RBAC
+  /api/messages                     — 재난문자 수집·조회
+  /api/disaster-alerts              — 대시보드 재난 알림
+  /api/alerts                       — 안내문자 파싱
+  /api/search-requests              — 검색 요청 CRUD
+  /api/detection-results            — CCTV 탐지 결과·미디어
+  /api/cctv                         — 영상 분석
+  /api/chatbot                      — 챗봇
 
 [레거시] /api/alert, /api/cctv, /api/result, /api/alerts, /messages, /search,
          /chatbot, /api/sms, /api/video, /api/missing — 하위 호환(deprecated)
@@ -49,7 +49,7 @@ ensure_supported_python()
 settings = get_settings()
 
 # 모든 신규 API의 공통 prefix (프론트엔드·OpenAPI 문서 기준 경로)
-API_V1 = "/api/v1"
+API_V1 = "/api"
 
 # Swagger UI(/docs)에서 API를 기능별로 묶어 보여주는 태그 정의
 OPENAPI_TAGS = [
@@ -144,12 +144,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── /api/v1 (canonical) — 신규 클라이언트는 이 경로만 사용 ───────────────
+# ── /api (canonical) — 신규 클라이언트는 이 경로만 사용 ──────────────────
 # 인증·RBAC
-app.include_router(auth.router, prefix=API_V1)       # /api/v1/auth — 로그인·회원가입·토큰
-app.include_router(users.router, prefix=API_V1)      # /api/v1/users — 내 프로필
-app.include_router(admin.router, prefix=API_V1)      # /api/v1/admin — 회원 승인·관리
-app.include_router(operations.router, prefix=API_V1)  # /api/v1/operations — RBAC 데모
+app.include_router(auth.router, prefix=API_V1)       # /api/auth — 로그인·회원가입·토큰
+app.include_router(users.router, prefix=API_V1)      # /api/users — 내 프로필
+app.include_router(admin.router, prefix=API_V1)      # /api/admin — 회원 승인·관리
+app.include_router(operations.router, prefix=API_V1)  # /api/operations — RBAC 데모
 
 # 재난·검색·분석 도메인
 app.include_router(messages.router, prefix=f"{API_V1}/messages", tags=["Messages"])

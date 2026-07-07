@@ -3,7 +3,7 @@ import { fetchDisasterAlerts, API_V1 } from "../../api/client"
 import ApiResult, { parseApiError } from "./components/ApiResult"
 import "./DevCommon.css"
 
-/** Dev — GET /api/v1/disaster-alerts (대시보드와 동일 API) */
+/** Dev — GET /api/disaster-alerts (대시보드와 동일 API) */
 export default function DevDisasterAlertsPage() {
   const [missingOnly, setMissingOnly] = useState(true)
   const [status, setStatus] = useState("idle")

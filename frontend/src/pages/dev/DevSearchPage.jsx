@@ -5,7 +5,7 @@ import { API_V1 } from "../../api/client"
 import ApiResult, { parseApiError } from "./components/ApiResult"
 import "./DevCommon.css"
 
-/** Dev — 검색 요청 CRUD 테스트 (POST/GET/DELETE /api/v1/search-requests) */
+/** Dev — 검색 요청 CRUD 테스트 (POST/GET/DELETE /api/search-requests) */
 export default function DevSearchPage() {
   // 폼 입력: 검색 ID, 실종자 이름
   const [searchId, setSearchId] = useState("")

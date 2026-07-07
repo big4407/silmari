@@ -1,17 +1,15 @@
 /**
  * 탐지 결과 목록·상세·클립 재생.
  *
- * [모드] activeSearch(방금 분석) 또는 DB 이력(fetchSearchResults)
+ * [모드] activeSearch(선택된 검색 컨텍스트) 또는 DB 이력(fetchSearchResults)
  * [UI] MissingPersonSidebar + ClipSequencePlayer + SearchResultCard
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import {
   fetchSearchResults,
   fetchSearchResultDetail,
   deleteSearchResult,
   deleteAllSearchResults,
-  seedDemoSearchResults,
   API_BASE,
 } from '../api/client';
 import { useDetectionStore } from '../store/useDetectionStore';
@@ -54,8 +52,7 @@ function buildSidebarPerson(activeSearch, selectedResult, firstResult) {
 }
 
 export default function SearchResults() {
-  const { selectedPerson, selectedRegion, activeSearch, setActiveSearch } =
-    useDetectionStore();
+  const { selectedPerson, selectedRegion, activeSearch } = useDetectionStore();
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedResult, setSelectedResult] = useState(null);
@@ -63,9 +60,7 @@ export default function SearchResults() {
   const [deletingId, setDeletingId] = useState(null);
   const [clearingAll, setClearingAll] = useState(false);
   const [sortBy, setSortBy] = useState('confidence-desc');
-  const [seeding, setSeeding] = useState(false);
   const [activeClipIndex, setActiveClipIndex] = useState(0);
-  const isDev = import.meta.env.DEV;
 
   const searchParams = useMemo(() => {
     const params = {};
@@ -134,38 +129,6 @@ export default function SearchResults() {
   useEffect(() => {
     setActiveClipIndex(0);
   }, [selectedResult?.id]);
-
-  const handleSeedDemo = async () => {
-    setSeeding(true);
-    setError(null);
-    try {
-      const data = await seedDemoSearchResults();
-      setActiveSearch({
-        alertText: data.alert_text,
-        smsInfo: data.sms_info,
-        region: data.region,
-        searchResultId: null,
-        analysisSummary: {
-          totalDetections: data.total_candidates ?? data.count,
-          videoFilename: 'demo_seed (임시 데이터)',
-          noMatch: false,
-          demoMode: true,
-        },
-      });
-      const seeded = data.results || [];
-      setResults(seeded);
-      if (seeded.length > 0) {
-        setSelectedResult(seeded[0]);
-        setActiveClipIndex(0);
-      } else {
-        setSelectedResult(null);
-      }
-    } catch {
-      setError('임시 데이터를 생성하지 못했습니다.');
-    } finally {
-      setSeeding(false);
-    }
-  };
 
   const handleDeleteResult = async (result) => {
     if (!window.confirm('이 검색 결과를 삭제할까요?')) return;
@@ -274,27 +237,6 @@ export default function SearchResults() {
               : ''}
           </span>
         )}
-        <div className="search-page__actions">
-          {isDev && (
-            <button
-              type="button"
-              className="search-page__action-btn search-page__action-btn--demo"
-              onClick={handleSeedDemo}
-              disabled={seeding || loading}
-            >
-              {seeding ? '생성 중…' : '임시 데이터 생성'}
-            </button>
-          )}
-          <Link to="/cctv" className="search-page__action-btn">
-            CCTV 분석
-          </Link>
-          <Link
-            to="/dashboard/history"
-            className="search-page__action-btn search-page__action-btn--ghost"
-          >
-            검색 이력
-          </Link>
-        </div>
         {results.length > 0 && !selectedResult && (
           <button
             type="button"
@@ -311,8 +253,7 @@ export default function SearchResults() {
         <main className="search-page__main">
           {!activeSearch && !selectedPerson && (
             <p className="search-page__hint">
-              CCTV 분석을 실행하면 해당 안내문자의 검색 결과가 표시됩니다.
-              <Link to="/cctv"> CCTV 분석</Link>
+              선택한 안내문자 또는 저장된 검색 조건에 맞는 결과가 여기에 표시됩니다.
             </p>
           )}
 
@@ -334,19 +275,13 @@ export default function SearchResults() {
                   </p>
                 ) : (
                   <p>
-                    CCTV 분석 완료 · 탐지 {analysisSummary.totalDetections}건
+                    검색 결과 로드 완료 · 탐지 {analysisSummary.totalDetections}건
                     <span className="search-page__analysis-meta">
                       {analysisSummary.videoFilename}
                     </span>
                   </p>
                 )}
-                {analysisSummary.demoMode && (
-                  <span className="search-page__demo-badge">데모 탐지</span>
-                )}
               </div>
-              <Link to="/cctv" className="search-page__analysis-link">
-                다시 분석
-              </Link>
             </div>
           )}
 
@@ -384,8 +319,7 @@ export default function SearchResults() {
             {showNoMatchState && (
               <div className="search-page__empty search-page__empty--analysis">
                 <p>해당 영상에서 실종자 후보가 탐지되지 않았습니다.</p>
-                <p>다른 CCTV 영상으로 다시 분석하거나 안내문자를 확인해 주세요.</p>
-                <Link to="/cctv">CCTV 분석</Link>
+                <p>검색 조건이나 안내문자 내용을 다시 확인해 주세요.</p>
               </div>
             )}
 
@@ -396,8 +330,7 @@ export default function SearchResults() {
               (results.length === 0 ? (
                 <div className="search-page__empty">
                   <p>아직 검색 결과가 없습니다.</p>
-                  <p>CCTV 영상을 업로드해 분석을 실행해주세요.</p>
-                  <Link to="/cctv">CCTV 분석</Link>
+                  <p>안내문자를 선택한 뒤 저장된 검색 결과를 확인해 주세요.</p>
                 </div>
               ) : (
                 <div className="search-grid">

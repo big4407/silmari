@@ -5,7 +5,7 @@
   안내문자(sms_text) → LLM 파싱 → 인상착의 구조화
   CCTV 영상(video_path) → 프레임 추출 → YOLO 탐지 → crop 임베딩 → Chroma 검색
 
-호출 진입점: routers/cctv.py 의 POST /api/v1/cctv/analyze
+호출 진입점: routers/cctv.py 의 POST /api/cctv/analyze
 하위 모듈: core/llm/chain, core/vision/frame_extractor, core/vision/crop_embedding,
           core/vision/search_embedding
 """

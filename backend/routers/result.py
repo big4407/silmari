@@ -7,25 +7,24 @@
 """
 import json
 import os
+from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
-from backend.core.config import get_settings, settings
+from backend.core.config import settings
 from backend.db.crud import (
     get_search_results,
     get_search_result_by_id,
     delete_search_result,
     delete_search_results,
 )
-from backend.services.cctv_reader import list_cctv_files
-from backend.services.demo_results import seed_demo_search_results
 from backend.services.sms_receiver import fetch_missing_persons, fetch_missing_persons_dummy
 from backend.services.storage import remove_file
 
 router = APIRouter()
 
-MEDIA_BASE = "/api/v1/detection-results/media"
+MEDIA_BASE = "/api/detection-results/media"
 
 
 def _serialize_search_result(record) -> dict:
@@ -66,69 +65,26 @@ def _serialize_search_result(record) -> dict:
 
 
 @router.get("/list")
-async def missing_list(name: str = None, age: int = None, dummy: bool = False):
+async def missing_list(
+    name: Optional[str] = None, age: Optional[int] = None, dummy: bool = False
+):
     if dummy:
         return fetch_missing_persons_dummy()
-    return await fetch_missing_persons(name, age)
-
-
-@router.get("/cctv/list/{region_code}")
-def cctv_list(region_code: str):
-    return {"region_code": region_code, "files": list_cctv_files(region_code)}
-
-
-@router.get("/history")
-def detection_history(
-    person_name: str = None,
-    region: str = None,
-    limit: int = 50,
-):
-    """CCTV 분석으로 저장된 검색 이력 목록."""
-    records = get_search_results(
-        person_name=person_name,
-        region=region,
-        limit=limit,
-    )
-    return [
-        {
-            "id": r.id,
-            "person_name": r.person_name,
-            "person_age": r.person_age,
-            "region": r.region or "-",
-            "alert_text": r.alert_text,
-            "video_filename": r.video_filename,
-            "best_confidence": r.best_confidence,
-            "description": r.description or "",
-            "thumbnail_url": f"{MEDIA_BASE}/thumbnails/{r.thumbnail_filename}",
-            "sms_info": json.loads(r.sms_info_json or "{}"),
-            "candidate_count": len(json.loads(r.clips_json or "[]")),
-            "created_at": r.created_at.isoformat(),
-        }
-        for r in records
-    ]
-
-
-@router.post("/seed-demo")
-def seed_demo_results():
-    """개발용 — 검색 결과 페이지 UI 확인을 위한 임시 데이터 3건 생성."""
-    settings = get_settings()
-    if settings.environment not in {"development", "test"}:
-        raise HTTPException(status_code=404, detail="개발 환경에서만 사용할 수 있습니다.")
-
-    payload = seed_demo_search_results()
-    records = get_search_results(alert_text=payload["alert_text"], limit=10)
-    return {
-        **payload,
-        "results": [_serialize_search_result(r) for r in records],
-    }
+    if name is None and age is None:
+        return await fetch_missing_persons()
+    if age is None:
+        return await fetch_missing_persons(name=name)
+    if name is None:
+        return await fetch_missing_persons(age=age)
+    return await fetch_missing_persons(name=name, age=age)
 
 
 @router.get("")
 @router.get("/search")
 def search_results(
-    person_name: str = None,
-    alert_text: str = None,
-    region: str = None,
+    person_name: Optional[str] = None,
+    alert_text: Optional[str] = None,
+    region: Optional[str] = None,
     limit: int = 50,
 ):
     records = get_search_results(
@@ -171,9 +127,9 @@ def delete_search_result_endpoint(result_id: int):
 @router.delete("")
 @router.delete("/search")
 def delete_search_results_endpoint(
-    person_name: str = None,
-    alert_text: str = None,
-    region: str = None,
+    person_name: Optional[str] = None,
+    alert_text: Optional[str] = None,
+    region: Optional[str] = None,
 ):
     records = delete_search_results(
         person_name=person_name,

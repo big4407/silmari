@@ -1,4 +1,4 @@
-/** 로그인 UI — POST /api/v1/auth/login 연동 */
+/** 로그인 UI — POST /api/auth/login 연동 */
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import LandingHeader from '../components/LandingHeader';

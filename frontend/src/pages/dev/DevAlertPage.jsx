@@ -7,7 +7,7 @@ import "./DevCommon.css"
 const SAMPLE_TEXT =
   "실종자 안내\n이름: 김철수\n나이: 75세\n성별: 남\n착의: 검은 패딩, 청바지\n실종장소: 서울 종로구"
 
-/** Dev — POST /api/v1/alerts/parse (LLM으로 안내문자 → 구조화 JSON) */
+/** Dev — POST /api/alerts/parse (LLM으로 안내문자 → 구조화 JSON) */
 export default function DevAlertPage() {
   const [text, setText] = useState(SAMPLE_TEXT)
   const [status, setStatus] = useState("idle")

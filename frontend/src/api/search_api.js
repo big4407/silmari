@@ -1,5 +1,5 @@
 /**
- * 검색 요청 API — /api/v1/search-requests/*
+ * 검색 요청 API — /api/search-requests/*
  * 실종자 검색 건 등록·조회. DevSearchPage에서 테스트.
  */
 import devClient from "./devClient"

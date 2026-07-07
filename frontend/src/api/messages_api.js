@@ -1,5 +1,5 @@
 /**
- * 재난문자 API — /api/v1/messages/*
+ * 재난문자 API — /api/messages/*
  * DevMessagesPage에서 CRUD·수집 테스트에 사용. devClient(인증 헤더) 경유.
  */
 import devClient from "./devClient"

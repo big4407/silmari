@@ -2,15 +2,14 @@
  * 백엔드 API 클라이언트 — axios 래퍼.
  *
  * [베이스] localhost:8000 (개발) — 배포 시 환경변수로 교체 필요
- * [인증]  signup, login, logout → /api/v1/auth/* (JWT + localStorage)
- * [탐지]  analyzeVideo → POST /api/v1/cctv/analyze
- * [결과]  fetchSearchResults, fetchSearchResultDetail → /api/v1/detection-results
- * [재난]  fetchDisasterAlerts → /api/v1/disaster-alerts (Dashboard)
+ * [인증]  signup, login, logout → /api/auth/* (JWT + localStorage)
+ * [결과]  fetchSearchResults, fetchSearchResultDetail → /api/detection-results
+ * [재난]  fetchDisasterAlerts → /api/disaster-alerts (Dashboard)
  */
 import axios from 'axios';
 
 export const API_BASE = 'http://127.0.0.1:8000';
-export const API_V1 = '/api/v1';
+export const API_V1 = '/api';
 
 // ── 토큰 저장소 (localStorage) ─────────────────────────────
 const ACCESS_KEY = 'silmari_access_token';
@@ -41,7 +40,7 @@ client.interceptors.request.use((config) => {
 });
 
 // ══════════════════════════════════════════════════════════
-// 인증 (auth) — /api/v1/auth/*
+// 인증 (auth) — /api/auth/*
 // ══════════════════════════════════════════════════════════
 
 /**
@@ -108,7 +107,7 @@ export const getRole = () => decodeAccessToken()?.role ?? null;
 export const isAdmin = () => getRole() === '1';
 
 // ══════════════════════════════════════════════════════════
-// 관리자 (admin) — /api/v1/admin/*
+// 관리자 (admin) — /api/admin/*
 // ══════════════════════════════════════════════════════════
 
 // 역할/상태 코드 ↔ 한글 라벨 (DB엔 숫자 코드로 저장됨)
@@ -141,7 +140,7 @@ export const updateApproval = (userId, payload) =>
     .then((r) => r.data);
 
 // ══════════════════════════════════════════════════════════
-// CCTV·탐지 결과·재난 알림 — /api/v1/*
+// CCTV·탐지 결과·재난 알림 — /api/*
 // ══════════════════════════════════════════════════════════
 
 export const analyzeVideo = (formData) =>
@@ -156,14 +155,6 @@ export const fetchMissingList = (params = {}) =>
 
 export const fetchSearchResults = (params = {}) =>
   client.get(`${API_V1}/detection-results`, { params }).then((r) => r.data);
-
-/** CCTV 분석 검색 이력 — GET /api/v1/detection-results/history */
-export const fetchSearchHistory = (params = {}) =>
-  client.get(`${API_V1}/detection-results/history`, { params }).then((r) => r.data);
-
-/** 개발용 임시 검색 결과 시드 — POST /api/v1/detection-results/seed-demo */
-export const seedDemoSearchResults = () =>
-  client.post(`${API_V1}/detection-results/seed-demo`).then((r) => r.data);
 
 export const fetchSearchResultDetail = (id) =>
   client.get(`${API_V1}/detection-results/${id}`).then((r) => r.data);

@@ -1,4 +1,4 @@
-/** 탐지 구간별 MP4 클립 순차 재생 — /api/v1/detection-results/media/clips URL 사용 */
+/** 탐지 구간별 MP4 클립 순차 재생 — /api/detection-results/media/clips URL 사용 */
 import { useEffect, useRef, useState } from 'react';
 import './ClipSequencePlayer.css';
 

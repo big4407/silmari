@@ -1,7 +1,7 @@
 /**
  * 수사관 대시보드 공통 레이아웃 — 상단 탭 + Outlet.
  *
- * 하위: Dashboard, ChatbotPage, SearchHistory, SearchResults
+ * 하위: Dashboard, ChatbotPage, SearchResults
  */
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { isAuthenticated, isAdmin } from '../api/client';
@@ -12,7 +12,6 @@ const TABS = [
   { to: '/dashboard', label: '실종자 검색', end: true },
   { to: '/dashboard/chatbot', label: '챗봇 검색' },
   { to: '/search-results', label: '검색 결과' },
-  { to: '/dashboard/history', label: '검색 이력' },
 ];
 
 export default function DashboardLayout() {

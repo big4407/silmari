@@ -6,7 +6,7 @@ import "./DevCommon.css"
 const SAMPLE_SMS =
   "실종자 안내\n이름: 김철수\n나이: 75세\n성별: 남\n착의: 검은 패딩"
 
-/** Dev — POST /api/v1/cctv/analyze (영상+안내문자 업로드 → 탐지 파이프라인) */
+/** Dev — POST /api/cctv/analyze (영상+안내문자 업로드 → 탐지 파이프라인) */
 export default function DevCctvPage() {
   const [smsText, setSmsText] = useState(SAMPLE_SMS)
   const [videoFile, setVideoFile] = useState(null)

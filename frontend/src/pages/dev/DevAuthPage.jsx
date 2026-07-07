@@ -64,7 +64,7 @@ export default function DevAuthPage() {
               disabled={!username || !password}
               onClick={() => run(() => login(username, password))}
             >
-              POST /api/v1/auth/login
+              POST /api/auth/login
             </button>
             <button
               type="button"
@@ -125,7 +125,7 @@ export default function DevAuthPage() {
             disabled={!tokens}
             onClick={() => run(fetchMe)}
           >
-            GET /api/v1/users/me
+            GET /api/users/me
           </button>
           <button
             type="button"

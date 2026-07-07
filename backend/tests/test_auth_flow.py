@@ -55,7 +55,7 @@ def test_required_authentication_flow() -> None:
         assert response.json()["status"] == "ok"
 
         # 2. Sign-up starts in pending status.
-        response = client.post("/api/v1/auth/signup", json=INVESTIGATOR_PAYLOAD)
+        response = client.post("/api/auth/signup", json=INVESTIGATOR_PAYLOAD)
         assert response.status_code == 201, response.text
         created_user = response.json()["user"]
         assert created_user["approval_status"] == ApprovalStatus.PENDING.value
@@ -63,7 +63,7 @@ def test_required_authentication_flow() -> None:
 
         # 3. A pending user cannot log in.
         response = client.post(
-            "/api/v1/auth/login",
+            "/api/auth/login",
             json={
                 "username": INVESTIGATOR_PAYLOAD["username"],
                 "password": INVESTIGATOR_PAYLOAD["password"],
@@ -72,13 +72,13 @@ def test_required_authentication_flow() -> None:
         assert response.status_code == 403
 
         # 4. Local development/test bootstrap admin receives a token without an admin password.
-        response = client.post("/api/v1/auth/dev/bootstrap-login")
+        response = client.post("/api/auth/dev/bootstrap-login")
         assert response.status_code == 200, response.text
         admin_access_token = response.json()["access_token"]
 
         # 5. The bootstrap admin can list pending accounts.
         response = client.get(
-            "/api/v1/admin/users?approval_status=pending",
+            "/api/admin/users?approval_status=pending",
             headers=bearer(admin_access_token),
         )
         assert response.status_code == 200, response.text
@@ -86,7 +86,7 @@ def test_required_authentication_flow() -> None:
 
         # 6. The bootstrap admin approves the investigator request.
         response = client.patch(
-            f"/api/v1/admin/users/{user_id}/approval",
+            f"/api/admin/users/{user_id}/approval",
             headers=bearer(admin_access_token),
             json={
                 "status": ApprovalStatus.APPROVED.value,
@@ -99,7 +99,7 @@ def test_required_authentication_flow() -> None:
 
         # 7. Approved investigator can log in with their own password.
         response = client.post(
-            "/api/v1/auth/login",
+            "/api/auth/login",
             json={
                 "username": INVESTIGATOR_PAYLOAD["username"],
                 "password": INVESTIGATOR_PAYLOAD["password"],
@@ -110,7 +110,7 @@ def test_required_authentication_flow() -> None:
 
         # 8. The investigator-only protected endpoint is accessible.
         response = client.get(
-            "/api/v1/operations/case-search",
+            "/api/operations/case-search",
             headers=bearer(investigator_access_token),
         )
         assert response.status_code == 200, response.text
@@ -118,14 +118,14 @@ def test_required_authentication_flow() -> None:
 
         # 9. Logout revokes the active session.
         response = client.post(
-            "/api/v1/auth/logout",
+            "/api/auth/logout",
             headers=bearer(investigator_access_token),
         )
         assert response.status_code == 204, response.text
 
         # 10. The revoked access token cannot be reused.
         response = client.get(
-            "/api/v1/operations/case-search",
+            "/api/operations/case-search",
             headers=bearer(investigator_access_token),
         )
         assert response.status_code == 401, response.text

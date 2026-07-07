@@ -63,7 +63,7 @@ def main() -> int:
                 raise RuntimeError("Health body is invalid")
 
             # 2.
-            signup = require(client.post(f"{base}/api/v1/auth/signup", json=SIGNUP_PAYLOAD), 201, 2, "회원가입 신청 → pending")
+            signup = require(client.post(f"{base}/api/auth/signup", json=SIGNUP_PAYLOAD), 201, 2, "회원가입 신청 → pending")
             assert signup is not None
             user_id = signup["user"]["id"]
             if signup["user"]["approval_status"] != "pending":
@@ -72,7 +72,7 @@ def main() -> int:
             # 3.
             require(
                 client.post(
-                    f"{base}/api/v1/auth/login",
+                    f"{base}/api/auth/login",
                     json={"username": SIGNUP_PAYLOAD["username"], "password": SIGNUP_PAYLOAD["password"]},
                 ),
                 403,
@@ -82,7 +82,7 @@ def main() -> int:
 
             # 4.
             bootstrap = require(
-                client.post(f"{base}/api/v1/auth/dev/bootstrap-login"),
+                client.post(f"{base}/api/auth/dev/bootstrap-login"),
                 200,
                 4,
                 "개발용 bootstrap 관리자 토큰 발급",
@@ -92,7 +92,7 @@ def main() -> int:
 
             # 5.
             pending = require(
-                client.get(f"{base}/api/v1/admin/users?approval_status=pending", headers=bearer(admin_token)),
+                client.get(f"{base}/api/admin/users?approval_status=pending", headers=bearer(admin_token)),
                 200,
                 5,
                 "pending 사용자 목록 조회",
@@ -104,7 +104,7 @@ def main() -> int:
             # 6.
             require(
                 client.patch(
-                    f"{base}/api/v1/admin/users/{user_id}/approval",
+                    f"{base}/api/admin/users/{user_id}/approval",
                     headers=bearer(admin_token),
                     json={"status": "approved", "role": "investigator"},
                 ),
@@ -116,7 +116,7 @@ def main() -> int:
             # 7.
             investigator_login = require(
                 client.post(
-                    f"{base}/api/v1/auth/login",
+                    f"{base}/api/auth/login",
                     json={"username": SIGNUP_PAYLOAD["username"], "password": SIGNUP_PAYLOAD["password"]},
                 ),
                 200,
@@ -128,7 +128,7 @@ def main() -> int:
 
             # 8.
             require(
-                client.get(f"{base}/api/v1/operations/case-search", headers=bearer(investigator_token)),
+                client.get(f"{base}/api/operations/case-search", headers=bearer(investigator_token)),
                 200,
                 8,
                 "수사관 전용 case-search 접근",
@@ -136,7 +136,7 @@ def main() -> int:
 
             # 9.
             require(
-                client.post(f"{base}/api/v1/auth/logout", headers=bearer(investigator_token)),
+                client.post(f"{base}/api/auth/logout", headers=bearer(investigator_token)),
                 204,
                 9,
                 "로그아웃 성공",
@@ -144,7 +144,7 @@ def main() -> int:
 
             # 10.
             require(
-                client.get(f"{base}/api/v1/operations/case-search", headers=bearer(investigator_token)),
+                client.get(f"{base}/api/operations/case-search", headers=bearer(investigator_token)),
                 401,
                 10,
                 "동일 access token 재사용 차단",

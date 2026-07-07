@@ -1,5 +1,5 @@
 /**
- * 챗봇 API — POST /api/v1/chatbot/chat
+ * 챗봇 API — POST /api/chatbot/chat
  * DevChatbotPage, ChatbotPage에서 사용.
  */
 import axios from 'axios';
