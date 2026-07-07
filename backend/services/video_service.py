@@ -14,34 +14,34 @@ from fashion_clip.fashion_clip import FashionCLIP
 from backend.db.database import get_chromadb
 from sqlalchemy.orm import Session
 from backend.repositories.video_repository import VideoRepository
-from backend.db.models import Video, VideoDetail
+from backend.schemas.video_schema import VideoCreate, VideoDetail
+from backend.db.models import Video
 
 _model_path = Path(settings.yolo_model_path)
 model = YOLO(str(_model_path) if _model_path.exists() else "yolov8n.pt")
 
+
 class VideoService:
-    def __init__(self, db:Session):
+    def __init__(self, db: Session):
         self.db = db
-        self.repository = VideoRepository(db)        
-    
+        self.repository = VideoRepository(db)
 
-
-# ──────────────────────────────────────────────────────────────────────────
-# 기능 함수
-# frame_extract / 
-# ──────────────────────────────────────────────────────────────────────────
-    # 만약 video_path = region_code/cctv_serial_no/recorded_at 이런 형식이라면 아닐경우 수정필요
-    # "11680/CCTV001/20260706_103000.mp4"
+    # ──────────────────────────────────────────────────────────────────────────
+    # 기능 함수
+    # frame_extract /
+    # ──────────────────────────────────────────────────────────────────────────
+    # video_path = region_code/YYYYMMDD/cctv_serial_no/
+    # "11680/20260701/CCTV001/video1.mp4"
     def process_videos(self, video_paths: list[str]):
         for video_path in video_paths:
             path = Path(video_path)
-            video = Video(
-                region_code = path.parts[-3],
-                cctv_serial_no = path.parts[-2],
-                recorded_at = datetime.strptime(path.stem, "%Y%m%d_%H%M%S"),
-                file_path = str(path)
+            video = VideoCreate(
+                region_code=path.parts[-4],
+                cctv_serial_no=path.parts[-2],
+                recorded_at=datetime.strptime(path.parts[-3], "%Y%m%d"),
+                file_path=str(path),
             )
-            save_video = self.repository.create(video)
+            save_video = self.repository.create(Video(**video.model_dump()))
             embedding_id = f"video_{save_video.id}"
             self.repository.update_embedding_id(save_video, embedding_id)
             frames = self.frame_extract(video_path)
@@ -52,16 +52,14 @@ class VideoService:
     def process_video_detail(self, video_id: int, details: list[dict]):
         for detail in details:
             video_detail = VideoDetail(
-            video_id = video_id,
-            video_timestamp = detail["video_timestamp"],
-            crop_id = detail["crop_id"],
-            position = detail["position"]
+                video_id=video_id,
+                video_timestamp=detail["video_timestamp"],
+                crop_id=detail["crop_id"],
+                position=detail["position"],
             )
             self.repository.create_detail(video_detail)
 
-    def frame_extract(
-            self, video_path:str, every_nth: int = 5
-    ):
+    def frame_extract(self, video_path: str, every_nth: int = 5):
         cap = cv2.VideoCapture(video_path)
         path = Path(video_path)
         video_name = path.stem
@@ -81,9 +79,7 @@ class VideoService:
         print(fps, width, height, total_frame)
 
         positions = [
-            i * int(fps)
-            for i in range(int(total_frame / fps))
-            if i % every_nth == 0
+            i * int(fps) for i in range(int(total_frame / fps)) if i % every_nth == 0
         ]
 
         saved_count = 0
@@ -95,7 +91,9 @@ class VideoService:
 
             if ret:
                 seconds = int(pos / fps)
-                save_path = os.path.join(save_dir, f"{video_name}_frame_{seconds:05d}s.jpg")
+                save_path = os.path.join(
+                    save_dir, f"{video_name}_frame_{seconds:05d}s.jpg"
+                )
                 success = cv2.imwrite(save_path, frame)
 
                 if success:
@@ -129,17 +127,14 @@ class VideoService:
 
         save_dir.mkdir(parents=True, exist_ok=True)
 
-
         annotated_dir = Path("data/results/annotated_frames")
         annotated_dir.mkdir(parents=True, exist_ok=True)
-
 
         image_paths = sorted(image_paths)
 
         results = model.predict(source=image_paths, conf=0.4, save=False, classes=0)
         print(results[0])
 
-        
         for image_path, r in zip(image_paths, results):
             frame = cv2.imread(str(image_path))
             if frame is None:
@@ -150,28 +145,26 @@ class VideoService:
                 confidence = float(box.conf[0].cpu().item())
                 label = f"person {confidence:.2f}"
                 person_crop = frame[y1:y2, x1:x2]
-                
+
                 save_path = save_dir / f"{image_path.stem}_person_{person_idx}.jpg"
                 success = cv2.imwrite(str(save_path), person_crop)
                 if success:
                     crop_paths.append(str(save_path))
-                    details.append({
-                        "video_timestamp":int(image_path.stem.split("_")[-1][:-1]),
-                        "crop_id": person_idx,
-                        "position": f"{x1}, {y1}, {x2}, {y2}"
-                    })
+                    details.append(
+                        {
+                            "video_timestamp": int(image_path.stem.split("_")[-1][:-1]),
+                            "crop_id": person_idx,
+                            "position": f"{x1}, {y1}, {x2}, {y2}",
+                        }
+                    )
         return details, crop_paths
-        
 
-    def check_same_person(detected_path:str):
+    def check_same_person(detected_path: str):
         image_dir = Path(detected_path)
         save_dir = Path("data/results/unique_persons")
         save_dir.mkdir(parents=True, exist_ok=True)
         json_path = save_dir / "group_data.json"
-        extractor = FeatureExtractor(
-            model_name="osnet_x1_0",
-            device="cpu"
-        )
+        extractor = FeatureExtractor(model_name="osnet_x1_0", device="cpu")
 
         image_paths = []
         for ext in ["*.jpg"]:
@@ -184,13 +177,7 @@ class VideoService:
 
         features = extractor([str(path) for path in image_paths])
 
-
-        groups = [
-            {
-                "representative_index": 0,
-                "members": [0]
-            }
-        ]
+        groups = [{"representative_index": 0, "members": [0]}]
 
         for i in range(1, len(features)):
             best_group = None
@@ -200,146 +187,141 @@ class VideoService:
 
                 similarity = F.cosine_similarity(
                     features[i].unsqueeze(0),
-                    features[representative_index].unsqueeze(0)
+                    features[representative_index].unsqueeze(0),
                 ).item()
                 if similarity > best_similarity:
                     best_similarity = similarity
                     best_group = group
-                
+
             if best_similarity >= 0.7:
                 best_group["members"].append(i)
             else:
-                groups.append({
-                    "representative_index": i,
-                    "members": [i]
-                })
+                groups.append({"representative_index": i, "members": [i]})
 
         group_data = {}
         for group_number, group in enumerate(groups, start=1):
             representative_index = group["representative_index"]
             source_path = image_paths[representative_index]
-            save_path = save_dir / f"group_{group_number:04d}{source_path.stem}{source_path.suffix}"
+            save_path = (
+                save_dir
+                / f"group_{group_number:04d}{source_path.stem}{source_path.suffix}"
+            )
             shutil.copy2(source_path, save_path)
             group_data[f"group_{group_number:04d}"] = {
                 "representative": str(save_path),
-                "members": [
-                    str(image_paths[index]) for index in group["members"]
-                ]
+                "members": [str(image_paths[index]) for index in group["members"]],
             }
 
         with open(json_path, "w", encoding="utf-8") as file:
-            json.dump(
-                group_data,
-                file,
-                ensure_ascii=False,
-                indent=4
-            )
+            json.dump(group_data, file, ensure_ascii=False, indent=4)
 
-
-# crop embedding ------------------------------------------------------
+    # crop embedding ------------------------------------------------------
     def create_image_embeddings(self, crop_paths: list[str]):
         fclip = FashionCLIP("fashion-clip")
         path_strings = [str(path) for path in crop_paths]
         embeddings = fclip.encode_images(path_strings, batch_size=32)
         norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
         return embeddings / norms
-    def save_embeddings_to_chroma(self, video_id: int, crop_paths:list[str], details: list[dict]):
+
+    def save_embeddings_to_chroma(
+        self, video_id: int, crop_paths: list[str], details: list[dict]
+    ):
         collection = get_chromadb()
         embeddings = self.create_image_embeddings(crop_paths)
         for crop_path, embedding, detail in zip(crop_paths, embeddings, details):
             parts = Path(crop_path).stem.split("_")
-                # 20260706_103000_frame_00010s_person_1.jpg
-                # ["20260706", "103000", "frame", "00010s", "person", "1"]
+            # 20260706_103000_frame_00010s_person_1.jpg
+            # ["20260706", "103000", "frame", "00010s", "person", "1"]
             metadata = {
                 "video_id": video_id,
                 "image_path": str(crop_path),
-                "video_timestamp":detail["video_timestamp"],
+                "video_timestamp": detail["video_timestamp"],
                 "crop_id": detail["crop_id"],
                 "position": detail["position"],
             }
             collection.upsert(
-                ids=[f"video_{video_id}_timestamp_{metadata['video_timestamp']}_crop_{metadata['crop_id']}"],
+                ids=[
+                    f"video_{video_id}_timestamp_{metadata['video_timestamp']}_crop_{metadata['crop_id']}"
+                ],
                 embeddings=[embedding.tolist()],
-                metadatas=[metadata]
+                metadatas=[metadata],
             )
 
     def get_embeddings_by_video_id(self, video_id: int):
         collection = get_chromadb()
         result = collection.get(
-            where={"video_id": video_id},
-            include=["embeddings", "metadatas"]
+            where={"video_id": video_id}, include=["embeddings", "metadatas"]
         )
         return result
-    
+
     def search_embeddings(self, query: str, video_id: int, n_results: int = 5):
         fclip = FashionCLIP("fashion-clip")
         text_embeddings = fclip.encode_text([query], batch_size=1)
         text_embeddings = text_embeddings / np.linalg.norm(
-            text_embeddings,
-            axis=1,
-            keepdims=True
-            )
+            text_embeddings, axis=1, keepdims=True
+        )
         collection = get_chromadb()
         result = collection.query(
             query_embeddings=text_embeddings.tolist(),
             n_results=n_results,
-            where = {"video_id": video_id},
-            )
-        return result   #result["metadatas"][0]에  image_path가 있어 crop을 볼 수 있음.
+            where={"video_id": video_id},
+        )
+        return result  # result["metadatas"][0]에  image_path가 있어 crop을 볼 수 있음.
+
+
 # crop embedding 완료 -------------------------------------------------
 
-    # def get_image_paths(image_dir):
-    #     """
-    #     동일인물 제거를한 unique_persons 폴더에서 jpg 이미지 경로 목록 반환
-    #     """
-    #     image_dir = Path(image_dir)
-    #     image_paths = sorted(image_dir.glob("*.jpg"))
-    #     return image_paths
+# def get_image_paths(image_dir):
+#     """
+#     동일인물 제거를한 unique_persons 폴더에서 jpg 이미지 경로 목록 반환
+#     """
+#     image_dir = Path(image_dir)
+#     image_paths = sorted(image_dir.glob("*.jpg"))
+#     return image_paths
 
-    # def create_image_embeddings(image_paths):
-    #     """
-    #         이미지 경로 목록을 FashionCLIP 이미지 임베딩으로 변환
-    #     """
-    #     fclip = FashionCLIP("fashion-clip")
-    #     path_strings = [str(path) for path in image_paths]
-    #     embeddings = fclip.encode_images(path_strings, batch_size=32)
-    #     return embeddings
+# def create_image_embeddings(image_paths):
+#     """
+#         이미지 경로 목록을 FashionCLIP 이미지 임베딩으로 변환
+#     """
+#     fclip = FashionCLIP("fashion-clip")
+#     path_strings = [str(path) for path in image_paths]
+#     embeddings = fclip.encode_images(path_strings, batch_size=32)
+#     return embeddings
 
-    # def normalize_embeddings(embeddings):
-    #     """
-    #         코사인 유사도 계산용으로 정규화된 임베딩 반환:
-    #     """
-    #     norms = np.linalg.norm(
-    #         embeddings,
-    #         axis=1,
-    #         keepdims=True
-    #     )
-    #     return embeddings / norms
+# def normalize_embeddings(embeddings):
+#     """
+#         코사인 유사도 계산용으로 정규화된 임베딩 반환:
+#     """
+#     norms = np.linalg.norm(
+#         embeddings,
+#         axis=1,
+#         keepdims=True
+#     )
+#     return embeddings / norms
 
-    # def make_metadata(image_paths):
-    #     """
-    #         index, group_id, image_path 목록 생성
-    #     """
-    #     metadata = []
-    #     for index, image_path in enumerate(image_paths):
-    #         metadata.append({
-    #             "index": index,
-    #             "image_path": str(image_path)
-    #             # "crop_id"
-    #             # embedding,
-    #             # video_id,
-    #             # frame_number,
-    #             # timestamp,
-    #             # location,
-    #             # person_index
-    #         })
-    #     return metadata
+# def make_metadata(image_paths):
+#     """
+#         index, group_id, image_path 목록 생성
+#     """
+#     metadata = []
+#     for index, image_path in enumerate(image_paths):
+#         metadata.append({
+#             "index": index,
+#             "image_path": str(image_path)
+#             # "crop_id"
+#             # embedding,
+#             # video_id,
+#             # frame_number,
+#             # timestamp,
+#             # location,
+#             # person_index
+#         })
+#     return metadata
 
-    
 
 # # ──────────────────────────────────────────────────────────────────────────
 # # DB 접근 함수
-# # crop_embedding / 
+# # crop_embedding /
 # # ──────────────────────────────────────────────────────────────────────────
 #     def save_embedding(id, embedding, metadata):
 #         collection = get_chromadb()
@@ -366,4 +348,3 @@ class VideoService:
 #                 embedding=embedding.tolist(),
 #                 metadata=metadata,
 #             )
-
