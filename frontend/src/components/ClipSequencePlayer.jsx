@@ -1,17 +1,42 @@
-/** 탐지 구간별 MP4 클립 순차 재생 — /api/result/media/clips URL 사용 */
+/** 탐지 구간별 MP4 클립 순차 재생 — /api/v1/detection-results/media/clips URL 사용 */
 import { useEffect, useRef, useState } from 'react';
 import './ClipSequencePlayer.css';
 
-export default function ClipSequencePlayer({ clips, onBack }) {
+/**
+ * clips: [{ url, start_sec, end_sec }, ...] — SearchResults에서 탐지 구간 목록 전달
+ * currentIndex / onClipChange: 후보 목록과 동기화
+ * onBack: 목록 화면으로 돌아가는 콜백
+ */
+export default function ClipSequencePlayer({
+  clips,
+  currentIndex: controlledIndex,
+  onClipChange,
+  onBack,
+}) {
   const videoRef = useRef(null);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [internalIndex, setInternalIndex] = useState(0);
   const [playError, setPlayError] = useState(null);
 
-  useEffect(() => {
-    setCurrentIndex(0);
-    setPlayError(null);
-  }, [clips]);
+  const isControlled = controlledIndex != null;
+  const currentIndex = isControlled ? controlledIndex : internalIndex;
 
+  const setCurrentIndex = (next) => {
+    if (isControlled) {
+      onClipChange?.(next);
+    } else {
+      setInternalIndex(next);
+    }
+  };
+
+  // clips 배열이 바뀌면 첫 번째 클립부터 다시 재생
+  useEffect(() => {
+    if (!isControlled) {
+      setInternalIndex(0);
+    }
+    setPlayError(null);
+  }, [clips, isControlled]);
+
+  // currentIndex 변경 시 해당 클립 로드 후 자동 재생 시도
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !clips?.length) return;
@@ -22,12 +47,14 @@ export default function ClipSequencePlayer({ clips, onBack }) {
     });
   }, [currentIndex, clips]);
 
+  /** 한 클립 재생이 끝나면 다음 구간으로 이동 */
   const handleEnded = () => {
     if (currentIndex < clips.length - 1) {
-      setCurrentIndex((prev) => prev + 1);
+      setCurrentIndex(currentIndex + 1);
     }
   };
 
+  /** 영상 URL 로드 실패 시 (만료·404 등) 사용자 안내 */
   const handleVideoError = () => {
     setPlayError('영상을 불러올 수 없습니다. CCTV 영상을 다시 분석해주세요.');
   };

@@ -98,6 +98,10 @@
   color: #fff;
 }
 
+.admin-topbar .admin-right .admin-dev-link {
+  border: 1px dashed rgba(255, 255, 255, 0.45);
+}
+
 .admin-topbar .admin-right .admin-divider {
   width: 1px;
   height: 14px;

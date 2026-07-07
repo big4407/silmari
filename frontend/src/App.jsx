@@ -6,6 +6,7 @@
  *   수사관 대시보드(DashboardLayout): 지도·챗봇·이력·탐지결과
  *   CCTV 업로드(AppLayout): /cctv
  *   관리자(AdminLayout): /admin/:viewId
+ *   API 테스트(DevLayout): /dev/*
  *
  * 레거시 경로 /alert, /result 는 /cctv, /search-results 로 리다이렉트.
  */
@@ -24,6 +25,18 @@ import AdminLayout from './pages/admin/AdminLayout';
 import AdminViewPage from './pages/admin/AdminViewPage';
 import RequireAuth from './components/RequireAuth';
 import RequireAdmin from './components/RequireAdmin';
+import DevLayout from './pages/dev/DevLayout';
+import DevHub from './pages/dev/DevHub';
+import DevHealthPage from './pages/dev/DevHealthPage';
+import DevAuthPage from './pages/dev/DevAuthPage';
+import DevMessagesPage from './pages/dev/DevMessagesPage';
+import DevAlertPage from './pages/dev/DevAlertPage';
+import DevSearchPage from './pages/dev/DevSearchPage';
+import DevDisasterAlertsPage from './pages/dev/DevDisasterAlertsPage';
+import DevResultPage from './pages/dev/DevResultPage';
+import DevCctvPage from './pages/dev/DevCctvPage';
+import DevChatbotPage from './pages/dev/DevChatbotPage';
+import DevAdminPage from './pages/dev/DevAdminPage';
 import './App.css';
 
 export default function App() {
@@ -52,6 +65,20 @@ export default function App() {
             <Route index element={<AdminViewPage />} />
             <Route path=":viewId" element={<AdminViewPage />} />
           </Route>
+        </Route>
+
+        <Route path="/dev" element={<DevLayout />}>
+          <Route index element={<DevHub />} />
+          <Route path="health" element={<DevHealthPage />} />
+          <Route path="auth" element={<DevAuthPage />} />
+          <Route path="messages" element={<DevMessagesPage />} />
+          <Route path="alert" element={<DevAlertPage />} />
+          <Route path="search" element={<DevSearchPage />} />
+          <Route path="disaster" element={<DevDisasterAlertsPage />} />
+          <Route path="result" element={<DevResultPage />} />
+          <Route path="cctv" element={<DevCctvPage />} />
+          <Route path="chatbot" element={<DevChatbotPage />} />
+          <Route path="admin" element={<DevAdminPage />} />
         </Route>
 
         <Route path="/alert" element={<Navigate to="/cctv" replace />} />

@@ -1,7 +1,7 @@
 """
 안내문자 파싱 요청/응답 Pydantic 스키마.
 
-AlertInfo — pipeline·matcher 가 사용하는 인상착의 구조화 결과
+AlertInfo — pipeline·LLM chain 이 사용하는 인상착의 구조화 결과
 """
 from pydantic import BaseModel
 from typing import Optional

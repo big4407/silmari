@@ -33,6 +33,12 @@ export default function DashboardLayout() {
               </span>
             </div>
             <div className="dashboard-layout__util">
+              <Link
+                to="/dev"
+                className="dashboard-layout__util-link dashboard-layout__util-link--temp"
+              >
+                API 테스트
+              </Link>
               {admin && (
                 <Link
                   to="/admin"

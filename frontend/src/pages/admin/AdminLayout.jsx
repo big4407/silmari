@@ -59,6 +59,10 @@ export default function AdminLayout() {
           <span className="admin-sub">관리자 콘솔</span>
         </div>
         <div className="admin-right">
+          <Link to="/dev" className="admin-dev-link">
+            API 테스트
+          </Link>
+          <span className="admin-divider" />
           <span className="admin-role">시스템 관리자</span>
           <span className="admin-divider" />
           <a href="#help">도움</a>

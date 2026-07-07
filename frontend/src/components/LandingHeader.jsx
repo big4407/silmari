@@ -30,6 +30,12 @@ export default function LandingHeader() {
             </span>
           </div>
           <div className="landing-header__util">
+            <Link
+              to="/dev"
+              className="landing-header__util-link landing-header__util-link--temp"
+            >
+              API 테스트
+            </Link>
             {admin && (
               <Link
                 to="/admin"
