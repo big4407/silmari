@@ -154,11 +154,6 @@ def run_detection_pipeline(
     }
 
 # 엄태윤 파이프라인
-from backend.core.vision.frame_extractor import frame_extract
-from backend.core.vision.person_detector import person_detect
-from backend.core.vision.check_same_person import check_same_person
-from backend.core.vision.crop_embedding import *
-from backend.core.vision.search_embedding import search_embedding
 def detect_missing_person_pipeline(
         query:str,
         video_path:str="data/CCTV/output_video_1_1_1.mp4", 
@@ -168,6 +163,19 @@ def detect_missing_person_pipeline(
         unique_person_path:str="data/results/unique_persons",
         max_results:int=5
 ):
+    # ML 스택(torchreid 등)은 이 함수 호출 시에만 로드
+    from backend.core.vision.frame_extractor import frame_extract
+    from backend.core.vision.person_detector import person_detect
+    from backend.core.vision.check_same_person import check_same_person
+    from backend.core.vision.crop_embedding import (
+        create_image_embeddings,
+        get_image_paths,
+        make_metadata,
+        normalize_embeddings,
+        save_embedding,
+    )
+    from backend.core.vision.search_embedding import search_embedding
+
     frame_extract(video_path, frame_interval)
     person_detect(frame_path)
     check_same_person(detected_path)

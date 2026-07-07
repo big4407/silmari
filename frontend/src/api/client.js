@@ -224,15 +224,149 @@ export const LOGIN_FAIL_LABELS = {
 };
 
 // ══════════════════════════════════════════════════════════
+// 기준 코드 — 행정구역·코드 그룹 (/member/admin/regions, /code-groups)
+// ══════════════════════════════════════════════════════════
+
+/** 행정구역 목록 (parent_code 계층 또는 검색). */
+export const fetchRegions = (params = {}) =>
+  client.get('/member/admin/regions', { params }).then((r) => r.data);
+
+/** 행정구역 단건 조회. */
+export const fetchRegionDetail = (regionCode) =>
+  client.get(`/member/admin/regions/${regionCode}`).then((r) => r.data);
+
+/** 시스템 enum 기준 코드 그룹 (읽기 전용). */
+export const fetchCodeGroups = () =>
+  client.get('/member/admin/code-groups').then((r) => r.data);
+
+/** 코드 항목 수정. */
+export const updateCodeItem = (groupKey, code, payload) =>
+  client
+    .patch(`/member/admin/code-groups/${groupKey}/items/${code}`, payload)
+    .then((r) => r.data);
+
+/** 보존 정책 목록. */
+export const fetchRetentionPolicies = () =>
+  client.get('/member/admin/retention-policies').then((r) => r.data);
+
+/** 보존 정책 일괄 수정. */
+export const updateRetentionPolicies = (policies) =>
+  client
+    .patch('/member/admin/retention-policies', { policies })
+    .then((r) => r.data);
+
+/** 보존 정책 드라이런 — 만료 대상 건수·샘플 미리보기. */
+export const runRetentionDryRun = ({ policyId = null, policies = null } = {}) =>
+  client
+    .post(
+      '/member/admin/retention-policies/dry-run',
+      policies?.length ? { policies } : {},
+      { params: policyId ? { policy_id: policyId } : {} },
+    )
+    .then((r) => r.data);
+
+/** 상위 지역 선택용 플랫 목록. */
+export const fetchRegionOptions = () =>
+  client.get('/member/admin/regions/options').then((r) => r.data);
+
+/** 행정구역 등록. */
+export const createRegion = (payload) =>
+  client.post('/member/admin/regions', payload).then((r) => r.data);
+
+/** 행정구역 수정 (코드값 제외). */
+export const updateRegion = (regionCode, payload) =>
+  client.patch(`/member/admin/regions/${regionCode}`, payload).then((r) => r.data);
+
+/** 행정구역 삭제 — 하위·영상 참조 시 409. */
+export const deleteRegion = (regionCode) =>
+  client.delete(`/member/admin/regions/${regionCode}`);
+
+/** 정합성 검사 실행. */
+export const runDataIntegrity = () =>
+  client.post('/member/admin/data-integrity/run').then((r) => r.data);
+
+/** 최근 정합성 검사 결과 (감사 로그). 없으면 404. */
+export const fetchLastIntegrityRun = () =>
+  client.get('/member/admin/data-integrity/last').then((r) => r.data);
+
+/** 감사 로그 ID로 정합성 검사 결과 복원. */
+export const fetchIntegrityRun = (runId) =>
+  client.get(`/member/admin/data-integrity/runs/${runId}`).then((r) => r.data);
+
+/** 검사 항목별 전체 이슈 목록. */
+export const fetchIntegrityCheckIssues = (checkId) =>
+  client
+    .get(`/member/admin/data-integrity/checks/${checkId}/issues`)
+    .then((r) => r.data);
+
+/** 정합성 검사 CSV 리포트보내기. source: last | fresh */
+export const downloadIntegrityReport = (source = 'last') =>
+  client
+    .get('/member/admin/data-integrity/report.csv', {
+      params: { source },
+      responseType: 'blob',
+    })
+    .then((r) => r.data);
+
+/** blob 응답 API 오류 메시지 추출 */
+export async function readApiErrorMessage(err, fallback) {
+  const data = err?.response?.data;
+  if (typeof data === 'string' && data.trim()) return data;
+  if (data && typeof data.detail === 'string') return data.detail;
+  if (data instanceof Blob) {
+    try {
+      const text = await data.text();
+      if (!text) return fallback;
+      const parsed = JSON.parse(text);
+      if (typeof parsed.detail === 'string') return parsed.detail;
+      return text;
+    } catch {
+      return fallback;
+    }
+  }
+  return fallback;
+}
+
+/** 행정구역 CSV보내기. format: region | administrative_dong */
+export const exportRegionsCsv = (format = 'region') =>
+  client
+    .get('/member/admin/regions/export.csv', {
+      params: { format },
+      responseType: 'blob',
+    })
+    .then((r) => r.data);
+
+/** 행정구역 전체 비우기 — region + region_legal_dong 삭제, video 연결 해제. */
+export const clearAllRegions = () =>
+  client.post('/member/admin/regions/clear-all').then((r) => r.data);
+
+/** 행정구역 CSV 가져오기. */
+export const importRegionsCsv = (file, dryRun = false) => {
+  const form = new FormData();
+  form.append('file', file);
+  return client
+    .post('/member/admin/regions/import.csv', form, {
+      params: { dry_run: dryRun },
+    })
+    .then((r) => r.data);
+};
+
+/** 브라우저에서 blob 파일 저장. */
+export const saveBlobDownload = (blob, filename) => {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+// ══════════════════════════════════════════════════════════
 // 레거시 (초기 단발 파이프라인) — /api/video, /api/missing, /api/alerts
 // ══════════════════════════════════════════════════════════
 
 export const analyzeVideo = (formData) =>
-  client
-    .post('/api/video/analyze', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
-    .then((r) => r.data);
+  client.post('/api/video/analyze', formData).then((r) => r.data);
 
 export const fetchMissingList = (params = {}) =>
   client.get('/api/missing/list', { params }).then((r) => r.data);

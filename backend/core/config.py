@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     yolo_model_path: Path = PROJECT_ROOT / "data" / "yolo" / "yolov8n.pt"
     cctv_data_dir: Path = PROJECT_ROOT / "data" / "CCTV"
     results_dir: Path = PROJECT_ROOT / "data" / "results"
+    administrative_dong_csv: Path = (
+        PROJECT_ROOT / "data" / "raw" / "administrative_dong.csv"
+    )
 
     # --- JWT / 인증 (MemberSettings에서 흡수) ---
     jwt_secret_key: str = Field(
