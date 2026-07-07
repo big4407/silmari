@@ -60,20 +60,20 @@ export default function App() {
             <Route index element={<AdminViewPage />} />
             <Route path=":viewId" element={<AdminViewPage />} />
           </Route>
-        </Route>
 
-        <Route path="/dev" element={<DevLayout />}>
-          <Route index element={<DevHub />} />
-          <Route path="health" element={<DevHealthPage />} />
-          <Route path="auth" element={<DevAuthPage />} />
-          <Route path="messages" element={<DevMessagesPage />} />
-          <Route path="alert" element={<DevAlertPage />} />
-          <Route path="search" element={<DevSearchPage />} />
-          <Route path="disaster" element={<DevDisasterAlertsPage />} />
-          <Route path="result" element={<DevResultPage />} />
-          <Route path="cctv" element={<DevCctvPage />} />
-          <Route path="chatbot" element={<DevChatbotPage />} />
-          <Route path="admin" element={<DevAdminPage />} />
+          <Route path="/dev" element={<DevLayout />}>
+            <Route index element={<DevHub />} />
+            <Route path="health" element={<DevHealthPage />} />
+            <Route path="auth" element={<DevAuthPage />} />
+            <Route path="messages" element={<DevMessagesPage />} />
+            <Route path="alert" element={<DevAlertPage />} />
+            <Route path="search" element={<DevSearchPage />} />
+            <Route path="disaster" element={<DevDisasterAlertsPage />} />
+            <Route path="result" element={<DevResultPage />} />
+            <Route path="cctv" element={<DevCctvPage />} />
+            <Route path="chatbot" element={<DevChatbotPage />} />
+            <Route path="admin" element={<DevAdminPage />} />
+          </Route>
         </Route>
 
         <Route path="/cctv" element={<Navigate to="/dashboard" replace />} />
