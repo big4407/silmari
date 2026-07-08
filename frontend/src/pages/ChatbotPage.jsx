@@ -6,26 +6,55 @@ import { sendChatMessage, getChatSession } from '../api/chatbot_api';
 export default function ChatbotPage() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([]);
+  const [sessionId, setSessionId] = useState(() =>
+    localStorage.getItem('chatbot_session_id'),
+  );
 
-  // 세션 ID를 가져오는 함수
-  const getSessionId = () => {
-    let sessionId = localStorage.getItem('chatbot_session_id');
 
-    // 만약 세션 ID가 없으면 randomUUID를 생성
-    if (!sessionId) {
-      sessionId = crypto.randomUUID();
-      localStorage.setItem('chatbot_session_id', sessionId);
+  const updateSessionId = (newSessionId) => {
+    if (newSessionId) {
+      localStorage.setItem('chatbot_session_id', newSessionId);
+    } else {
+      localStorage.removeItem('chatbot_session_id');
     }
 
-    return sessionId;
+    setSessionId(newSessionId);
   };
-  
+  const handleSend = async () => {
+    if (!input.trim()) return;
+
+    const userMsg = input.trim();
+
+    setMessages((prev) => [...prev, { role: 'user', text: userMsg }]);
+    setInput('');
+
+    try {
+      const data = await sendChatMessage({
+        sessionId: sessionId,
+        message: userMsg,
+      });
+
+      updateSessionId(data.session_id);
+
+      setMessages((prev) => [...prev, { role: 'bot', text: data.response }]);
+    } catch (error) {
+      console.error(error);
+
+      setMessages((prev) => [
+        ...prev,
+        { role: 'bot', text: '챗봇 서버와 연결할 수 없습니다.' },
+      ]);
+    }
+  };
+
   // 원래 세션이 있었을 경우, 메시지 내역을 불러온다.
   // 세션이 없을 경우 세션을 먼저 생성하고 불러온다. 만약에 오류가 발생할 경우 챗봇 세션을 불러오지 못했다는 메시지를 출력한다.
   useEffect(() => {
     const loadMessages = async () => {
       try {
-        const data = await getChatSession(getSessionId());
+        const data = await getChatSession(sessionId);
+
+        updateSessionId(data.session_id);
 
         setMessages(
           data.messages.map((m) => ({
@@ -45,31 +74,6 @@ export default function ChatbotPage() {
 
     loadMessages();
   }, []);
-
-  const handleSend = async () => {
-    if (!input.trim()) return;
-
-    const userMsg = input.trim();
-
-    setMessages((prev) => [...prev, { role: 'user', text: userMsg }]);
-    setInput('');
-
-    try {
-      const data = await sendChatMessage({
-        sessionId: getSessionId(),
-        message: userMsg,
-      });
-
-      setMessages((prev) => [...prev, { role: 'bot', text: data.response }]);
-    } catch (error) {
-      console.error(error);
-
-      setMessages((prev) => [
-        ...prev,
-        { role: 'bot', text: '챗봇 서버와 연결할 수 없습니다.' },
-      ]);
-    }
-  };
 
   return (
     <div className="chatbot-page">
