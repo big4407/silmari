@@ -6,6 +6,8 @@ from backend.core.config import settings
 from backend.chatbot.graph import build_chatbot_graph
 from backend.chatbot.utils import create_initial_state
 from backend.db.models import ChatbotSession
+from backend.services.llm_call_service import LlmCallService
+from backend.schemas.llm_call_schema import CallCreate
 
 
 import json
@@ -18,22 +20,21 @@ class ChatbotService:
     def __init__(self, db: Session):
         self.db = db
         self.graph = build_chatbot_graph()
-        self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=settings.openai_api_key,)
+        self.llm = ChatOpenAI(
+            model="gpt-4o-mini",
+            temperature=0,
+            api_key=settings.openai_api_key,
+        )
+        self.llm_call_service = LlmCallService(db)
 
     def chat(self, session_id: str, user_id: str, message: str):
-        """
-        챗봇과 채팅하는 함수. session_id, user_id가 필요하고 메시지를 입력해야 한다.
-        """
-        # 세션이 있으면 가져오고, 없으면 생성한다
         chatbot_session = self.get_or_create_session(
             user_id=user_id,
             session_id=session_id,
         )
 
-        # 챗봇과의 채팅 세션에서 state를 가져온다
         state = chatbot_session.state_json
 
-        # state에 유저 메시지 추가
         state["messages"].append(
             {
                 "role": "user",
@@ -42,13 +43,16 @@ class ChatbotService:
         )
 
         start = time.perf_counter()
-        status = "1"
+        call_status = "1"
         error_msg = None
         response = None
         result = None
+        cb = None
 
         try:
-            with get_openai_callback() as cb:
+            with get_openai_callback() as callback:
+                cb = callback
+
                 result = self.graph.invoke(
                     state,
                     config={
@@ -62,34 +66,33 @@ class ChatbotService:
             response = result.get("response")
 
         except Exception as e:
-            status = "0"
+            call_status = "0"
             error_msg = str(e)[:255]
-            cb = None
             raise
 
         finally:
             latency_ms = int((time.perf_counter() - start) * 1000)
 
-            record = {
-                "call_type": "2",  # 챗봇
-                "search_id": None,
-                "user_id": user_id,
-                "conversation_id": None,
-                "model_name": getattr(self.llm, "model", "gpt-4o-mini"),
-                "prompt": message,
-                "response": response,
-                "input_tokens": cb.prompt_tokens if cb else None,
-                "output_tokens": cb.completion_tokens if cb else None,
-                "latency_ms": latency_ms,
-                "cost": cb.total_cost if cb else None,
-                "status": status,
-                "error_msg": error_msg,
-                "created_at": datetime.now().isoformat(),
-            }
+            search_id = result.get("search_id") if result else None
 
-            self.save_llm_call_jsonl(record)
+            call_payload = CallCreate(
+                call_type="2",  # 챗봇
+                search_id=search_id,
+                user_id=user_id,
+                conversation_id=chatbot_session.id,
+                model_name=getattr(self.llm, "model", "unknown"),
+                prompt=message,
+                response=response,
+                input_tokens=cb.prompt_tokens if cb else None,
+                output_tokens=cb.completion_tokens if cb else None,
+                latency_ms=latency_ms,
+                cost=cb.total_cost if cb else None,
+                status=call_status,
+                error_msg=error_msg,
+            )
 
-        # state에 챗봇 메시지 추가
+            self.llm_call_service.input_call(call_payload)
+
         result["messages"].append(
             {
                 "role": "assistant",
@@ -97,7 +100,6 @@ class ChatbotService:
             }
         )
 
-        # 성공적으로 search 테이블에 insert했다면 state를 초기화
         if result.get("search_inserted"):
             chatbot_session.state_json = create_initial_state(user_id=user_id)
         else:
