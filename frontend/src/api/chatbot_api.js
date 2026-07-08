@@ -27,10 +27,13 @@ export const sendChatMessage = async ({ sessionId, message }) => {
 
 // 챗봇과의 채팅세션을 불러오기 위한 함수
 export const getChatSession = async (sessionId) => {
-  const {data} = await api.get(`/chatbot/session/${sessionId}`, {
+  const url = sessionId ? `/chatbot/session/${sessionId}` : `/chatbot/session`;
+
+  const { data } = await api.get(url, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
   });
+
   return data;
 };
