@@ -17,10 +17,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # ── 도메인 라우터 (기능별 API 엔드포인트) ──────────────────────────────────
 from backend.routers import (
-    alert,
-    cctv,
-    result,
-    disaster_alerts,
+    # alert,
+    # cctv,
+    # result,
+    # disaster_alerts,
     messages,
     admin,
     auth,
@@ -30,9 +30,6 @@ from backend.routers import (
     chatbot,
     video,
 )
-
-# ── 인프라: DB, 설정, 보안, 스토리지 ─────────────────────────────────────
-from backend.services.storage import ensure_dirs
 
 from backend.db.database import Base, SessionLocal, engine, get_db
 from backend.routers import messages
@@ -110,7 +107,6 @@ def bootstrap_admin() -> None:
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     ensure_supported_python()
-    ensure_dirs()  # startup에 있던 것 이동
     Base.metadata.create_all(bind=engine)  # ← 단 1회
     bootstrap_admin()
     start_scheduler()  # 메시지 수집 스케줄러 시작
@@ -140,10 +136,8 @@ app.include_router(search.router, prefix="/search", tags=["search"])
 app.include_router(video.router, prefix="/video", tags=["video"])
 
 # legacy 미사용 라우터 추후 확인 및 처리
-app.include_router(disaster_alerts.router, prefix="/api/alerts", tags=["legacy"])
-app.include_router(alert.router, prefix="/api/sms", tags=["legacy"])
-app.include_router(cctv.router, prefix="/api/video", tags=["legacy"])
-app.include_router(result.router, prefix="/api/missing", tags=["legacy"])
+# app.include_router(disaster_alerts.router, prefix="/api/alerts", tags=["legacy"])
+# app.include_router(result.router, prefix="/api/missing", tags=["legacy"])
 
 
 @app.get("/health")
