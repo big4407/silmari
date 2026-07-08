@@ -2,6 +2,7 @@ import { useState } from "react"
 import devClient from "../../api/devClient"
 import { API_V1 } from "../../api/client"
 import ApiResult, { parseApiError } from "./components/ApiResult"
+import DevPageHead from "./components/DevPageHead"
 import "./DevCommon.css"
 
 const SAMPLE_TEXT =
@@ -30,8 +31,7 @@ export default function DevAlertPage() {
 
   return (
     <>
-      <h1 className="dev-page__title">안내문자 파싱</h1>
-      <p className="dev-page__desc">LLM으로 안내문자에서 인상착의를 구조화합니다.</p>
+      <DevPageHead title="안내문자 파싱" desc="LLM으로 안내문자에서 인상착의를 구조화합니다." />
 
       <div className="dev-section">
         <h2>POST {API_V1}/alerts/parse</h2>

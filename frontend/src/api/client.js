@@ -393,8 +393,4 @@ export const fetchSearchHistory = (params = {}) =>
     .get(`${API_V1}/detection-results/history`, { params })
     .then((r) => r.data);
 
-/** 개발용 임시 검색 결과 시드 — POST /api/v1/detection-results/seed-demo */
-export const seedDemoSearchResults = () =>
-  client.post(`${API_V1}/detection-results/seed-demo`).then((r) => r.data);
-
 export default client;

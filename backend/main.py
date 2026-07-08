@@ -150,6 +150,9 @@ app.include_router(video.router, prefix="/video", tags=["video"])
 app.include_router(disaster_alerts.router, prefix="/api/alerts", tags=["legacy"])
 app.include_router(alert.router, prefix="/api/sms", tags=["legacy"])
 app.include_router(cctv.router, prefix="/api/video", tags=["legacy"])
+app.include_router(
+    result.router, prefix="/api/v1/detection-results", tags=["detection-results"]
+)
 app.include_router(result.router, prefix="/api/missing", tags=["legacy"])
 
 

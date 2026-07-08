@@ -8,13 +8,8 @@ export default function MissingPersonSidebar({ person }) {
       <aside className="missing-sidebar">
         <h3>실종 신고 관련 내용</h3>
         <p className="missing-sidebar__empty">
-          CCTV 분석을 실행하면 입력한 안내문자 정보가 여기에 표시됩니다.
+          선택한 검색 결과의 안내문자 정보가 여기에 표시됩니다.
         </p>
-        <div className="missing-sidebar__actions">
-          <Link to="/cctv" className="missing-sidebar__action">
-            CCTV 분석
-          </Link>
-        </div>
       </aside>
     );
   }
@@ -66,9 +61,6 @@ export default function MissingPersonSidebar({ person }) {
         </dl>
       </div>
       <div className="missing-sidebar__actions">
-        <Link to="/cctv" className="missing-sidebar__action">
-          CCTV 재분석
-        </Link>
         <Link
           to="/dashboard/history"
           className="missing-sidebar__action missing-sidebar__action--ghost"

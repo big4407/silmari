@@ -1,6 +1,8 @@
 import { useState } from "react"
+import { Link } from "react-router-dom"
 import { fetchAdminUsers, updateUserApproval } from "../../api/auth_api"
 import ApiResult, { parseApiError } from "./components/ApiResult"
+import DevPageHead from "./components/DevPageHead"
 import "./DevCommon.css"
 
 export default function DevAdminPage() {
@@ -25,11 +27,16 @@ export default function DevAdminPage() {
 
   return (
     <>
-      <h1 className="dev-page__title">관리자</h1>
-      <p className="dev-page__desc">
-        admin 역할 토큰이 필요합니다.{" "}
-        <a href="/dev/auth">인증</a> 페이지에서 bootstrap-login 또는 관리자 계정으로 로그인하세요.
-      </p>
+      <DevPageHead
+        title="관리자"
+        desc={
+          <>
+            admin 역할 토큰이 필요합니다.{' '}
+            <Link to="/dev/auth">인증</Link> 페이지에서 bootstrap-login 또는 관리자
+            계정으로 로그인하세요.
+          </>
+        }
+      />
 
       <div className="dev-section">
         <h2>회원 목록</h2>

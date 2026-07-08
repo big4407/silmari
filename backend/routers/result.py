@@ -11,7 +11,7 @@ import os
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
-from backend.core.config import get_settings, settings
+from backend.core.config import settings
 from backend.db.crud import (
     get_search_results,
     get_search_result_by_id,
@@ -19,7 +19,6 @@ from backend.db.crud import (
     delete_search_results,
 )
 from backend.services.cctv_reader import list_cctv_files
-from backend.services.demo_results import seed_demo_search_results
 from backend.services.sms_receiver import fetch_missing_persons, fetch_missing_persons_dummy
 from backend.services.storage import remove_file
 
@@ -106,21 +105,6 @@ def detection_history(
         }
         for r in records
     ]
-
-
-@router.post("/seed-demo")
-def seed_demo_results():
-    """개발용 — 검색 결과 페이지 UI 확인을 위한 임시 데이터 3건 생성."""
-    settings = get_settings()
-    if settings.environment not in {"development", "test"}:
-        raise HTTPException(status_code=404, detail="개발 환경에서만 사용할 수 있습니다.")
-
-    payload = seed_demo_search_results()
-    records = get_search_results(alert_text=payload["alert_text"], limit=10)
-    return {
-        **payload,
-        "results": [_serialize_search_result(r) for r in records],
-    }
 
 
 @router.get("")

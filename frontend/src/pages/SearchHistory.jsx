@@ -224,9 +224,9 @@ export default function SearchHistory() {
         {!loading && !error && filteredItems.length === 0 && (
           <div className="search-history__empty">
             <p>저장된 검색 이력이 없습니다.</p>
-            <p>CCTV 분석을 실행하면 이력이 여기에 표시됩니다.</p>
-            <Link to="/cctv" className="search-history__cta">
-              CCTV 분석 시작
+            <p>탐지 결과가 저장되면 이력이 여기에 표시됩니다.</p>
+            <Link to="/dashboard" className="search-history__cta">
+              실종자 검색
             </Link>
           </div>
         )}

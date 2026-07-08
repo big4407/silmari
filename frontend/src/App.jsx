@@ -4,14 +4,12 @@
  * [화면 구역]
  *   공개: Landing, Login, Signup
  *   수사관 대시보드(DashboardLayout): 지도·챗봇·이력·탐지결과
- *   CCTV 업로드(AppLayout): /cctv
  *   관리자(AdminLayout): /admin/:viewId
  *   API 테스트(DevLayout): /dev/*
  *
- * 레거시 경로 /alert, /result 는 /cctv, /search-results 로 리다이렉트.
+ * 레거시 경로 /alert, /result 는 /dashboard, /search-results 로 리다이렉트.
  */
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import AppLayout from './components/AppLayout';
 import DashboardLayout from './components/DashboardLayout';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
@@ -19,7 +17,6 @@ import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import ChatbotPage from './pages/ChatbotPage';
 import SearchHistory from './pages/SearchHistory';
-import CCTVUpload from './pages/CCTVUpload';
 import SearchResults from './pages/SearchResults';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminViewPage from './pages/admin/AdminViewPage';
@@ -54,10 +51,6 @@ export default function App() {
             <Route path="/dashboard/history" element={<SearchHistory />} />
             <Route path="/search-results" element={<SearchResults />} />
           </Route>
-
-          <Route element={<AppLayout />}>
-            <Route path="/cctv" element={<CCTVUpload />} />
-          </Route>
         </Route>
 
         <Route element={<RequireAdmin />}>
@@ -81,7 +74,7 @@ export default function App() {
           <Route path="admin" element={<DevAdminPage />} />
         </Route>
 
-        <Route path="/alert" element={<Navigate to="/cctv" replace />} />
+        <Route path="/alert" element={<Navigate to="/dashboard" replace />} />
         <Route
           path="/result"
           element={<Navigate to="/search-results" replace />}

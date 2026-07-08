@@ -9,6 +9,7 @@ import {
 } from "../../api/auth_api"
 import { getStoredTokens, clearStoredTokens } from "../../api/devClient"
 import ApiResult, { parseApiError } from "./components/ApiResult"
+import DevPageHead from "./components/DevPageHead"
 import "./DevCommon.css"
 
 export default function DevAuthPage() {
@@ -35,10 +36,10 @@ export default function DevAuthPage() {
 
   return (
     <>
-      <h1 className="dev-page__title">인증</h1>
-      <p className="dev-page__desc">
-        JWT 토큰은 sessionStorage에 저장됩니다. 관리자 API는 admin 역할 토큰이 필요합니다.
-      </p>
+      <DevPageHead
+        title="인증"
+        desc="JWT 토큰은 sessionStorage에 저장됩니다. 관리자 API는 admin 역할 토큰이 필요합니다."
+      />
 
       <div className="dev-section">
         <h2>로그인</h2>
@@ -110,7 +111,7 @@ export default function DevAuthPage() {
           </button>
         </div>
         {tokens && (
-          <p style={{ fontSize: "0.8rem", color: "var(--color-text-secondary)" }}>
+          <p className="dev-note">
             access_token: {tokens.access_token?.slice(0, 24)}…
           </p>
         )}
