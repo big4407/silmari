@@ -1,3 +1,8 @@
+"""
+[화면] DevSearchPage (프로덕션 미연결)
+[서비스] search_service.SearchService → search_repository
+[테이블] search
+"""
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 

@@ -1,7 +1,7 @@
 /**
  * 검색 이력 — CCTV 분석 세션 목록.
  *
- * GET /api/detection-results/history 연동.
+ * GET /api/detection-results?detail=summary 연동.
  * 행 클릭 시 해당 안내문자 컨텍스트로 검색 결과 페이지 이동.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';

@@ -16,12 +16,17 @@ from backend.services.auth_service import change_password
 router = APIRouter(prefix="/users")
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get(
+    "/me",
+    response_model=UserResponse,
+    summary="내 프로필 조회",
+    include_in_schema=False,
+)
 def get_my_profile(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
-@router.patch("/me", response_model=UserResponse)
+@router.patch("/me", response_model=UserResponse, include_in_schema=False)
 def update_my_profile(
     payload: UpdateMyProfileRequest,
     current_user: User = Depends(get_current_user),

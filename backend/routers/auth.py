@@ -1,8 +1,10 @@
 """
-인증 API — 회원가입·로그인·토큰 갱신·로그아웃.
+[화면] Login.jsx, Signup.jsx
+[서비스] auth_service (authenticate, session, tokens)
+[테이블] user, auth_session, login_history
 
 [승인 흐름] signup(pending) → admin 승인 → login → JWT 발급
-[개발용]    POST /auth/dev/bootstrap-login — 로컬 전용, NO_PASSWORD 모드
+[개발용]    POST /auth/dev/bootstrap-login — 로컬 전용
 """
 
 import logging
@@ -44,7 +46,11 @@ def _is_local_request(request: Request) -> bool:
 
 
 @router.post(
-    "/signup", response_model=SignUpResponse, status_code=status.HTTP_201_CREATED
+    "/signup",
+    response_model=SignUpResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="회원가입 신청",
+    description="관리자 승인 전까지 pending 상태로 등록됩니다.",
 )
 def signup(payload: SignUpRequest, db: Session = Depends(get_db)) -> SignUpResponse:
     if payload.requested_role == UserRole.ADMIN:
@@ -87,7 +93,12 @@ def signup(payload: SignUpRequest, db: Session = Depends(get_db)) -> SignUpRespo
     )
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post(
+    "/login",
+    response_model=TokenResponse,
+    summary="로그인",
+    description="아이디·비밀번호로 JWT access/refresh 토큰을 발급합니다.",
+)
 def login(
     payload: LoginRequest, request: Request, db: Session = Depends(get_db)
 ) -> TokenResponse:
@@ -161,7 +172,7 @@ def login(
     )
 
 
-@router.post("/dev/bootstrap-login", response_model=TokenResponse)
+@router.post("/dev/bootstrap-login", response_model=TokenResponse, include_in_schema=False)
 def development_bootstrap_login(
     request: Request, db: Session = Depends(get_db)
 ) -> TokenResponse:
@@ -210,7 +221,11 @@ def development_bootstrap_login(
     )
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post(
+    "/refresh",
+    response_model=TokenResponse,
+    summary="토큰 갱신",
+)
 def refresh(payload: RefreshRequest, db: Session = Depends(get_db)) -> TokenResponse:
     try:
         return rotate_refresh_token(db, payload.refresh_token)
@@ -220,7 +235,11 @@ def refresh(payload: RefreshRequest, db: Session = Depends(get_db)) -> TokenResp
         ) from exc
 
 
-@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+@router.post(
+    "/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="로그아웃",
+)
 def logout(
     session_id: str = Depends(get_current_session_id),
     current_user: User = Depends(get_current_user),

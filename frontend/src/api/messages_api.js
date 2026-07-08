@@ -3,9 +3,9 @@
  * DevMessagesPage에서 CRUD·수집 테스트에 사용. devClient(인증 헤더) 경유.
  */
 import devClient from "./devClient"
-import { API_V1 } from "./client"
+import { API_PREFIX } from "./client"
 
-const BASE = `${API_V1}/messages`
+const BASE = `${API_PREFIX}/messages`
 
 /** 외부(행안부) API에서 재난문자를 가져와 DB에 저장 */
 export const collectMessages = async (params = {}) => {

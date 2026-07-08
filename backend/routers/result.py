@@ -1,192 +1,127 @@
 """
-탐지 결과·검색 이력·미디어 제공 API.
-
-[조회] GET / — SearchResult 목록
-[미디어] /media/thumbnails, /media/clips — data/results/ 정적 파일
-[삭제] DELETE /{id} — DB 레코드 + 디스크 클립·썸네일 함께 제거
+[화면] SearchResults.jsx, SearchHistory.jsx
+[서비스] detection_result_service.DetectionResultService
+[테이블] search_result · data/results/ 미디어
 """
-import json
-import os
-from typing import Optional
+from typing import Literal, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Query
 from fastapi.responses import FileResponse
 
-from backend.core.config import settings
-from backend.db.crud import (
-    get_search_results,
-    get_search_result_by_id,
-    delete_search_result,
-    delete_search_results,
-)
-from backend.services.cctv_reader import list_cctv_files
-from backend.services.sms_receiver import fetch_missing_persons, fetch_missing_persons_dummy
-from backend.services.storage import remove_file
+from backend.services.detection_result_service import DetectionResultService
 
 router = APIRouter()
-
-MEDIA_BASE = "/api/detection-results/media"
-
-
-def _serialize_search_result(record) -> dict:
-    clips = json.loads(record.clips_json or "[]")
-    sms_info = json.loads(record.sms_info_json or "{}")
-
-    return {
-        "id": record.id,
-        "person_name": record.person_name,
-        "person_age": record.person_age,
-        "region": record.region or "-",
-        "video_filename": record.video_filename,
-        "thumbnail_url": f"{MEDIA_BASE}/thumbnails/{record.thumbnail_filename}",
-        "best_confidence": record.best_confidence,
-        "best_timestamp_sec": record.best_timestamp_sec,
-        "description": record.description or "",
-        "clips": [
-            {
-                **clip,
-                "url": f"{MEDIA_BASE}/clips/{clip['filename']}",
-                **(
-                    {
-                        "thumbnail_url": (
-                            f"{MEDIA_BASE}/thumbnails/{clip['thumbnail_filename']}"
-                        ),
-                    }
-                    if clip.get("thumbnail_filename")
-                    else {}
-                ),
-            }
-            for clip in clips
-        ],
-        "candidate_count": len(clips),
-        "sms_info": sms_info,
-        "alert_text": record.alert_text,
-        "created_at": record.created_at.isoformat(),
-    }
+_service = DetectionResultService()
 
 
-@router.get("/list")
+@router.get("/list", include_in_schema=False)
 async def missing_list(
     name: Optional[str] = None, age: Optional[int] = None, dummy: bool = False
 ):
-    if dummy:
-        return fetch_missing_persons_dummy()
-    if name is None and age is None:
-        return await fetch_missing_persons()
-    if age is None:
-        return await fetch_missing_persons(name=name)
-    if name is None:
-        return await fetch_missing_persons(age=age)
-    return await fetch_missing_persons(name=name, age=age)
+    return await _service.list_missing_persons(name=name, age=age, dummy=dummy)
 
 
-@router.get("/cctv/list/{region_code}")
+@router.get("/cctv/list/{region_code}", include_in_schema=False)
 def cctv_list(region_code: str):
-    return {"region_code": region_code, "files": list_cctv_files(region_code)}
+    return _service.list_cctv_files(region_code)
 
 
-@router.get("/history")
+@router.get(
+    "/history",
+    include_in_schema=False,
+    summary="검색 이력 조회 (레거시)",
+)
 def detection_history(
     person_name: Optional[str] = None,
     region: Optional[str] = None,
     limit: int = 50,
 ):
-    """CCTV 분석으로 저장된 검색 이력 목록."""
-    records = get_search_results(
-        person_name=person_name,
-        region=region,
-        limit=limit,
-    )
-    return [
-        {
-            "id": r.id,
-            "person_name": r.person_name,
-            "person_age": r.person_age,
-            "region": r.region or "-",
-            "alert_text": r.alert_text,
-            "video_filename": r.video_filename,
-            "best_confidence": r.best_confidence,
-            "description": r.description or "",
-            "thumbnail_url": f"{MEDIA_BASE}/thumbnails/{r.thumbnail_filename}",
-            "sms_info": json.loads(r.sms_info_json or "{}"),
-            "candidate_count": len(json.loads(r.clips_json or "[]")),
-            "created_at": r.created_at.isoformat(),
-        }
-        for r in records
-    ]
+    """하위 호환용. 신규 코드는 GET /detection-results?detail=summary 사용."""
+    return _service.list_history(person_name=person_name, region=region, limit=limit)
 
 
-@router.get("")
+@router.get(
+    "",
+    summary="탐지 결과 목록 조회",
+    description=(
+        "CCTV 분석 결과 목록. "
+        "`detail=full`(기본): 클립·상세 포함 — 검색 결과 화면. "
+        "`detail=summary`: 경량 응답 — 검색 이력 화면."
+    ),
+)
 def search_results(
     person_name: Optional[str] = None,
     alert_text: Optional[str] = None,
     region: Optional[str] = None,
     limit: int = 50,
+    detail: Literal["full", "summary"] = Query(
+        "full",
+        description="full=클립 포함 상세, summary=검색 이력용 경량",
+    ),
 ):
-    records = get_search_results(
+    if detail == "summary":
+        return _service.list_history(
+            person_name=person_name,
+            region=region,
+            limit=limit,
+        )
+    return _service.list_results(
         person_name=person_name,
         alert_text=alert_text,
         region=region,
         limit=limit,
     )
-    return [_serialize_search_result(r) for r in records]
 
 
-@router.get("/{result_id}")
+@router.get(
+    "/{result_id}",
+    summary="탐지 결과 상세 조회",
+)
 def search_result_detail(result_id: int):
-    record = get_search_result_by_id(result_id)
-    if not record:
-        raise HTTPException(status_code=404, detail="검색 결과를 찾을 수 없습니다.")
-    return _serialize_search_result(record)
+    return _service.get_result(result_id)
 
 
-def _remove_result_media(record) -> None:
-    if record.thumbnail_filename:
-        remove_file(os.path.join(settings.results_dir, "thumbnails", record.thumbnail_filename))
-    for clip in json.loads(record.clips_json or "[]"):
-        filename = clip.get("filename")
-        if filename:
-            remove_file(os.path.join(settings.results_dir, "clips", filename))
-
-
-@router.delete("/{result_id}")
+@router.delete(
+    "/{result_id}",
+    summary="탐지 결과 1건 삭제",
+)
 def delete_search_result_endpoint(result_id: int):
-    record = delete_search_result(result_id)
-    if not record:
-        raise HTTPException(status_code=404, detail="검색 결과를 찾을 수 없습니다.")
-    _remove_result_media(record)
-    return {"ok": True, "deleted_id": result_id}
+    return _service.delete_result(result_id)
 
 
-@router.delete("")
+@router.delete(
+    "",
+    summary="탐지 결과 조건부 일괄 삭제",
+)
 def delete_search_results_endpoint(
     person_name: Optional[str] = None,
     alert_text: Optional[str] = None,
     region: Optional[str] = None,
 ):
-    records = delete_search_results(
+    return _service.delete_results(
         person_name=person_name,
         alert_text=alert_text,
         region=region,
     )
-    for record in records:
-        _remove_result_media(record)
-    return {"ok": True, "deleted_count": len(records)}
 
 
-@router.get("/media/thumbnails/{filename}")
+@router.get(
+    "/media/thumbnails/{filename}",
+    summary="썸네일 이미지 다운로드",
+    include_in_schema=False,
+)
 def get_thumbnail(filename: str):
-    path = os.path.join(settings.results_dir, "thumbnails", filename)
-    if not os.path.exists(path):
-        raise HTTPException(status_code=404, detail="썸네일 없음")
+    path = _service.resolve_thumbnail_path(filename)
     return FileResponse(path, media_type="image/jpeg")
 
 
-@router.get("/media/clips/{filename}")
+@router.get(
+    "/media/clips/{filename}",
+    summary="탐지 클립 영상 다운로드",
+    include_in_schema=False,
+)
 def get_clip(filename: str):
-    path = os.path.join(settings.results_dir, "clips", filename)
-    if not os.path.exists(path):
-        raise HTTPException(status_code=404, detail="클립 없음")
+    path = _service.resolve_clip_path(filename)
     return FileResponse(
         path,
         media_type="video/mp4",

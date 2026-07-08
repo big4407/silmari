@@ -3,9 +3,9 @@
  * 실종자 검색 건 등록·조회. DevSearchPage에서 테스트.
  */
 import devClient from "./devClient"
-import { API_V1 } from "./client"
+import { API_PREFIX } from "./client"
 
-const BASE = `${API_V1}/search-requests`
+const BASE = `${API_PREFIX}/search-requests`
 
 /** 새 검색 요청 생성 (user_id, 실종자 정보 등) */
 export const createSearch = async (payload) => {

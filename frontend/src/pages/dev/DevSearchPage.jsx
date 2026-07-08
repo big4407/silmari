@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { createSearch, fetchSearches, fetchSearch, deleteSearch } from "../../api/search_api"
 import { fetchMe } from "../../api/auth_api"
-import { API_V1 } from "../../api/client"
+import { API_PREFIX } from "../../api/client"
 import ApiResult, { parseApiError } from "./components/ApiResult"
 import DevPageHead from "./components/DevPageHead"
 import "./DevCommon.css"
@@ -71,7 +71,7 @@ export default function DevSearchPage() {
             onChange={(e) => setMissingName(e.target.value)}
           />
           <button type="button" className="dev-btn" onClick={create}>
-            POST {API_V1}/search-requests
+            POST {API_PREFIX}/search-requests
           </button>
         </div>
       </div>
@@ -87,7 +87,7 @@ export default function DevSearchPage() {
               className="dev-btn dev-btn--secondary"
               onClick={() => run(() => fetchSearches({ page: 1, size: 10 }))}
             >
-              GET {API_V1}/search-requests (목록)
+              GET {API_PREFIX}/search-requests (목록)
             </button>
             <button
               type="button"
@@ -95,7 +95,7 @@ export default function DevSearchPage() {
               disabled={!searchId}
               onClick={() => run(() => fetchSearch(searchId))}
             >
-              GET {API_V1}/search-requests/{"{id}"}
+              GET {API_PREFIX}/search-requests/{"{id}"}
             </button>
             <button
               type="button"
@@ -103,7 +103,7 @@ export default function DevSearchPage() {
               disabled={!searchId}
               onClick={() => run(() => deleteSearch(searchId))}
             >
-              DELETE {API_V1}/search-requests/{"{id}"}
+              DELETE {API_PREFIX}/search-requests/{"{id}"}
             </button>
           </div>
         </div>

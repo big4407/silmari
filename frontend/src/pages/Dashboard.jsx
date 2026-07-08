@@ -2,14 +2,14 @@
  * 메인 대시보드 — 지도 + 실종 안내문자 목록.
  *
  * [지도] MapDrilldown — 시·도/구·군 드릴다운, 지역별 문자 필터
- * [데이터] fetchDisasterAlerts(missing_only) + sessionStorage 캐시
+ * [데이터] fetchMessages(/api/messages) + sessionStorage 캐시
  * [액션] 문자 선택 → alertText 저장 → /search-results 이동
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MapDrilldown from '../components/MapDrilldown';
 import AlertMessageCard from '../components/AlertMessageCard';
-import { fetchDisasterAlerts } from '../api/client';
+import { collectMessages, fetchMessages } from '../api/client';
 import { useDetectionStore } from '../store/useDetectionStore';
 import {
   filterAlertsByRegion,
@@ -21,6 +21,26 @@ import './Dashboard.css';
 function toYmd(dateStr) {
   if (!dateStr) return undefined;
   return dateStr.replace(/-/g, '');
+}
+
+function resolveDateRange(startDate, endDate) {
+  if (startDate || endDate) {
+    return {
+      start_date: startDate || undefined,
+      end_date: endDate || undefined,
+    };
+  }
+  const end = new Date();
+  const start = new Date();
+  start.setDate(start.getDate() - 90);
+  return {
+    start_date: start.toISOString().slice(0, 10),
+    end_date: end.toISOString().slice(0, 10),
+  };
+}
+
+function mapMessageToAlert(message) {
+  return { ...message, id: message.sn };
 }
 
 const ALERTS_STORAGE_KEY = 'silmari_alerts_cache';
@@ -88,33 +108,45 @@ export default function Dashboard() {
     setLoading(true);
     setApiError(null);
     try {
-      const params = {
-        num_of_rows: 100,
-        missing_only: true,
-      };
-      if (refresh) params.force_refresh = true;
-      if (cacheOnly) params.cache_only = true;
-      const crtDt = toYmd(startDate);
-      const endDt = toYmd(endDate);
-      if (crtDt) params.crt_dt = crtDt;
-      if (endDt) params.end_dt = endDt;
+      const { start_date, end_date } = resolveDateRange(startDate, endDate);
 
-      const data = await fetchDisasterAlerts(params);
-      if (data.error) {
-        setApiError(data.error);
+      if (refresh) {
+        try {
+          await collectMessages({
+            page_no: 1,
+            num_of_rows: 100,
+            crt_dt: toYmd(startDate) || start_date.replace(/-/g, ''),
+          });
+        } catch (collectError) {
+          const detail = collectError.response?.data?.detail;
+          setApiError(
+            typeof detail === 'string'
+              ? detail
+              : '재난문자 수집에 실패했습니다. 저장된 목록을 조회합니다.',
+          );
+        }
+      }
+
+      const data = await fetchMessages({
+        page: 1,
+        per_page: 100,
+        start_date,
+        end_date,
+        order_by: 'latest',
+      });
+
+      const items = (data.items || []).map(mapMessageToAlert);
+      if (cacheOnly && items.length === 0) {
         setAlertList([]);
         return;
       }
-      if (data.hint && (!data.items || data.items.length === 0)) {
-        setAlertList([]);
-        return;
-      }
-      const items = data.items || [];
+
       setAlertList(items);
       if (items.length > 0) saveAlertsToSession(items);
     } catch (e) {
       console.error('안내문자 목록 불러오기 실패', e);
       setAlertList([]);
+      setApiError('안내문자 목록을 불러오지 못했습니다.');
     } finally {
       setLoading(false);
     }

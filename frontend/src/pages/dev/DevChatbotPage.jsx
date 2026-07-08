@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { sendChatMessage } from "../../api/chatbot_api"
-import { API_V1 } from "../../api/client"
+import { API_PREFIX } from "../../api/client"
 import ApiResult, { parseApiError } from "./components/ApiResult"
 import DevPageHead from "./components/DevPageHead"
 import "./DevCommon.css"
@@ -32,7 +32,7 @@ export default function DevChatbotPage() {
     <>
       <DevPageHead
         title="챗봇"
-        desc={`POST ${API_V1}/chatbot/chat — 세션 ID로 대화를 이어갑니다.`}
+        desc={`POST ${API_PREFIX}/chatbot/chat — 세션 ID로 대화를 이어갑니다.`}
       />
 
       <div className="dev-section">

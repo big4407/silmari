@@ -1,6 +1,6 @@
 import { useState } from "react"
 import devClient from "../../api/devClient"
-import { API_V1 } from "../../api/client"
+import { API_PREFIX } from "../../api/client"
 import ApiResult, { parseApiError } from "./components/ApiResult"
 import DevPageHead from "./components/DevPageHead"
 import "./DevCommon.css"
@@ -20,7 +20,7 @@ export default function DevAlertPage() {
     setStatus("loading")
     setError(null)
     try {
-      const { data: res } = await devClient.post(`${API_V1}/alerts/parse`, { text })
+      const { data: res } = await devClient.post(`${API_PREFIX}/alerts/parse`, { text })
       setData(res)
       setStatus("ok")
     } catch (err) {
@@ -34,7 +34,7 @@ export default function DevAlertPage() {
       <DevPageHead title="안내문자 파싱" desc="LLM으로 안내문자에서 인상착의를 구조화합니다." />
 
       <div className="dev-section">
-        <h2>POST {API_V1}/alerts/parse</h2>
+        <h2>POST {API_PREFIX}/alerts/parse</h2>
         <div className="dev-form">
           <label htmlFor="dev-alert-text">안내문자 원문</label>
           <textarea

@@ -4,7 +4,7 @@ import {
   fetchSearchResultDetail,
   fetchMissingList,
   deleteSearchResult,
-  API_V1,
+  API_PREFIX,
 } from "../../api/client"
 import ApiResult, { parseApiError } from "./components/ApiResult"
 import DevPageHead from "./components/DevPageHead"
@@ -42,14 +42,14 @@ export default function DevResultPage() {
             className="dev-btn"
             onClick={() => run(() => fetchSearchResults({ limit: 10 }))}
           >
-            GET {API_V1}/detection-results
+            GET {API_PREFIX}/detection-results
           </button>
           <button
             type="button"
             className="dev-btn dev-btn--secondary"
             onClick={() => run(() => fetchMissingList())}
           >
-            GET {API_V1}/detection-results/list
+            GET {API_PREFIX}/detection-results/list
           </button>
         </div>
         <div className="dev-form" style={{ marginTop: "0.75rem" }}>
@@ -62,7 +62,7 @@ export default function DevResultPage() {
               disabled={!resultId}
               onClick={() => run(() => fetchSearchResultDetail(resultId))}
             >
-              GET {API_V1}/detection-results/{"{id}"}
+              GET {API_PREFIX}/detection-results/{"{id}"}
             </button>
             <button
               type="button"
@@ -70,7 +70,7 @@ export default function DevResultPage() {
               disabled={!resultId}
               onClick={() => run(() => deleteSearchResult(resultId))}
             >
-              DELETE {API_V1}/detection-results/{"{id}"}
+              DELETE {API_PREFIX}/detection-results/{"{id}"}
             </button>
           </div>
         </div>

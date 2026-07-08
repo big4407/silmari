@@ -29,7 +29,6 @@ import DevAuthPage from './pages/dev/DevAuthPage';
 import DevMessagesPage from './pages/dev/DevMessagesPage';
 import DevAlertPage from './pages/dev/DevAlertPage';
 import DevSearchPage from './pages/dev/DevSearchPage';
-import DevDisasterAlertsPage from './pages/dev/DevDisasterAlertsPage';
 import DevResultPage from './pages/dev/DevResultPage';
 import DevCctvPage from './pages/dev/DevCctvPage';
 import DevChatbotPage from './pages/dev/DevChatbotPage';
@@ -66,7 +65,6 @@ export default function App() {
             <Route path="messages" element={<DevMessagesPage />} />
             <Route path="alert" element={<DevAlertPage />} />
             <Route path="search" element={<DevSearchPage />} />
-            <Route path="disaster" element={<DevDisasterAlertsPage />} />
             <Route path="result" element={<DevResultPage />} />
             <Route path="cctv" element={<DevCctvPage />} />
             <Route path="chatbot" element={<DevChatbotPage />} />

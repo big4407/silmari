@@ -6,7 +6,7 @@ import {
   createMessage,
   deleteMessage,
 } from "../../api/messages_api"
-import { API_V1 } from "../../api/client"
+import { API_PREFIX } from "../../api/client"
 import ApiResult, { parseApiError } from "./components/ApiResult"
 import DevPageHead from "./components/DevPageHead"
 import "./DevCommon.css"
@@ -46,14 +46,14 @@ export default function DevMessagesPage() {
             className="dev-btn"
             onClick={() => run(() => collectMessages({ page_no: 1, num_of_rows: 5 }))}
           >
-            POST {API_V1}/messages/collect
+            POST {API_PREFIX}/messages/collect
           </button>
           <button
             type="button"
             className="dev-btn dev-btn--secondary"
             onClick={() => run(() => fetchMessages({ page: Number(page) || 1, per_page: 10 }))}
           >
-            GET {API_V1}/messages
+            GET {API_PREFIX}/messages
           </button>
         </div>
         <div className="dev-form" style={{ marginTop: "0.75rem" }}>
@@ -74,7 +74,7 @@ export default function DevMessagesPage() {
               disabled={!sn}
               onClick={() => run(() => fetchMessage(sn))}
             >
-              GET {API_V1}/messages/{"{sn}"}
+              GET {API_PREFIX}/messages/{"{sn}"}
             </button>
             <button
               type="button"
@@ -82,7 +82,7 @@ export default function DevMessagesPage() {
               disabled={!sn}
               onClick={() => run(() => deleteMessage(sn))}
             >
-              DELETE {API_V1}/messages/{"{sn}"}
+              DELETE {API_PREFIX}/messages/{"{sn}"}
             </button>
           </div>
         </div>
@@ -106,7 +106,7 @@ export default function DevMessagesPage() {
               )
             }
           >
-            POST {API_V1}/messages/manual_input
+            POST {API_PREFIX}/messages/manual_input
           </button>
         </div>
         <ApiResult status={status} data={data} error={error} />

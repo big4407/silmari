@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { analyzeVideo, API_V1 } from "../../api/client"
+import { analyzeVideo, API_PREFIX } from "../../api/client"
 import ApiResult, { parseApiError } from "./components/ApiResult"
 import DevPageHead from "./components/DevPageHead"
 import "./DevCommon.css"
@@ -45,7 +45,7 @@ export default function DevCctvPage() {
       />
 
       <div className="dev-section">
-        <h2>POST {API_V1}/cctv/analyze</h2>
+        <h2>POST {API_PREFIX}/cctv/analyze</h2>
         <div className="dev-form">
           <label htmlFor="dev-cctv-sms">안내문자</label>
           <textarea

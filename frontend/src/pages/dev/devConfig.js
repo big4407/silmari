@@ -13,7 +13,6 @@ export const DEV_NAV = [
     items: [
       { path: 'messages', label: '재난문자', desc: 'GET /api/messages' },
       { path: 'alert', label: '안내문자 파싱', desc: 'POST /api/alerts/parse' },
-      { path: 'disaster', label: '재난 알림', desc: 'GET /api/disaster-alerts' },
     ],
   },
   {

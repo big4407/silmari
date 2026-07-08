@@ -4,12 +4,13 @@
  * [베이스] localhost:8000 (개발) — 배포 시 환경변수로 교체 필요
  * [인증]  signup, login, logout → /api/auth/* (JWT + localStorage)
  * [결과]  fetchSearchResults, fetchSearchResultDetail → /api/detection-results
- * [재난]  fetchDisasterAlerts → /api/disaster-alerts (Dashboard)
+ * [재난]  fetchMessages, collectMessages → /api/messages (Dashboard)
  */
 import axios from 'axios';
 
 export const API_BASE = 'http://127.0.0.1:8000';
-export const API_V1 = '/api';
+/** 모든 REST API 경로 prefix (버전 번호 아님) */
+export const API_PREFIX = '/api';
 
 // ── 토큰 저장소 (localStorage) ─────────────────────────────
 const ACCESS_KEY = 'silmari_access_token';
@@ -47,7 +48,7 @@ const doRefresh = async () => {
   const refreshToken = tokenStore.getRefresh();
   if (!refreshToken) throw new Error('no refresh token');
   // 인터셉터 무한루프 방지를 위해 raw axios 로 호출(client 대신)
-  const { data } = await axios.post(`${API_BASE}${API_V1}/auth/refresh`, {
+  const { data } = await axios.post(`${API_BASE}${API_PREFIX}/auth/refresh`, {
     refresh_token: refreshToken,
   });
   tokenStore.set(data.access_token, data.refresh_token);
@@ -61,7 +62,7 @@ client.interceptors.response.use(
     const status = error.response?.status;
 
     // 401 이고, 아직 재시도 안 했고, refresh 요청 자체가 아닌 경우에만
-    const isRefreshCall = original?.url?.includes(`${API_V1}/auth/refresh`);
+    const isRefreshCall = original?.url?.includes(`${API_PREFIX}/auth/refresh`);
     if (status === 401 && !original?._retry && !isRefreshCall) {
       original._retry = true;
       try {
@@ -95,7 +96,7 @@ client.interceptors.response.use(
  * @returns {Promise<{message, user}>}
  */
 export const signup = (payload) =>
-  client.post(`${API_V1}/auth/signup`, payload).then((r) => r.data);
+  client.post(`${API_PREFIX}/auth/signup`, payload).then((r) => r.data);
 
 /**
  * 로그인. 성공 시 토큰을 localStorage에 저장한다.
@@ -104,7 +105,7 @@ export const signup = (payload) =>
  * @returns {Promise<{access_token, refresh_token, token_type, access_expires_in_seconds}>}
  */
 export const login = async (username, password) => {
-  const { data } = await client.post(`${API_V1}/auth/login`, {
+  const { data } = await client.post(`${API_PREFIX}/auth/login`, {
     username,
     password,
   });
@@ -118,7 +119,7 @@ export const login = async (username, password) => {
  */
 export const logout = async () => {
   try {
-    await client.post(`${API_V1}/auth/logout`);
+    await client.post(`${API_PREFIX}/auth/logout`);
   } finally {
     tokenStore.clear();
   }
@@ -169,7 +170,7 @@ export const statusLabel = (code) => STATUS_LABELS[code] ?? '-';
 export const fetchUsers = (approvalStatus) => {
   const params =
     approvalStatus != null ? { approval_status: approvalStatus } : {};
-  return client.get(`${API_V1}/admin/users`, { params }).then((r) => r.data);
+  return client.get(`${API_PREFIX}/admin/users`, { params }).then((r) => r.data);
 };
 
 /**
@@ -181,7 +182,7 @@ export const fetchUsers = (approvalStatus) => {
  */
 export const updateApproval = (userId, payload) =>
   client
-    .patch(`${API_V1}/admin/users/${userId}/approval`, payload)
+    .patch(`${API_PREFIX}/admin/users/${userId}/approval`, payload)
     .then((r) => r.data);
 
 // ══════════════════════════════════════════════════════════
@@ -190,11 +191,11 @@ export const updateApproval = (userId, payload) =>
 
 /** 로그인 이력(감사 로그) 조회. */
 export const fetchLoginHistory = (params = {}) =>
-  client.get(`${API_V1}/admin/login-history`, { params }).then((r) => r.data);
+  client.get(`${API_PREFIX}/admin/login-history`, { params }).then((r) => r.data);
 
 /** 관리자 행동 이력(감사 로그) 조회. approval_only=true 면 승인·권한 변경만. */
 export const fetchAdminHistory = (params = {}) =>
-  client.get(`${API_V1}/admin/admin-history`, { params }).then((r) => r.data);
+  client.get(`${API_PREFIX}/admin/admin-history`, { params }).then((r) => r.data);
 
 // 관리자 행동 유형 코드 → 한글 라벨 (AdminAction enum)
 //   "1" 승인 / "2" 반려 / "3" 정지 / "4" 재승인 / "5" 삭제 / "6" 수정
@@ -229,37 +230,37 @@ export const LOGIN_FAIL_LABELS = {
 
 /** 행정구역 목록 (parent_code 계층 또는 검색). */
 export const fetchRegions = (params = {}) =>
-  client.get(`${API_V1}/admin/regions`, { params }).then((r) => r.data);
+  client.get(`${API_PREFIX}/admin/regions`, { params }).then((r) => r.data);
 
 /** 행정구역 단건 조회. */
 export const fetchRegionDetail = (regionCode) =>
-  client.get(`${API_V1}/admin/regions/${regionCode}`).then((r) => r.data);
+  client.get(`${API_PREFIX}/admin/regions/${regionCode}`).then((r) => r.data);
 
 /** 시스템 enum 기준 코드 그룹 (읽기 전용). */
 export const fetchCodeGroups = () =>
-  client.get(`${API_V1}/admin/code-groups`).then((r) => r.data);
+  client.get(`${API_PREFIX}/admin/code-groups`).then((r) => r.data);
 
 /** 코드 항목 수정. */
 export const updateCodeItem = (groupKey, code, payload) =>
   client
-    .patch(`${API_V1}/admin/code-groups/${groupKey}/items/${code}`, payload)
+    .patch(`${API_PREFIX}/admin/code-groups/${groupKey}/items/${code}`, payload)
     .then((r) => r.data);
 
 /** 보존 정책 목록. */
 export const fetchRetentionPolicies = () =>
-  client.get(`${API_V1}/admin/retention-policies`).then((r) => r.data);
+  client.get(`${API_PREFIX}/admin/retention-policies`).then((r) => r.data);
 
 /** 보존 정책 일괄 수정. */
 export const updateRetentionPolicies = (policies) =>
   client
-    .patch(`${API_V1}/admin/retention-policies`, { policies })
+    .patch(`${API_PREFIX}/admin/retention-policies`, { policies })
     .then((r) => r.data);
 
 /** 보존 정책 드라이런 — 만료 대상 건수·샘플 미리보기. */
 export const runRetentionDryRun = ({ policyId = null, policies = null } = {}) =>
   client
     .post(
-      `${API_V1}/admin/retention-policies/dry-run`,
+      `${API_PREFIX}/admin/retention-policies/dry-run`,
       policies?.length ? { policies } : {},
       { params: policyId ? { policy_id: policyId } : {} },
     )
@@ -267,42 +268,42 @@ export const runRetentionDryRun = ({ policyId = null, policies = null } = {}) =>
 
 /** 상위 지역 선택용 플랫 목록. */
 export const fetchRegionOptions = () =>
-  client.get(`${API_V1}/admin/regions/options`).then((r) => r.data);
+  client.get(`${API_PREFIX}/admin/regions/options`).then((r) => r.data);
 
 /** 행정구역 등록. */
 export const createRegion = (payload) =>
-  client.post(`${API_V1}/admin/regions`, payload).then((r) => r.data);
+  client.post(`${API_PREFIX}/admin/regions`, payload).then((r) => r.data);
 
 /** 행정구역 수정 (코드값 제외). */
 export const updateRegion = (regionCode, payload) =>
-  client.patch(`${API_V1}/admin/regions/${regionCode}`, payload).then((r) => r.data);
+  client.patch(`${API_PREFIX}/admin/regions/${regionCode}`, payload).then((r) => r.data);
 
 /** 행정구역 삭제 — 하위·영상 참조 시 409. */
 export const deleteRegion = (regionCode) =>
-  client.delete(`${API_V1}/admin/regions/${regionCode}`);
+  client.delete(`${API_PREFIX}/admin/regions/${regionCode}`);
 
 /** 정합성 검사 실행. */
 export const runDataIntegrity = () =>
-  client.post(`${API_V1}/admin/data-integrity/run`).then((r) => r.data);
+  client.post(`${API_PREFIX}/admin/data-integrity/run`).then((r) => r.data);
 
 /** 최근 정합성 검사 결과 (감사 로그). 없으면 404. */
 export const fetchLastIntegrityRun = () =>
-  client.get(`${API_V1}/admin/data-integrity/last`).then((r) => r.data);
+  client.get(`${API_PREFIX}/admin/data-integrity/last`).then((r) => r.data);
 
 /** 감사 로그 ID로 정합성 검사 결과 복원. */
 export const fetchIntegrityRun = (runId) =>
-  client.get(`${API_V1}/admin/data-integrity/runs/${runId}`).then((r) => r.data);
+  client.get(`${API_PREFIX}/admin/data-integrity/runs/${runId}`).then((r) => r.data);
 
 /** 검사 항목별 전체 이슈 목록. */
 export const fetchIntegrityCheckIssues = (checkId) =>
   client
-    .get(`${API_V1}/admin/data-integrity/checks/${checkId}/issues`)
+    .get(`${API_PREFIX}/admin/data-integrity/checks/${checkId}/issues`)
     .then((r) => r.data);
 
 /** 정합성 검사 CSV 리포트보내기. source: last | fresh */
 export const downloadIntegrityReport = (source = 'last') =>
   client
-    .get(`${API_V1}/admin/data-integrity/report.csv`, {
+    .get(`${API_PREFIX}/admin/data-integrity/report.csv`, {
       params: { source },
       responseType: 'blob',
     })
@@ -330,7 +331,7 @@ export async function readApiErrorMessage(err, fallback) {
 /** 행정구역 CSV보내기. format: region | administrative_dong */
 export const exportRegionsCsv = (format = 'region') =>
   client
-    .get(`${API_V1}/admin/regions/export.csv`, {
+    .get(`${API_PREFIX}/admin/regions/export.csv`, {
       params: { format },
       responseType: 'blob',
     })
@@ -338,14 +339,14 @@ export const exportRegionsCsv = (format = 'region') =>
 
 /** 행정구역 전체 비우기 — region + region_legal_dong 삭제, video 연결 해제. */
 export const clearAllRegions = () =>
-  client.post(`${API_V1}/admin/regions/clear-all`).then((r) => r.data);
+  client.post(`${API_PREFIX}/admin/regions/clear-all`).then((r) => r.data);
 
 /** 행정구역 CSV 가져오기. */
 export const importRegionsCsv = (file, dryRun = false) => {
   const form = new FormData();
   form.append('file', file);
   return client
-    .post(`${API_V1}/admin/regions/import.csv`, form, {
+    .post(`${API_PREFIX}/admin/regions/import.csv`, form, {
       params: { dry_run: dryRun },
     })
     .then((r) => r.data);
@@ -367,33 +368,38 @@ export const saveBlobDownload = (blob, filename) => {
 
 export const analyzeVideo = (formData) =>
   client
-    .post(`${API_V1}/cctv/analyze`, formData, {
+    .post(`${API_PREFIX}/cctv/analyze`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
     .then((r) => r.data);
 
 export const fetchMissingList = (params = {}) =>
-  client.get(`${API_V1}/detection-results/list`, { params }).then((r) => r.data);
+  client.get(`${API_PREFIX}/detection-results/list`, { params }).then((r) => r.data);
 
 export const fetchSearchResults = (params = {}) =>
-  client.get(`${API_V1}/detection-results`, { params }).then((r) => r.data);
+  client.get(`${API_PREFIX}/detection-results`, { params }).then((r) => r.data);
 
 export const fetchSearchResultDetail = (id) =>
-  client.get(`${API_V1}/detection-results/${id}`).then((r) => r.data);
+  client.get(`${API_PREFIX}/detection-results/${id}`).then((r) => r.data);
 
 export const deleteSearchResult = (id) =>
-  client.delete(`${API_V1}/detection-results/${id}`).then((r) => r.data);
+  client.delete(`${API_PREFIX}/detection-results/${id}`).then((r) => r.data);
 
 export const deleteAllSearchResults = (params = {}) =>
-  client.delete(`${API_V1}/detection-results`, { params }).then((r) => r.data);
+  client.delete(`${API_PREFIX}/detection-results`, { params }).then((r) => r.data);
 
-export const fetchDisasterAlerts = (params = {}) =>
-  client.get(`${API_V1}/disaster-alerts`, { params }).then((r) => r.data);
+/** 저장된 재난문자 목록 — GET /api/messages */
+export const fetchMessages = (params = {}) =>
+  client.get(`${API_PREFIX}/messages`, { params }).then((r) => r.data);
 
-/** CCTV 분석 검색 이력 — GET /api/detection-results/history */
+/** 외부 API에서 재난문자 수집 후 DB 저장 — POST /api/messages/collect */
+export const collectMessages = (params = {}) =>
+  client.post(`${API_PREFIX}/messages/collect`, null, { params }).then((r) => r.data);
+
+/** CCTV 분석 검색 이력 — GET /api/detection-results?detail=summary */
 export const fetchSearchHistory = (params = {}) =>
   client
-    .get(`${API_V1}/detection-results/history`, { params })
+    .get(`${API_PREFIX}/detection-results`, { params: { detail: 'summary', ...params } })
     .then((r) => r.data);
 
 export default client;
