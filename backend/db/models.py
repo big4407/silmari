@@ -560,7 +560,7 @@ class LlmCall(Base):
     )
 
     cost: Mapped[float | None] = mapped_column(
-        Integer,
+        Float,
         nullable=True,
         comment="환산 비용 (모델 단가 * 토큰)",
     )
