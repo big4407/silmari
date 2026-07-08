@@ -73,9 +73,9 @@ class ChatbotService:
             record = {
                 "call_type": "2",  # 챗봇
                 "search_id": None,
-                "user_id": None,
+                "user_id": user_id,
                 "conversation_id": None,
-                "model_name": getattr(self.llm, "model_name", "gpt-4o-mini"),
+                "model_name": getattr(self.llm, "model", "gpt-4o-mini"),
                 "prompt": message,
                 "response": response,
                 "input_tokens": cb.prompt_tokens if cb else None,
