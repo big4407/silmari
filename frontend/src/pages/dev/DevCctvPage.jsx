@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { analyzeVideo, API_V1 } from "../../api/client"
 import ApiResult, { parseApiError } from "./components/ApiResult"
+import DevPageHead from "./components/DevPageHead"
 import "./DevCommon.css"
 
 const SAMPLE_SMS =
@@ -38,10 +39,10 @@ export default function DevCctvPage() {
 
   return (
     <>
-      <h1 className="dev-page__title">CCTV 분석</h1>
-      <p className="dev-page__desc">
-        영상 업로드 후 파이프라인을 실행합니다. 처리 시간이 길 수 있습니다.
-      </p>
+      <DevPageHead
+        title="CCTV 분석"
+        desc="영상 업로드 후 파이프라인을 실행합니다. 처리 시간이 길 수 있습니다."
+      />
 
       <div className="dev-section">
         <h2>POST {API_V1}/cctv/analyze</h2>

@@ -8,6 +8,7 @@ import {
 } from "../../api/messages_api"
 import { API_V1 } from "../../api/client"
 import ApiResult, { parseApiError } from "./components/ApiResult"
+import DevPageHead from "./components/DevPageHead"
 import "./DevCommon.css"
 
 /** Dev — 재난문자 수집·조회·수동등록·삭제 테스트 */
@@ -35,8 +36,7 @@ export default function DevMessagesPage() {
 
   return (
     <>
-      <h1 className="dev-page__title">재난문자</h1>
-      <p className="dev-page__desc">메시지 수집·조회·수동 등록 API를 테스트합니다.</p>
+      <DevPageHead title="재난문자" desc="메시지 수집·조회·수동 등록 API를 테스트합니다." />
 
       <div className="dev-section">
         <h2>수집 · 목록</h2>

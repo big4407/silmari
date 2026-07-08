@@ -3,6 +3,7 @@ import { createSearch, fetchSearches, fetchSearch, deleteSearch } from "../../ap
 import { fetchMe } from "../../api/auth_api"
 import { API_V1 } from "../../api/client"
 import ApiResult, { parseApiError } from "./components/ApiResult"
+import DevPageHead from "./components/DevPageHead"
 import "./DevCommon.css"
 
 /** Dev — 검색 요청 CRUD 테스트 (POST/GET/DELETE /api/search-requests) */
@@ -55,10 +56,10 @@ export default function DevSearchPage() {
 
   return (
     <>
-      <h1 className="dev-page__title">검색 요청</h1>
-      <p className="dev-page__desc">
-        검색 요청 CRUD. 생성 시 로그인 토큰으로 /users/me 에서 user_id를 가져옵니다.
-      </p>
+      <DevPageHead
+        title="검색 요청"
+        desc="검색 요청 CRUD. 생성 시 로그인 토큰으로 /users/me 에서 user_id를 가져옵니다."
+      />
 
       <div className="dev-section">
         <h2>생성</h2>

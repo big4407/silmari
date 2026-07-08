@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { fetchDisasterAlerts, API_V1 } from "../../api/client"
 import ApiResult, { parseApiError } from "./components/ApiResult"
+import DevPageHead from "./components/DevPageHead"
 import "./DevCommon.css"
 
 /** Dev — GET /api/disaster-alerts (대시보드와 동일 API) */
@@ -26,8 +27,7 @@ export default function DevDisasterAlertsPage() {
 
   return (
     <>
-      <h1 className="dev-page__title">재난 알림</h1>
-      <p className="dev-page__desc">대시보드에서 사용하는 재난문자 목록 API입니다.</p>
+      <DevPageHead title="재난 알림" desc="대시보드에서 사용하는 재난문자 목록 API입니다." />
 
       <div className="dev-section">
         <h2>GET {API_V1}/disaster-alerts</h2>

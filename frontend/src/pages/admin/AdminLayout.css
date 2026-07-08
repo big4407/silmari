@@ -98,8 +98,37 @@
   color: #fff;
 }
 
-.admin-topbar .admin-right .admin-dev-link {
+.admin-switch-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-switch-link {
+  padding: 5px 12px;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: none;
   border: 1px dashed rgba(255, 255, 255, 0.45);
+  border-radius: var(--radius-md);
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.admin-switch-link--active {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-weight: 600;
+  cursor: default;
+}
+
+.admin-switch-link:hover:not(.admin-switch-link--active) {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.65);
 }
 
 .admin-topbar .admin-right .admin-divider {

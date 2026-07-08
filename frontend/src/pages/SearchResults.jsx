@@ -268,14 +268,14 @@ export default function SearchResults() {
               <div className="search-page__analysis-text">
                 {analysisSummary.noMatch ? (
                   <p>
-                    CCTV 분석이 완료되었으나 탐지된 후보가 없습니다.
+                    분석이 완료되었으나 탐지된 후보가 없습니다.
                     <span className="search-page__analysis-meta">
                       {analysisSummary.videoFilename}
                     </span>
                   </p>
                 ) : (
                   <p>
-                    검색 결과 로드 완료 · 탐지 {analysisSummary.totalDetections}건
+                    분석 완료 · 탐지 {analysisSummary.totalDetections}건
                     <span className="search-page__analysis-meta">
                       {analysisSummary.videoFilename}
                     </span>

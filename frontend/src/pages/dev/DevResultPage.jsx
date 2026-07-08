@@ -7,6 +7,7 @@ import {
   API_V1,
 } from "../../api/client"
 import ApiResult, { parseApiError } from "./components/ApiResult"
+import DevPageHead from "./components/DevPageHead"
 import "./DevCommon.css"
 
 /** Dev — CCTV 분석 결과(detection-results) 목록·상세·삭제 테스트 */
@@ -31,8 +32,7 @@ export default function DevResultPage() {
 
   return (
     <>
-      <h1 className="dev-page__title">탐지 결과</h1>
-      <p className="dev-page__desc">CCTV 분석 후 저장되는 검색 결과 API입니다.</p>
+      <DevPageHead title="탐지 결과" desc="CCTV 분석 후 저장되는 검색 결과 API입니다." />
 
       <div className="dev-section">
         <h2>목록 · 상세</h2>

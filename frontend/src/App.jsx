@@ -3,11 +3,11 @@
  *
  * [화면 구역]
  *   공개: Landing, Login, Signup
- *   수사관 대시보드(DashboardLayout): 지도·챗봇·탐지결과
+ *   수사관 대시보드(DashboardLayout): 지도·챗봇·이력·탐지결과
  *   관리자(AdminLayout): /admin/:viewId
  *   API 테스트(DevLayout): /dev/*
  *
- * 레거시 경로 /alert, /result 는 현재 화면으로 리다이렉트한다.
+ * 레거시 경로 /alert, /result 는 /dashboard, /search-results 로 리다이렉트.
  */
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import DashboardLayout from './components/DashboardLayout';
@@ -16,6 +16,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import ChatbotPage from './pages/ChatbotPage';
+import SearchHistory from './pages/SearchHistory';
 import SearchResults from './pages/SearchResults';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminViewPage from './pages/admin/AdminViewPage';
@@ -47,10 +48,7 @@ export default function App() {
           <Route element={<DashboardLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/dashboard/chatbot" element={<ChatbotPage />} />
-            <Route
-              path="/dashboard/history"
-              element={<Navigate to="/search-results" replace />}
-            />
+            <Route path="/dashboard/history" element={<SearchHistory />} />
             <Route path="/search-results" element={<SearchResults />} />
           </Route>
         </Route>
@@ -76,7 +74,6 @@ export default function App() {
           </Route>
         </Route>
 
-        <Route path="/cctv" element={<Navigate to="/dashboard" replace />} />
         <Route path="/alert" element={<Navigate to="/dashboard" replace />} />
         <Route
           path="/result"
