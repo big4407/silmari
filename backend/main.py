@@ -15,9 +15,6 @@ FastAPI 애플리케이션 진입점.
   /api/detection-results            — CCTV 탐지 결과·미디어
   /api/cctv                         — 영상 분석
   /api/chatbot                      — 챗봇
-
-[레거시] /api/alert, /api/cctv, /api/result, /api/alerts, /messages, /search,
-         /chatbot, /api/sms, /api/video, /api/missing — 하위 호환(deprecated)
 """
 
 # ── FastAPI 프레임워크 ─────────────────────────────────────────────────────
@@ -79,7 +76,6 @@ OPENAPI_TAGS = [
     {"name": "Detection Results", "description": "CCTV 탐지 결과·미디어"},
     {"name": "CCTV", "description": "영상 업로드·분석"},
     {"name": "Chatbot", "description": "대화형 검색"},
-    {"name": "legacy (deprecated)", "description": "구 URI — 제거 예정"},
 ]
 
 def bootstrap_admin() -> None:
@@ -178,18 +174,6 @@ app.include_router(result.router, prefix=f"{API_V1}/detection-results", tags=["D
 app.include_router(cctv.router, prefix=f"{API_V1}/cctv", tags=["CCTV"])
 app.include_router(chatbot.router, prefix=f"{API_V1}/chatbot", tags=["Chatbot"])
 app.include_router(video.router, prefix="/video", tags=["video"])
-
-# ── legacy (deprecated) — 구 프론트·스크립트 하위 호환, 제거 예정 ────────
-app.include_router(messages.router, prefix="/messages", tags=["legacy (deprecated)"])
-app.include_router(disaster_alerts.router, prefix="/api/alerts", tags=["legacy (deprecated)"])
-app.include_router(alert.router, prefix="/api/alert", tags=["legacy (deprecated)"])
-app.include_router(search.router, prefix="/search", tags=["legacy (deprecated)"])
-app.include_router(result.router, prefix="/api/result", tags=["legacy (deprecated)"])
-app.include_router(cctv.router, prefix="/api/cctv", tags=["legacy (deprecated)"])
-app.include_router(chatbot.router, tags=["legacy (deprecated)"])
-app.include_router(alert.router, prefix="/api/sms", tags=["legacy (deprecated)"])
-app.include_router(cctv.router, prefix="/api/video", tags=["legacy (deprecated)"])
-app.include_router(result.router, prefix="/api/missing", tags=["legacy (deprecated)"])
 
 
 @app.get("/health", tags=["System"])

@@ -2,7 +2,6 @@
 재난안전데이터 API 프록시 — 대시보드 재난문자 목록용.
 
 GET / — safetydata_client.fetch_disaster_alerts()
-        (구: GET /api/alerts/list)
 """
 from fastapi import APIRouter, Query
 
@@ -12,7 +11,6 @@ router = APIRouter()
 
 
 @router.get("")
-@router.get("/list")
 async def list_disaster_alerts(
     crt_dt: str = Query(None, description="조회시작일자 YYYYMMDD"),
     end_dt: str = Query(None, description="조회종료일자 YYYYMMDD"),

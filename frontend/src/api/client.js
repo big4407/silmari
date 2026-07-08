@@ -390,7 +390,7 @@ export const deleteAllSearchResults = (params = {}) =>
 export const fetchDisasterAlerts = (params = {}) =>
   client.get(`${API_V1}/disaster-alerts`, { params }).then((r) => r.data);
 
-/** CCTV 분석 검색 이력 — GET /api/v1/detection-results/history */
+/** CCTV 분석 검색 이력 — GET /api/detection-results/history */
 export const fetchSearchHistory = (params = {}) =>
   client
     .get(`${API_V1}/detection-results/history`, { params })
