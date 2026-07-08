@@ -8,6 +8,7 @@ const TABS = [
   { to: '/dashboard', label: '실종자 검색', end: true },
   { to: '/dashboard/chatbot', label: '챗봇 검색' },
   { to: '/search-results', label: '검색 결과' },
+  { to: '/dashboard/history', label: '검색 이력' },
 ];
 
 export default function LandingHeader() {

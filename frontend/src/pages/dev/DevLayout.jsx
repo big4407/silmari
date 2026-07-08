@@ -34,8 +34,6 @@ export default function DevLayout() {
         <div className="admin-right">
           <AdminConsoleSwitch mode="dev" />
           <span className="admin-divider" />
-          <span className="admin-role">시스템 관리자</span>
-          <span className="admin-divider" />
           <a href="#help">도움</a>
           <span className="admin-divider" />
           <a
