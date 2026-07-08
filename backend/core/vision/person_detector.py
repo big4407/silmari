@@ -3,7 +3,7 @@ YOLOv8 인물 탐지 + HSV 기반 의류 색상 필터.
 
 [모델] data/yolo/yolov8n.pt (class 0 = person, conf ≥ 0.85)
 [색상] COLOR_RANGES — 한국어 색상명 → OpenCV HSV 구간
-[호출] person_detect() · detect_persons() — pipeline / crop_embedding 경로에서 사용
+[호출] matcher.match_persons_in_frame() 에서 detect_persons + check_color_in_region 사용
 """
 from pathlib import Path
 
@@ -79,18 +79,32 @@ def person_detect(frame_path:str):
 
     save_dir.mkdir(parents=True, exist_ok=True)
     image_paths = []
+    save_dir.mkdir(parents=True, exist_ok=True)
+    image_paths = []
 
+    annotated_dir = Path("data/results/annotated_frames")
+    annotated_dir.mkdir(parents=True, exist_ok=True)
+    for ext in ["*.jpg"]:
+        image_paths.extend(image_dir.glob(ext))
     annotated_dir = Path("data/results/annotated_frames")
     annotated_dir.mkdir(parents=True, exist_ok=True)
     for ext in ["*.jpg"]:
         image_paths.extend(image_dir.glob(ext))
 
     image_paths = sorted(image_paths)
+    image_paths = sorted(image_paths)
 
     results = model.predict(source=image_paths, conf=0.4, save=False, classes=0)
     print(results[0])
+    results = model.predict(source=image_paths, conf=0.4, save=False, classes=0)
+    print(results[0])
 
-
+    for image_path, r in zip(image_paths, results):
+        frame = cv2.imread(str(image_path))
+        if frame is None:
+            continue
+        for person_idx, box in enumerate(r.boxes, 1):
+            x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
     for image_path, r in zip(image_paths, results):
         frame = cv2.imread(str(image_path))
         if frame is None:
@@ -104,8 +118,20 @@ def person_detect(frame_path:str):
             
             save_path = save_dir / f"{image_path.stem}_person_{person_idx}.jpg"
             cv2.imwrite(str(save_path), person_crop)
+            confidence = float(box.conf[0].cpu().item())
+            label = f"person {confidence:.2f}"
+            person_crop = frame[y1:y2, x1:x2]
+            
+            save_path = save_dir / f"{image_path.stem}_person_{person_idx}.jpg"
+            cv2.imwrite(str(save_path), person_crop)
 
-
+            cv2.rectangle(
+                frame,
+                (x1, y1),
+                (x2, y2),
+                (0, 255, 0),
+                2
+            )
             cv2.rectangle(
                 frame,
                 (x1, y1),

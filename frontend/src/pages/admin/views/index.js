@@ -18,6 +18,7 @@ import { RepTimeView, RepRegionView, RepSearchView } from './ReportViews';
 import {
   DataCodesView,
   DataValidateView,
+  DataExportView,
   DataRetentionView,
 } from './DataViews';
 import {
@@ -45,6 +46,7 @@ export const ADMIN_VIEWS = {
   'rep-search': RepSearchView,
   'data-codes': DataCodesView,
   'data-validate': DataValidateView,
+  'data-export': DataExportView,
   'data-retention': DataRetentionView,
   'audit-admin': AuditAdminView,
   'audit-approval': AuditApprovalView,

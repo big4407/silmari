@@ -149,7 +149,7 @@ docker compose up
 
 ## API 엔드포인트 (요약)
 
-### 인증 / 사용자 (`/api`)
+### 인증 / 사용자 (`/api/v1`)
 
 | 경로 | 설명 |
 | --- | --- |
@@ -164,11 +164,11 @@ docker compose up
 
 | 경로 | 설명 |
 | --- | --- |
-| `POST /api/alerts/parse` | 안내문자 인상착의 파싱 |
+| `POST /api/alert/parse` | 안내문자 인상착의 파싱 |
 | `POST /api/cctv/analyze` | CCTV 영상 분석 (탐지·클립 생성·결과 저장) |
-| `GET /api/detection-results/...` | 탐지/검색 결과 조회·삭제 |
-| `GET /api/disaster-alerts` | 재난문자 목록 |
-| `/api/messages/...` | 메시지 수집·조회 |
+| `GET /api/result/...` | 탐지/검색 결과 조회·삭제 |
+| `GET /api/alerts/...` | 재난문자 목록 |
+| `/messages/...` | 메시지 수집·조회 |
 
 전체 스펙은 `/docs`(Swagger)에서 확인하세요.
 
@@ -182,11 +182,13 @@ docker compose up
 | `/login`, `/signup` | 로그인·회원가입 |
 | `/dashboard` | 대시보드 (지도 + 인상착의) |
 | `/dashboard/chatbot` | 챗봇 |
+| `/dashboard/history` | 검색 이력 |
 | `/search-results` | 탐지 결과 |
+| `/cctv` | CCTV 영상 업로드 |
 
-(`/dashboard/history` → `/search-results`, `/cctv` → `/dashboard`, `/alert` → `/dashboard`, `/result` → `/search-results` 로 리다이렉트)
+(`/alert` → `/cctv`, `/result` → `/search-results` 로 리다이렉트)
 
-행정구역 지도 데이터는 `frontend/public/geodata/`에 있습니다(시·도: `sido/`, 시·군·구: `sigungu/`).
+행정구역 지도 데이터는 `frontend/public/geodata/`에 있습니다(상세는 해당 폴더의 README 참고).
 
 ---
 
@@ -197,7 +199,7 @@ docker compose up
 **개발용 bootstrap 관리자** — `.env`에 `ENVIRONMENT=development`(또는 `test`)와 `BOOTSTRAP_ADMIN_NO_PASSWORD=true`를 두면, 최초 관리자에게 무작위 비밀번호가 저장되고 로컬에서 아래로 관리자 JWT를 받을 수 있습니다. 운영 환경에서는 설정 검증 단계에서 차단됩니다.
 
 ```
-POST /api/auth/dev/bootstrap-login
+POST /api/v1/auth/dev/bootstrap-login
 ```
 
 **역할 보호 예시** — 라우트마다 허용 역할을 다르게 지정:
@@ -248,4 +250,4 @@ python scripts/smoke_test_auth.py
 ## 참고 문서
 
 - [FashionCLIP 의류 속성 분류 기준](fashionclip-taxonomy.md)
-- 행정구역 지도 데이터: `frontend/public/geodata/`
+- 행정구역 지도 데이터: `frontend/public/geodata/README.md`

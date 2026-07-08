@@ -3,7 +3,7 @@
  *
  * [지도] MapDrilldown — 시·도/구·군 드릴다운, 지역별 문자 필터
  * [데이터] fetchDisasterAlerts(missing_only) + sessionStorage 캐시
- * [액션] 문자 선택 → alertText 저장 → /search-results 이동
+ * [액션] 문자 선택 → alertText 저장 → /cctv 또는 /search-results 이동
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -274,6 +274,13 @@ export default function Dashboard() {
               <button
                 type="button"
                 className="sidebar__action-btn sidebar__action-btn--primary"
+                onClick={() => navigate('/cctv')}
+              >
+                CCTV 분석
+              </button>
+              <button
+                type="button"
+                className="sidebar__action-btn"
                 onClick={() => navigate('/search-results')}
               >
                 검색결과 보기

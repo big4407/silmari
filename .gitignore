@@ -90,6 +90,5 @@ db.sqlite3
 *.npy
 
 data/chroma/
-
-*.bin
 *.sqlite3
+*.bin

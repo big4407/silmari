@@ -1,6 +1,13 @@
-/** 감사 로그 뷰 — 관리자·승인·로그인 이력 (목 UI) */
+/** 감사 로그 뷰 — 로그인 이력(연동) · 관리자·승인 이력(목 UI) */
+import { useCallback, useEffect, useState } from 'react';
 import PageHead from '../components/PageHead';
 import { StatValue, TableEmptyRow } from '../components/EmptyState';
+import {
+  fetchLoginHistory,
+  LOGIN_FAIL_LABELS,
+  fetchAdminHistory,
+  ADMIN_ACTION_LABELS,
+} from '../../../api/client';
 
 export function AuditAdminView() {
   return (
@@ -16,7 +23,9 @@ export function AuditAdminView() {
         </select>
         <input type="date" disabled />
         <div className="admin-spacer" />
-        <AdminFeaturePending label="로그보내기" />
+        <button type="button" className="admin-btn" disabled>
+          로그보내기
+        </button>
       </div>
       <div className="admin-card admin-table-wrap">
         <table>
@@ -44,6 +53,68 @@ export function AuditAdminView() {
 }
 
 export function AuditApprovalView() {
+  const [rows, setRows] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [keyword, setKeyword] = useState('');
+  const [actionFilter, setActionFilter] = useState(''); // '' 전체 / '1'~'4'
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const PER_PAGE = 20;
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const params = { page, per_page: PER_PAGE, approval_only: true };
+      if (keyword.trim()) params.actor = keyword.trim();
+      if (actionFilter) params.action_type = actionFilter;
+      const data = await fetchAdminHistory(params);
+      setRows(data.items ?? []);
+      setTotal(data.total ?? 0);
+    } catch (err) {
+      setError(
+        err?.response?.status === 403
+          ? '관리자 권한이 필요합니다.'
+          : '승인·권한 변경 이력을 불러오지 못했습니다.',
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [page, keyword, actionFilter]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
+  const fmt = (s) =>
+    s
+      ? new Date(s).toLocaleString('ko-KR', {
+          dateStyle: 'short',
+          timeStyle: 'short',
+        })
+      : '-';
+
+  // detail JSON → "역할 미지정 → 수사관" 식 변경 요약
+  const roleLabel = (v) =>
+    v == null ? '미지정' : ({ 1: '관리자', 2: '수사관', 3: '공무원' }[v] ?? v);
+  const changeSummary = (d) => {
+    if (!d) return '-';
+    const b = d.before ?? {};
+    const a = d.after ?? {};
+    const parts = [];
+    if (b.role !== a.role) {
+      parts.push(`역할 ${roleLabel(b.role)} → ${roleLabel(a.role)}`);
+    }
+    return parts.length ? parts.join(', ') : '상태 변경';
+  };
+  const onSearch = () => {
+    setPage(1);
+    load();
+  };
+
   return (
     <>
       <PageHead
@@ -51,14 +122,24 @@ export function AuditApprovalView() {
         desc="가입 승인과 역할(권한) 변경을 별도로 추적합니다. 누가 누구에게 어떤 권한을 부여했는지가 보안 감사의 핵심입니다."
       />
       <div className="admin-toolbar">
-        <input placeholder="처리자·대상 검색" disabled />
-        <select disabled>
-          <option>전체 유형</option>
+        <input
+          placeholder="처리자 검색"
+          value={keyword}
+          onChange={(e) => setKeyword(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && onSearch()}
+        />
+        <select
+          value={actionFilter}
+          onChange={(e) => setActionFilter(e.target.value)}
+        >
+          <option value="">전체 유형</option>
+          <option value="1">승인</option>
+          <option value="2">반려</option>
+          <option value="3">정지</option>
+          <option value="4">재승인</option>
         </select>
-        <input type="date" disabled />
-        <div className="admin-spacer" />
-        <button type="button" className="admin-btn" disabled>
-          로그보내기
+        <button type="button" className="admin-btn" onClick={onSearch}>
+          검색
         </button>
       </div>
       <div className="admin-card admin-table-wrap">
@@ -74,15 +155,133 @@ export function AuditApprovalView() {
             </tr>
           </thead>
           <tbody>
-            <TableEmptyRow colSpan={6} />
+            {loading ? (
+              <TableEmptyRow colSpan={6} message="불러오는 중…" />
+            ) : error ? (
+              <TableEmptyRow colSpan={6} message={error} />
+            ) : rows.length === 0 ? (
+              <TableEmptyRow
+                colSpan={6}
+                message="승인·권한 변경 이력이 없습니다."
+              />
+            ) : (
+              rows.map((r) => {
+                const d = r.detail ?? {};
+                return (
+                  <tr key={r.id}>
+                    <td>{fmt(r.created_at)}</td>
+                    <td>{r.actor_name ?? r.actor_id}</td>
+                    <td>
+                      <span className="admin-pill admin-pill--muted">
+                        {ADMIN_ACTION_LABELS[r.action_type] ?? r.action_type}
+                      </span>
+                    </td>
+                    <td>
+                      {d.target_name ?? d.target_username ?? r.target_id ?? '-'}
+                    </td>
+                    <td>{changeSummary(d)}</td>
+                    <td>{d.reason ?? '-'}</td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>
+
+      {total > 0 && (
+        <div
+          className="admin-toolbar"
+          style={{ justifyContent: 'center', marginTop: 12 }}
+        >
+          <button
+            type="button"
+            className="admin-btn"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1 || loading}
+          >
+            이전
+          </button>
+          <span className="admin-pill admin-pill--muted">
+            {page} / {totalPages} (총 {total}건)
+          </span>
+          <button
+            type="button"
+            className="admin-btn"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages || loading}
+          >
+            다음
+          </button>
+        </div>
+      )}
+
+      <p className="admin-footnote">
+        ※ 승인·반려·정지·재승인이 <code>admin_history</code> 에 기록됩니다. 변경
+        전후 역할과 사유가 함께 저장되어 권한 부여 경위를 추적할 수 있습니다.
+      </p>
     </>
   );
 }
 
 export function AuditLoginView() {
+  const [rows, setRows] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [todaySuccess, setTodaySuccess] = useState(0);
+  const [todayFailed, setTodayFailed] = useState(0);
+  const [page, setPage] = useState(1);
+  const [keyword, setKeyword] = useState('');
+  const [successFilter, setSuccessFilter] = useState(''); // '' 전체 / 'true' / 'false'
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const PER_PAGE = 20;
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const params = { page, per_page: PER_PAGE };
+      if (keyword.trim()) params.username = keyword.trim();
+      if (successFilter !== '') params.success = successFilter;
+      const data = await fetchLoginHistory(params);
+      setRows(data.items ?? []);
+      setTotal(data.total ?? 0);
+      setTodaySuccess(data.today_success ?? 0);
+      setTodayFailed(data.today_failed ?? 0);
+    } catch (err) {
+      setError(
+        err?.response?.status === 403
+          ? '관리자 권한이 필요합니다.'
+          : '로그인 이력을 불러오지 못했습니다.',
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [page, keyword, successFilter]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
+  const fmt = (s) =>
+    s
+      ? new Date(s).toLocaleString('ko-KR', {
+          dateStyle: 'short',
+          timeStyle: 'medium',
+        })
+      : '-';
+  const shortUA = (ua) => {
+    if (!ua) return '-';
+    const m = ua.match(/(Chrome|Firefox|Safari|Edge|Edg)\/[\d.]+/);
+    return m ? m[0].replace('Edg', 'Edge') : ua.slice(0, 24);
+  };
+  const onSearch = () => {
+    setPage(1);
+    load();
+  };
+
   return (
     <>
       <PageHead
@@ -91,39 +290,122 @@ export function AuditLoginView() {
       />
       <div className="admin-stat-grid">
         <div className="admin-stat admin-stat--green">
-          <div className="admin-label">오늘 로그인</div>
-          <StatValue />
+          <div className="admin-label">오늘 로그인 성공</div>
+          <StatValue value={todaySuccess} unit="건" />
         </div>
         <div className="admin-stat admin-stat--amber">
-          <div className="admin-label">실패</div>
-          <StatValue />
-        </div>
-        <div className="admin-stat admin-stat--red">
-          <div className="admin-label">이상 접근</div>
-          <StatValue />
+          <div className="admin-label">오늘 실패</div>
+          <StatValue value={todayFailed} unit="건" />
         </div>
         <div className="admin-stat">
-          <div className="admin-label">활성 사용자</div>
-          <StatValue />
+          <div className="admin-label">전체 이력</div>
+          <StatValue value={total} unit="건" />
         </div>
       </div>
+
+      <div className="admin-toolbar">
+        <input
+          placeholder="계정(아이디) 검색"
+          value={keyword}
+          onChange={(e) => setKeyword(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && onSearch()}
+        />
+        <select
+          value={successFilter}
+          onChange={(e) => setSuccessFilter(e.target.value)}
+        >
+          <option value="">전체 결과</option>
+          <option value="true">성공만</option>
+          <option value="false">실패만</option>
+        </select>
+        <button type="button" className="admin-btn" onClick={onSearch}>
+          검색
+        </button>
+      </div>
+
       <div className="admin-card admin-table-wrap">
         <table>
           <thead>
             <tr>
               <th>시각</th>
               <th>계정</th>
-              <th>구분</th>
               <th>결과</th>
+              <th>사유</th>
               <th>IP</th>
               <th>기기</th>
             </tr>
           </thead>
           <tbody>
-            <TableEmptyRow colSpan={6} />
+            {loading ? (
+              <TableEmptyRow colSpan={6} message="불러오는 중…" />
+            ) : error ? (
+              <TableEmptyRow colSpan={6} message={error} />
+            ) : rows.length === 0 ? (
+              <TableEmptyRow colSpan={6} message="로그인 이력이 없습니다." />
+            ) : (
+              rows.map((r) => (
+                <tr key={r.id}>
+                  <td>{fmt(r.created_at)}</td>
+                  <td>
+                    {r.username}
+                    {r.full_name ? ` (${r.full_name})` : ''}
+                  </td>
+                  <td>
+                    <span
+                      className={`admin-pill ${
+                        r.success ? 'admin-pill--ok' : 'admin-pill--danger'
+                      }`}
+                    >
+                      {r.success ? '성공' : '실패'}
+                    </span>
+                  </td>
+                  <td>
+                    {r.success
+                      ? '-'
+                      : (LOGIN_FAIL_LABELS[r.fail_reason] ??
+                        r.fail_reason ??
+                        '-')}
+                  </td>
+                  <td>{r.ip_address ?? '-'}</td>
+                  <td title={r.user_agent ?? ''}>{shortUA(r.user_agent)}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
+
+      {total > 0 && (
+        <div
+          className="admin-toolbar"
+          style={{ justifyContent: 'center', marginTop: 12 }}
+        >
+          <button
+            type="button"
+            className="admin-btn"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1 || loading}
+          >
+            이전
+          </button>
+          <span className="admin-pill admin-pill--muted">
+            {page} / {totalPages} (총 {total}건)
+          </span>
+          <button
+            type="button"
+            className="admin-btn"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages || loading}
+          >
+            다음
+          </button>
+        </div>
+      )}
+
+      <p className="admin-footnote">
+        ※ 로그인 성공·실패가 <code>login_history</code> 에 기록됩니다. 같은
+        IP에서 실패가 반복되면 이상 접근일 수 있습니다.
+      </p>
     </>
   );
 }

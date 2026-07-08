@@ -48,8 +48,7 @@ async def analyze_video(
         file_key = str(uuid.uuid4())
         clip_meta = generate_clips_for_result(video_path, result["detections"], file_key)
 
-        if clip_meta.get("thumbnail_filename"):
-            clip_count = len(clip_meta["clips"])
+        if clip_meta["clips"]:
             person_name = sms_dict.get("name") or "미상"
             record = create_search_result(
                 alert_text=sms_text.strip(),
@@ -62,11 +61,7 @@ async def analyze_video(
                 best_timestamp_sec=clip_meta["best_timestamp_sec"],
                 clips=clip_meta["clips"],
                 sms_info=sms_dict,
-                description=(
-                    f"{video.filename} · {clip_count}개 구간 탐지"
-                    if clip_count
-                    else f"{video.filename} · 탐지 후보 저장"
-                ),
+                description=f"{video.filename} · {len(clip_meta['clips'])}개 구간 탐지",
             )
             search_result_id = record.id
 
@@ -76,5 +71,4 @@ async def analyze_video(
     return {
         **result,
         "search_result_id": search_result_id,
-        "saved_to_db": search_result_id is not None,
     }

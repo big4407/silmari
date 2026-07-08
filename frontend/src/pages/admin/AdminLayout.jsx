@@ -5,7 +5,6 @@
  */
 import { useState, useEffect } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import AdminConsoleSwitch from '../../components/AdminConsoleSwitch';
 import { NAV } from './navConfig';
 import { fetchUsers } from '../../api/client';
 import useLogout from '../../hooks/useLogout';
@@ -30,8 +29,9 @@ export default function AdminLayout() {
           if (alive) setPendingCount(0);
         });
     };
-    refresh();
+    refresh(); // 최초 로드
 
+    // 승인/반려로 대기 목록이 바뀌면 배지 갱신
     const onChanged = (e) => {
       const c = e?.detail?.count;
       if (typeof c === 'number') setPendingCount(c);
@@ -59,10 +59,9 @@ export default function AdminLayout() {
           <span className="admin-sub">관리자 콘솔</span>
         </div>
         <div className="admin-right">
-          <AdminConsoleSwitch mode="admin" />
+          <span className="admin-role">시스템 관리자</span>
           <span className="admin-divider" />
           <a href="#help">도움</a>
-          <span className="admin-divider" />
           <a
             href="#logout"
             onClick={(e) => {

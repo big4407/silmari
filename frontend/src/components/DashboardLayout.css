@@ -126,8 +126,8 @@
   font-weight: 500;
   color: var(--color-text-secondary);
   text-decoration: none;
-  border: 2px solid transparent;
-  margin: 6px 0;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
   transition:
     color 0.15s,
     border-color 0.15s,
@@ -143,8 +143,8 @@
 .dashboard-layout__tab--active {
   color: var(--color-primary);
   font-weight: 700;
-  border-color: var(--color-primary);
-  background: #e8f0fe;
+  border-bottom-color: var(--color-primary);
+  background: #f0f6fc;
 }
 
 .dashboard-layout__content {

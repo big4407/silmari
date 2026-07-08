@@ -10,10 +10,6 @@ export default function AdminViewPage() {
     return <Navigate to={`/admin/${DEFAULT_VIEW}`} replace />;
   }
 
-  if (viewId === 'data-export') {
-    return <Navigate to="/admin/data-codes" replace />;
-  }
-
   if (!isValidViewId(viewId)) {
     return <Navigate to={`/admin/${DEFAULT_VIEW}`} replace />;
   }

@@ -1,13 +1,13 @@
 /**
  * 탐지 결과 목록·상세·클립 재생.
  *
- * [모드] activeSearch(선택된 검색 컨텍스트) 또는 DB 이력(fetchSearchResults)
+ * [모드] activeSearch(방금 분석) 또는 DB 이력(fetchSearchResults)
  * [UI] MissingPersonSidebar + ClipSequencePlayer + SearchResultCard
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   fetchSearchResults,
-  fetchSearchResultDetail,
   deleteSearchResult,
   deleteAllSearchResults,
   API_BASE,
@@ -15,7 +15,6 @@ import {
 import { useDetectionStore } from '../store/useDetectionStore';
 import SearchResultCard from '../components/SearchResultCard';
 import ClipSequencePlayer from '../components/ClipSequencePlayer';
-import DetectionCandidateList from '../components/DetectionCandidateList';
 import MissingPersonSidebar from '../components/MissingPersonSidebar';
 import './SearchResults.css';
 
@@ -59,8 +58,6 @@ export default function SearchResults() {
   const [error, setError] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [clearingAll, setClearingAll] = useState(false);
-  const [sortBy, setSortBy] = useState('confidence-desc');
-  const [activeClipIndex, setActiveClipIndex] = useState(0);
 
   const searchParams = useMemo(() => {
     const params = {};
@@ -69,37 +66,22 @@ export default function SearchResults() {
     } else if (selectedPerson?.name) {
       params.person_name = selectedPerson.name;
     }
-
-    const region =
-      activeSearch?.region ??
-      (selectedRegion && selectedRegion !== '전국' ? selectedRegion : null);
-    if (region) {
-      params.region = region;
+    if (selectedRegion && selectedRegion !== '전국') {
+      params.region = selectedRegion;
     }
     return params;
-  }, [
-    activeSearch?.alertText,
-    activeSearch?.region,
-    selectedPerson?.name,
-    selectedRegion,
-  ]);
+  }, [activeSearch?.alertText, selectedPerson?.name, selectedRegion]);
 
   const sidebarPerson = useMemo(
     () => buildSidebarPerson(activeSearch, selectedResult, results[0]),
     [activeSearch, selectedResult, results],
   );
 
-  const loadResults = useCallback(async () => {
+  const loadResults = async () => {
     setLoading(true);
     setError(null);
     setSelectedResult(null);
     try {
-      if (activeSearch?.searchResultId) {
-        const detail = await fetchSearchResultDetail(activeSearch.searchResultId);
-        setResults([detail]);
-        return;
-      }
-
       const data = await fetchSearchResults(searchParams);
       setResults(data);
     } catch {
@@ -108,27 +90,11 @@ export default function SearchResults() {
     } finally {
       setLoading(false);
     }
-  }, [activeSearch?.searchResultId, searchParams]);
+  };
 
   useEffect(() => {
     loadResults();
-  }, [loadResults]);
-
-  useEffect(() => {
-    if (!results.length) return;
-
-    if (activeSearch?.searchResultId && !selectedResult) {
-      const matched = results.find((r) => r.id === activeSearch.searchResultId);
-      if (matched) {
-        setSelectedResult(matched);
-        setActiveClipIndex(0);
-      }
-    }
-  }, [activeSearch?.searchResultId, results, selectedResult]);
-
-  useEffect(() => {
-    setActiveClipIndex(0);
-  }, [selectedResult?.id]);
+  }, [activeSearch?.alertText, selectedPerson?.name, selectedRegion]);
 
   const handleDeleteResult = async (result) => {
     if (!window.confirm('이 검색 결과를 삭제할까요?')) return;
@@ -170,11 +136,6 @@ export default function SearchResults() {
   const clipsWithFullUrl = selectedResult?.clips?.map((c) => ({
     ...c,
     url: c.url.startsWith('http') ? c.url : `${API_BASE}${c.url}`,
-    thumbnail_url: c.thumbnail_url
-      ? c.thumbnail_url.startsWith('http')
-        ? c.thumbnail_url
-        : `${API_BASE}${c.thumbnail_url}`
-      : null,
   }));
 
   const contextLabel = activeSearch
@@ -183,47 +144,6 @@ export default function SearchResults() {
       ? `${selectedPerson.name} 검색`
       : null;
 
-  const analysisSummary = activeSearch?.analysisSummary;
-  const showNoMatchState =
-    !loading &&
-    !error &&
-    !selectedResult &&
-    results.length === 0 &&
-    analysisSummary?.noMatch;
-
-  const sortedResults = useMemo(() => {
-    const list = [...results];
-    switch (sortBy) {
-      case 'confidence-asc':
-        return list.sort((a, b) => a.best_confidence - b.best_confidence);
-      case 'newest':
-        return list.sort(
-          (a, b) => new Date(b.created_at) - new Date(a.created_at),
-        );
-      case 'oldest':
-        return list.sort(
-          (a, b) => new Date(a.created_at) - new Date(b.created_at),
-        );
-      case 'confidence-desc':
-      default:
-        return list.sort((a, b) => b.best_confidence - a.best_confidence);
-    }
-  }, [results, sortBy]);
-
-  const resultStats = useMemo(() => {
-    if (!results.length) return null;
-    const maxConfidence = Math.max(...results.map((r) => r.best_confidence || 0));
-    const totalClips = results.reduce(
-      (sum, r) => sum + (r.clips?.length || 0),
-      0,
-    );
-    return {
-      count: results.length,
-      maxConfidence: Math.round(maxConfidence * 100),
-      totalClips,
-    };
-  }, [results]);
-
   return (
     <div className="search-page">
       <header className="search-page__header">
@@ -231,10 +151,7 @@ export default function SearchResults() {
         {contextLabel && (
           <span className="search-page__person">
             {contextLabel}
-            {(activeSearch?.region || selectedRegion) &&
-            (activeSearch?.region || selectedRegion) !== '전국'
-              ? ` · ${activeSearch?.region || selectedRegion}`
-              : ''}
+            {selectedRegion !== '전국' ? ` · ${selectedRegion}` : ''}
           </span>
         )}
         {results.length > 0 && !selectedResult && (
@@ -249,129 +166,52 @@ export default function SearchResults() {
         )}
       </header>
 
-      <div className="search-page__panel">
+      <div className="search-page__body">
         <main className="search-page__main">
           {!activeSearch && !selectedPerson && (
             <p className="search-page__hint">
-              선택한 안내문자 또는 저장된 검색 조건에 맞는 결과가 여기에 표시됩니다.
+              CCTV 분석을 실행하면 해당 안내문자의 검색 결과가 표시됩니다.
+              <Link to="/cctv"> CCTV 분석</Link>
             </p>
           )}
 
-          {analysisSummary && (
-            <div
-              className={`search-page__analysis-banner${
-                analysisSummary.noMatch
-                  ? ' search-page__analysis-banner--warn'
-                  : ''
-              }`}
-            >
-              <div className="search-page__analysis-text">
-                {analysisSummary.noMatch ? (
-                  <p>
-                    분석이 완료되었으나 탐지된 후보가 없습니다.
-                    <span className="search-page__analysis-meta">
-                      {analysisSummary.videoFilename}
-                    </span>
-                  </p>
-                ) : (
-                  <p>
-                    분석 완료 · 탐지 {analysisSummary.totalDetections}건
-                    <span className="search-page__analysis-meta">
-                      {analysisSummary.videoFilename}
-                    </span>
-                  </p>
-                )}
+          {loading && <p className="search-page__status">불러오는 중...</p>}
+          {error && <p className="search-page__error">{error}</p>}
+
+          {!loading &&
+            !error &&
+            !selectedResult &&
+            (results.length === 0 ? (
+              <div className="search-page__empty">
+                <p>아직 검색 결과가 없습니다.</p>
+                <p>CCTV 영상을 업로드해 분석을 실행해주세요.</p>
+                <Link to="/cctv">CCTV 분석</Link>
               </div>
-            </div>
+            ) : (
+              <div className="search-grid">
+                {results.map((r) => (
+                  <SearchResultCard
+                    key={r.id}
+                    result={{
+                      ...r,
+                      thumbnail_url: r.thumbnail_url.startsWith('http')
+                        ? r.thumbnail_url
+                        : `${API_BASE}${r.thumbnail_url}`,
+                    }}
+                    onClick={setSelectedResult}
+                    onDelete={handleDeleteResult}
+                    deleting={deletingId === r.id || clearingAll}
+                  />
+                ))}
+              </div>
+            ))}
+
+          {selectedResult && (
+            <ClipSequencePlayer
+              clips={clipsWithFullUrl}
+              onBack={() => setSelectedResult(null)}
+            />
           )}
-
-          <div className="search-page__content">
-            {loading && <p className="search-page__status">불러오는 중...</p>}
-            {error && <p className="search-page__error">{error}</p>}
-
-            {resultStats && !selectedResult && (
-              <div className="search-page__stats">
-                <span className="search-page__stat">
-                  탐지 <strong>{resultStats.count}</strong>건
-                </span>
-                <span className="search-page__stat">
-                  최고 신뢰도 <strong>{resultStats.maxConfidence}%</strong>
-                </span>
-                <span className="search-page__stat">
-                  클립 <strong>{resultStats.totalClips}</strong>개
-                </span>
-                <div className="search-page__sort">
-                  <label htmlFor="result-sort">정렬</label>
-                  <select
-                    id="result-sort"
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                  >
-                    <option value="confidence-desc">신뢰도 높은 순</option>
-                    <option value="confidence-asc">신뢰도 낮은 순</option>
-                    <option value="newest">최신 순</option>
-                    <option value="oldest">오래된 순</option>
-                  </select>
-                </div>
-              </div>
-            )}
-
-            {showNoMatchState && (
-              <div className="search-page__empty search-page__empty--analysis">
-                <p>해당 영상에서 실종자 후보가 탐지되지 않았습니다.</p>
-                <p>검색 조건이나 안내문자 내용을 다시 확인해 주세요.</p>
-              </div>
-            )}
-
-            {!loading &&
-              !error &&
-              !selectedResult &&
-              !showNoMatchState &&
-              (results.length === 0 ? (
-                <div className="search-page__empty">
-                  <p>아직 검색 결과가 없습니다.</p>
-                  <p>안내문자를 선택한 뒤 저장된 검색 결과를 확인해 주세요.</p>
-                </div>
-              ) : (
-                <div className="search-grid">
-                  {sortedResults.map((r) => (
-                    <SearchResultCard
-                      key={r.id}
-                      result={{
-                        ...r,
-                        thumbnail_url: r.thumbnail_url.startsWith('http')
-                          ? r.thumbnail_url
-                          : `${API_BASE}${r.thumbnail_url}`,
-                      }}
-                      onClick={setSelectedResult}
-                      onDelete={handleDeleteResult}
-                      deleting={deletingId === r.id || clearingAll}
-                    />
-                  ))}
-                </div>
-              ))}
-
-            {selectedResult && (
-              <div className="search-page__detail">
-                <ClipSequencePlayer
-                  clips={clipsWithFullUrl}
-                  currentIndex={activeClipIndex}
-                  onClipChange={setActiveClipIndex}
-                  onBack={() => setSelectedResult(null)}
-                />
-                <DetectionCandidateList
-                  candidates={clipsWithFullUrl}
-                  activeIndex={activeClipIndex}
-                  onSelect={setActiveClipIndex}
-                  appearance={
-                    sidebarPerson?.clothes ||
-                    selectedResult?.sms_info?.clothes ||
-                    null
-                  }
-                />
-              </div>
-            )}
-          </div>
         </main>
 
         <MissingPersonSidebar person={sidebarPerson} />

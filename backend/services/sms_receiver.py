@@ -5,16 +5,13 @@ fetch_missing_persons — 실종자 목록 (result.py /list)
 receive_alert         — SMS 수신 시 파이프라인 트리거 (향후)
 """
 import httpx
-from typing import Optional
 
 from backend.core.config import settings
 
 BASE_URL = "https://www.safe182.go.kr/api/lcm/findChildList.do"
 
 
-async def fetch_missing_persons(
-    name: Optional[str] = None, age: Optional[int] = None
-) -> list:
+async def fetch_missing_persons(name: str = None, age: int = None) -> list:
     params = {
         "esntlId": settings.SAFE182_ESNTL_ID,
         "authKey": settings.SAFE182_API_KEY,

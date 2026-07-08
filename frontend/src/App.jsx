@@ -4,12 +4,13 @@
  * [화면 구역]
  *   공개: Landing, Login, Signup
  *   수사관 대시보드(DashboardLayout): 지도·챗봇·이력·탐지결과
+ *   CCTV 업로드(AppLayout): /cctv
  *   관리자(AdminLayout): /admin/:viewId
- *   API 테스트(DevLayout): /dev/*
  *
- * 레거시 경로 /alert, /result 는 /dashboard, /search-results 로 리다이렉트.
+ * 레거시 경로 /alert, /result 는 /cctv, /search-results 로 리다이렉트.
  */
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import AppLayout from './components/AppLayout';
 import DashboardLayout from './components/DashboardLayout';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
@@ -17,23 +18,12 @@ import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import ChatbotPage from './pages/ChatbotPage';
 import SearchHistory from './pages/SearchHistory';
+import CCTVUpload from './pages/CCTVUpload';
 import SearchResults from './pages/SearchResults';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminViewPage from './pages/admin/AdminViewPage';
 import RequireAuth from './components/RequireAuth';
 import RequireAdmin from './components/RequireAdmin';
-import DevLayout from './pages/dev/DevLayout';
-import DevHub from './pages/dev/DevHub';
-import DevHealthPage from './pages/dev/DevHealthPage';
-import DevAuthPage from './pages/dev/DevAuthPage';
-import DevMessagesPage from './pages/dev/DevMessagesPage';
-import DevAlertPage from './pages/dev/DevAlertPage';
-import DevSearchPage from './pages/dev/DevSearchPage';
-import DevDisasterAlertsPage from './pages/dev/DevDisasterAlertsPage';
-import DevResultPage from './pages/dev/DevResultPage';
-import DevCctvPage from './pages/dev/DevCctvPage';
-import DevChatbotPage from './pages/dev/DevChatbotPage';
-import DevAdminPage from './pages/dev/DevAdminPage';
 import './App.css';
 
 export default function App() {
@@ -51,6 +41,10 @@ export default function App() {
             <Route path="/dashboard/history" element={<SearchHistory />} />
             <Route path="/search-results" element={<SearchResults />} />
           </Route>
+
+          <Route element={<AppLayout />}>
+            <Route path="/cctv" element={<CCTVUpload />} />
+          </Route>
         </Route>
 
         <Route element={<RequireAdmin />}>
@@ -58,23 +52,9 @@ export default function App() {
             <Route index element={<AdminViewPage />} />
             <Route path=":viewId" element={<AdminViewPage />} />
           </Route>
-
-          <Route path="/dev" element={<DevLayout />}>
-            <Route index element={<DevHub />} />
-            <Route path="health" element={<DevHealthPage />} />
-            <Route path="auth" element={<DevAuthPage />} />
-            <Route path="messages" element={<DevMessagesPage />} />
-            <Route path="alert" element={<DevAlertPage />} />
-            <Route path="search" element={<DevSearchPage />} />
-            <Route path="disaster" element={<DevDisasterAlertsPage />} />
-            <Route path="result" element={<DevResultPage />} />
-            <Route path="cctv" element={<DevCctvPage />} />
-            <Route path="chatbot" element={<DevChatbotPage />} />
-            <Route path="admin" element={<DevAdminPage />} />
-          </Route>
         </Route>
 
-        <Route path="/alert" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/alert" element={<Navigate to="/cctv" replace />} />
         <Route
           path="/result"
           element={<Navigate to="/search-results" replace />}

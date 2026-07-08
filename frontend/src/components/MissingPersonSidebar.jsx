@@ -1,5 +1,4 @@
-/** 검색 결과 사이드바 — 파싱된 실종자 인상착의·안내문자 원문 표시 */
-import { Link } from 'react-router-dom';
+/** 검색 결과 좌측 패널 — 파싱된 실종자 인상착의·안내문자 원문 표시 */
 import './MissingPersonSidebar.css';
 
 export default function MissingPersonSidebar({ person }) {
@@ -8,7 +7,7 @@ export default function MissingPersonSidebar({ person }) {
       <aside className="missing-sidebar">
         <h3>실종 신고 관련 내용</h3>
         <p className="missing-sidebar__empty">
-          선택한 검색 결과의 안내문자 정보가 여기에 표시됩니다.
+          CCTV 분석을 실행하면 입력한 안내문자 정보가 여기에 표시됩니다.
         </p>
       </aside>
     );
@@ -59,14 +58,6 @@ export default function MissingPersonSidebar({ person }) {
             <dd>{person.missing_date || '-'}</dd>
           </div>
         </dl>
-      </div>
-      <div className="missing-sidebar__actions">
-        <Link
-          to="/dashboard/history"
-          className="missing-sidebar__action missing-sidebar__action--ghost"
-        >
-          검색 이력
-        </Link>
       </div>
     </aside>
   );

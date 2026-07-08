@@ -19,6 +19,7 @@ from backend.core.config import settings, BACKEND_DIR
 _CACHE: dict = {}
 CACHE_TTL_SEC = 900
 CACHE_DIR = BACKEND_DIR / "data" / "alerts_cache"
+CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _map_alert(raw: dict) -> dict:
@@ -96,8 +97,6 @@ def _cache_file_path(cache_key: str) -> Path:
 
 
 def _load_file_cache(cache_key: str) -> Optional[dict]:
-    if not CACHE_DIR.exists():
-        return None
     path = _cache_file_path(cache_key)
     if not path.exists():
         return None

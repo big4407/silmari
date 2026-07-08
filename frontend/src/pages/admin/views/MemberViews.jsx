@@ -1,4 +1,4 @@
-/** 회원 관리 뷰 — 가입 승인 대기·전체 회원 (/api/admin 연동) */
+/** 회원 관리 뷰 — 가입 승인 대기·전체 회원 (/member/admin 연동) */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import PageHead from '../components/PageHead';
 import { TableEmptyRow } from '../components/EmptyState';
@@ -293,18 +293,25 @@ export function MembersAllView() {
     }
   };
 
-  // 정지·반려된 회원을 다시 승인(복구). 백엔드가 APPROVED 전환을 허용.
+  // 정지·반려된 계정을 다시 승인(복구). 백엔드가 APPROVED 전환을 허용.
   const reactivate = async (u) => {
-    if (!window.confirm(`${u.full_name} 님의 계정을 다시 승인할까요?`)) return;
+    const label = u.approval_status === '3' ? '정지 해제' : '재승인';
+    // 승인된 적 없는 계정(role 없음)은 백엔드에서 '승인 대기'로 되돌아간다(재검토).
+    const willBePending = !u.role;
+    const msg = willBePending
+      ? `${u.full_name} 님은 아직 승인된 적이 없어 ${label} 시 '승인 대기'로 돌아갑니다. 진행할까요?`
+      : `${u.full_name} 님의 계정을 ${label}할까요?`;
+    if (!window.confirm(msg)) return;
     setBusy(true);
     try {
+      // role 이 있으면 그 역할로 승인 복원, 없으면 role 미지정 → 백엔드가 대기로 처리
       await updateApproval(u.id, {
         status: '1',
-        role: u.role || u.requested_role,
+        role: u.role || undefined,
       });
       await load();
     } catch {
-      setError('승인 처리 중 오류가 발생했습니다.');
+      setError('처리 중 오류가 발생했습니다.');
     } finally {
       setBusy(false);
     }
