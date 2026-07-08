@@ -1,19 +1,17 @@
 /** 챗봇 UI — 현재 로컬 목 응답만 (향후 LLM·비전 API 연동 예정) */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './ChatbotPage.css';
-import { sendChatMessage } from '../api/chatbot_api';
+import { sendChatMessage, getChatSession } from '../api/chatbot_api';
 
 export default function ChatbotPage() {
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState([
-    {
-      role: 'bot',
-      text: '안녕하세요! 실마리 챗봇입니다. 사진이나 인상착의를 입력해 주세요.',
-    },
-  ]);
+  const [messages, setMessages] = useState([]);
+
+  // 세션 ID를 가져오는 함수
   const getSessionId = () => {
     let sessionId = localStorage.getItem('chatbot_session_id');
 
+    // 만약 세션 ID가 없으면 randomUUID를 생성
     if (!sessionId) {
       sessionId = crypto.randomUUID();
       localStorage.setItem('chatbot_session_id', sessionId);
@@ -21,6 +19,32 @@ export default function ChatbotPage() {
 
     return sessionId;
   };
+  
+  // 원래 세션이 있었을 경우, 메시지 내역을 불러온다.
+  // 세션이 없을 경우 세션을 먼저 생성하고 불러온다. 만약에 오류가 발생할 경우 챗봇 세션을 불러오지 못했다는 메시지를 출력한다.
+  useEffect(() => {
+    const loadMessages = async () => {
+      try {
+        const data = await getChatSession(getSessionId());
+
+        setMessages(
+          data.messages.map((m) => ({
+            role: m.role === 'assistant' ? 'bot' : 'user',
+            text: m.content,
+          })),
+        );
+      } catch {
+        setMessages([
+          {
+            role: 'bot',
+            text: '챗봇 세션을 불러오지 못했습니다.',
+          },
+        ]);
+      }
+    };
+
+    loadMessages();
+  }, []);
 
   const handleSend = async () => {
     if (!input.trim()) return;
