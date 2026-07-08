@@ -101,12 +101,12 @@ class ChatbotService:
         )
 
         if result.get("search_inserted"):
-            chatbot_session.state_json = create_initial_state(user_id=user_id)
+            self.db.delete(chatbot_session)
+            session_id = None
         else:
             chatbot_session.state_json = result
 
         self.db.commit()
-        self.db.refresh(chatbot_session)
 
         return {
             "response": response,
