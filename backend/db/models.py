@@ -238,9 +238,9 @@ class Message(Base):
 class ChatbotSession(Base):
     __tablename__ = "chatbot_session"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-
-    session_id: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    session_id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, nullable=False
+    )
 
     user_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
 
@@ -516,7 +516,7 @@ class LlmCall(Base):
         comment="요청자 (users의 PK), 챗봇 등 비로그인은 NULL",
     )
 
-    conversation_id: Mapped[int | None] = mapped_column(
+    chatbot_s_id: Mapped[str | None] = mapped_column(
         Integer,
         ForeignKey("chatbot_session.id"),
         nullable=True,
