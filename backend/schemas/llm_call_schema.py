@@ -2,8 +2,6 @@
 llm 사용량 체크 llm_call 테이블에 사용하는 Pydantic 스키마
 """
 
-from pydantic import BaseModel, Field
-
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -14,7 +12,7 @@ class CallCreate(BaseModel):
 
     search_id: int | None = None
     user_id: str | None = Field(default=None, max_length=36)
-    conversation_id: int | None = None
+    chatbot_s_id: str | None = None
 
     model_name: str = Field(max_length=100)
 
@@ -35,7 +33,7 @@ class CallUpdate(BaseModel):
 
     search_id: int | None = None
     user_id: str | None = Field(default=None, max_length=36)
-    conversation_id: int | None = None
+    chatbot_s_id: str | None = None
 
     model_name: str | None = Field(default=None, max_length=100)
 
@@ -60,7 +58,7 @@ class CallResponse(BaseModel):
 
     search_id: int | None
     user_id: str | None
-    conversation_id: int | None
+    chatbot_s_id: str | None
 
     model_name: str
 
@@ -83,7 +81,7 @@ class CallSearchParams(BaseModel):
 
     search_id: int | None = None
     user_id: str | None = Field(default=None, max_length=36)
-    conversation_id: int | None = None
+    chatbot_s_id: str | None = None
 
     model_name: str | None = Field(default=None, max_length=100)
     status: str | None = Field(default=None, max_length=10)

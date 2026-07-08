@@ -79,7 +79,7 @@ class ChatbotService:
                 call_type="2",  # 챗봇
                 search_id=search_id,
                 user_id=user_id,
-                conversation_id=chatbot_session.id,
+                chatbot_s_id=session_id,
                 model_name=getattr(self.llm, "model", "unknown"),
                 prompt=message,
                 response=response,

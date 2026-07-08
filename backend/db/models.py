@@ -517,8 +517,8 @@ class LlmCall(Base):
     )
 
     chatbot_s_id: Mapped[str | None] = mapped_column(
-        Integer,
-        ForeignKey("chatbot_session.id"),
+        String(36),
+        ForeignKey("chatbot_session.session_id"),
         nullable=True,
         comment="챗봇 대화 단위 묶음 ID (LangGraph 멀티 호출 대비)",
     )
