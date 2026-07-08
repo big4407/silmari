@@ -10,6 +10,7 @@ from backend.schemas.search_schema import (
     PagingInfo,
     SearchItem,
 )
+from backend.services.analysis_service import AnalysisService
 
 
 class SearchService:
@@ -19,11 +20,13 @@ class SearchService:
 
     def create_search(self, search_data: SearchCreate) -> SearchDetail:
         search = self.repository.save(search_data)
+        detail = SearchDetail.model_validate(search)
 
-        # 나중에 분석 실행 기능 추가
-        # self.analysis_service.run(search_id=search.id)
+        # 동기 실행 — 검색 시점엔 이미 인덱싱된 임베딩만 조회하므로 가벼움(1차 결정).
+        # 나중에 검색 대상이 많아지면 BackgroundTasks 등 비동기 전환 검토.
+        AnalysisService(self.db).run_analysis(detail)
 
-        return SearchDetail.model_validate(search)
+        return detail
 
     def get_search(self, search_id: int) -> SearchDetail:
         search = self.repository.find_by_id(search_id)
@@ -56,4 +59,4 @@ class SearchService:
         if search is None:
             raise ValueError("검색 기록을 찾을 수 없습니다.")
 
-        self.repository.delete(search)       
+        self.repository.delete(search)

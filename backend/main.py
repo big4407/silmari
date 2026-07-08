@@ -17,10 +17,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # ── 도메인 라우터 (기능별 API 엔드포인트) ──────────────────────────────────
 from backend.routers import (
-    # alert,
-    # cctv,
-    # result,
-    # disaster_alerts,
     messages,
     admin,
     auth,
@@ -32,19 +28,13 @@ from backend.routers import (
 )
 
 from backend.db.database import Base, SessionLocal, engine, get_db
-from backend.routers import messages
-
 from contextlib import asynccontextmanager
 from secrets import token_urlsafe
-
 from sqlalchemy import or_, select
-
-from backend.routers import admin, auth, operations, users, search, chatbot
 from backend.core.config import get_settings
 from backend.core.security import hash_password
 from backend.core.runtime import ensure_supported_python
 from backend.db.models import ApprovalStatus, User, UserRole
-
 from backend.core.scheduler import start_scheduler
 
 # scheduler의 logging을 위한 import
@@ -134,10 +124,6 @@ app.include_router(chatbot.router, prefix="/chatbot", tags=["chatbot"])
 app.include_router(search.router, prefix="/search", tags=["search"])
 
 app.include_router(video.router, prefix="/video", tags=["video"])
-
-# legacy 미사용 라우터 추후 확인 및 처리
-# app.include_router(disaster_alerts.router, prefix="/api/alerts", tags=["legacy"])
-# app.include_router(result.router, prefix="/api/missing", tags=["legacy"])
 
 
 @app.get("/health")

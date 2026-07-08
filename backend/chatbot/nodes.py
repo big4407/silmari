@@ -1,13 +1,20 @@
 from backend.chatbot.schemas import ExtractedSearchSlots
+from backend.chatbot.prompts import SLOT_EXTRACTION_PROMPT
 from backend.schemas.search_schema import SearchCreate
 from backend.services.search_service import SearchService
+from backend.repositories.analysis_repository import AnalysisRepository
 
 
 def extract_slots_node(state, config):
     llm = config["configurable"]["llm"]
 
     extractor = llm.with_structured_output(ExtractedSearchSlots)
-    slots = extractor.invoke(state["messages"])
+    # SLOT_EXTRACTION_PROMPT를 안 붙이면 LLM이 스키마의 필드 설명만 보고
+    # "알 수 없으면 null" 원칙 없이 지역·시간 등을 추측해서 채울 수 있다.
+    prompt_messages = [{"role": "system", "content": SLOT_EXTRACTION_PROMPT}] + list(
+        state["messages"]
+    )
+    slots = extractor.invoke(prompt_messages)
 
     return {
         "region": slots.region or state.get("region"),
@@ -61,13 +68,36 @@ def create_search_node(state, config):
         age=state.get("age"),
         clothing=state.get("appearance"),
         missing_location=state.get("region"),
-        missing_time=state.get("start_time"),
+        # missing_time은 datetime 필드인데 챗봇이 뽑는 start_time/end_time은
+        # "14:00" 같은 시각뿐인 자유 텍스트라 그대로 넣으면 pydantic 검증에서
+        # 터진다(날짜 정보가 없음). start_date/end_date(영상 검색 기간, date 타입)로
+        # 자연어 시간을 정확히 변환하는 로직은 아직 없어서 일단 기본값(최근 7일)을
+        # 쓰고, 시간대 정보는 응답 문구에만 참고로 남긴다.
         search_type="2",
     )
 
+    # create_search()가 내부에서 AnalysisService.run_analysis()까지 동기 실행한다.
     search = service.create_search(search_data)
+
+    analyses = AnalysisRepository(db).find_by_search_id(search.id)
+    match_count = len(analyses[0].details) if analyses else 0
+
+    time_note = ""
+    if state.get("start_time") and state.get("end_time"):
+        time_note = f" (요청하신 시간대 {state['start_time']}~{state['end_time']}는 참고용으로만 기록했고, 실제 검색 기간 필터는 아직 최근 7일 기본값을 씁니다.)"
+
+    if match_count > 0:
+        response = (
+            f"검색을 완료했습니다. 조건에 맞는 후보 {match_count}건을 찾았어요. "
+            f"검색 ID는 {search.id}입니다. 상세 결과는 검색 내역에서 확인해주세요.{time_note}"
+        )
+    else:
+        response = (
+            f"검색 조건으로 후보를 찾지 못했습니다(검색 ID: {search.id}). "
+            f"인상착의나 지역·기간을 조금 더 넓혀서 다시 시도해보시겠어요?{time_note}"
+        )
 
     return {
         "search_id": search.id,
-        "response": f"검색 조건을 저장했습니다. 검색 ID는 {search.id}입니다.",
+        "response": response,
     }
