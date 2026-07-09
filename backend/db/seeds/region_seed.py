@@ -4,20 +4,18 @@ from __future__ import annotations
 
 import logging
 
-from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from backend.core.config import settings
-from backend.db.models import Region
 from backend.services.administrative_dong_import import import_administrative_dong_csv
+from backend.repositories.region_repository import RegionRepository
 
 logger = logging.getLogger(__name__)
 
 
 def seed_regions_if_empty(db: Session) -> int:
     """region 테이블이 비어 있으면 administrative_dong.csv 를 import 한다."""
-    count = db.scalar(select(func.count()).select_from(Region)) or 0
-    if count > 0:
+    if RegionRepository(db).count() > 0:
         return 0
 
     csv_path = settings.administrative_dong_csv

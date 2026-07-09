@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from backend.db.models import (
@@ -16,8 +15,8 @@ from backend.db.models import (
     SysCodeItem,
     UserRole,
 )
+from backend.repositories.code_group_repository import CodeGroupRepository
 
-# (group_key, group_label, description, sort_order)
 _GROUPS: list[tuple[str, str, str, int]] = [
     ("user_role", "사용자 역할", "회원 권한·메뉴 접근에 사용", 1),
     ("approval_status", "가입 승인 상태", "회원 가입·승인 워크플로", 2),
@@ -28,7 +27,6 @@ _GROUPS: list[tuple[str, str, str, int]] = [
     ("admin_action", "관리자 행동", "감사 로그 행동 유형", 7),
 ]
 
-# (group_key, code, label, description, sort_order)
 _ITEMS: list[tuple[str, str, str, str | None, int]] = [
     ("user_role", UserRole.ADMIN.value, "관리자", None, 1),
     ("user_role", UserRole.INVESTIGATOR.value, "수사관", None, 2),
@@ -45,13 +43,7 @@ _ITEMS: list[tuple[str, str, str, str | None, int]] = [
     ("analysis_status", AnalysisStatus.COMPLETED.value, "완료", None, 3),
     ("gender", Gender.MALE.value, "남", None, 1),
     ("gender", Gender.FEMALE.value, "여", None, 2),
-    (
-        "login_fail_reason",
-        LoginFailStatus.BAD_CREDENTIALS.value,
-        "아이디·비밀번호 불일치",
-        None,
-        1,
-    ),
+    ("login_fail_reason", LoginFailStatus.BAD_CREDENTIALS.value, "아이디·비밀번호 불일치", None, 1),
     ("login_fail_reason", LoginFailStatus.PENDING.value, "승인 대기", None, 2),
     ("login_fail_reason", LoginFailStatus.REJECTED.value, "가입 반려", None, 3),
     ("login_fail_reason", LoginFailStatus.SUSPENDED.value, "계정 정지", None, 4),
@@ -66,8 +58,7 @@ _ITEMS: list[tuple[str, str, str, str | None, int]] = [
 
 
 def seed_code_groups_if_empty(db: Session) -> int:
-    count = db.scalar(select(func.count()).select_from(SysCodeGroup)) or 0
-    if count > 0:
+    if CodeGroupRepository(db).group_count() > 0:
         return 0
 
     for key, label, desc, order in _GROUPS:

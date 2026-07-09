@@ -32,9 +32,7 @@ from backend.core.security import hash_password
 from backend.core.runtime import ensure_supported_python
 from backend.db.models import ApprovalStatus, User, UserRole
 from backend.core.scheduler import start_scheduler
-from backend.services.code_group_seed import seed_code_groups_if_empty
-from backend.services.region_seed import seed_regions_if_empty
-from backend.services.retention_policy_seed import seed_retention_policies_if_empty
+from backend.db.seeds import seed_bootstrap_data
 
 # scheduler의 logging을 위한 import
 # 아래에서 모듈 사용하지 않는다고 지우면 동작하지 않음
@@ -99,9 +97,7 @@ async def lifespan(_: FastAPI):
     Base.metadata.create_all(bind=engine)  # ← 단 1회
     bootstrap_admin()
     with SessionLocal() as db:
-        seed_code_groups_if_empty(db)
-        seed_regions_if_empty(db)
-        seed_retention_policies_if_empty(db)
+        seed_bootstrap_data(db)
     start_scheduler()  # 메시지 수집 스케줄러 시작
     yield
 

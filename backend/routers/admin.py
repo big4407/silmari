@@ -55,14 +55,8 @@ from backend.schemas.retention_schema import (
     RetentionPolicyItem,
     RetentionPolicyListResponse,
 )
-from backend.services.integrity_audit import (
-    get_integrity_run_by_id,
-    get_previous_integrity_total,
-    latest_integrity_run,
-    record_integrity_run,
-)
-from backend.services.region_integrity import find_integrity_check, run_integrity_suite
-from backend.services.retention_service import dry_run_retention, list_retention_policies
+from backend.services.integrity_service import IntegrityService
+from backend.services.retention_service import RetentionService
 from backend.schemas.region_schema import (
     CodeGroupEntry,
     CodeGroupItem,
@@ -76,13 +70,8 @@ from backend.schemas.region_schema import (
     RegionOptionsResponse,
     RegionUpdate,
 )
-from backend.services.administrative_dong_import import clear_all_region_data
-from backend.services.code_group_service import build_code_group_list
-from backend.services.region_csv import (
-    administrative_dong_to_csv,
-    import_regions_from_csv,
-    regions_to_csv,
-)
+from backend.services.region_admin_service import RegionAdminService
+from backend.services.code_group_service import CodeGroupService
 
 router = APIRouter(prefix="/admin")
 
@@ -479,12 +468,13 @@ def export_regions_csv(
     db: Session = Depends(get_db),
 ) -> Response:
     """행정구역 CSV보내기."""
+    region_svc = RegionAdminService(db)
     if format == "administrative_dong":
-        csv_text = administrative_dong_to_csv(db)
+        csv_text = region_svc.administrative_dong_to_csv()
         filename = "administrative_dong.csv"
         export_format = "administrative_dong"
     else:
-        csv_text = regions_to_csv(db)
+        csv_text = region_svc.regions_to_csv()
         filename = "regions.csv"
         export_format = "region"
 
@@ -517,7 +507,7 @@ def clear_regions_all(
     db: Session = Depends(get_db),
 ) -> RegionClearResult:
     """행정구역·법정동 매핑 전체 삭제 (video.region_code 는 연결 해제)."""
-    result = clear_all_region_data(db)
+    result = RegionAdminService(db).clear_all()
     AuditService(db).record_admin_action(
         actor_id=admin.id,
         action_type=AdminAction.DELETE,
@@ -547,7 +537,7 @@ async def import_regions_csv(
     if not file.filename or not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="CSV 파일만 업로드할 수 있습니다.")
 
-    result = import_regions_from_csv(db, file.file, dry_run=dry_run)
+    result = RegionAdminService(db).import_from_csv(file.file, dry_run=dry_run)
     if result.errors:
         return result
 
@@ -765,7 +755,7 @@ def list_code_groups(
     db: Session = Depends(get_db),
 ) -> CodeGroupListResponse:
     """시스템 코드 그룹 — DB 메타 + 참조 수."""
-    return build_code_group_list(db)
+    return CodeGroupService(db).build_list()
 
 
 @router.patch("/code-groups/{group_key}", response_model=CodeGroupItem)
@@ -794,7 +784,7 @@ def update_code_group(
         ip_address=request.client.host if request.client else None,
     )
     db.commit()
-    refreshed = build_code_group_list(db)
+    refreshed = CodeGroupService(db).build_list()
     for g in refreshed.groups:
         if g.group == group_key:
             return g
@@ -842,7 +832,7 @@ def update_code_item(
         ip_address=request.client.host if request.client else None,
     )
     db.commit()
-    group_list = build_code_group_list(db)
+    group_list = CodeGroupService(db).build_list()
     for g in group_list.groups:
         if g.group == group_key:
             for entry in g.items:
@@ -856,7 +846,8 @@ def get_retention_policies(
     _: User = Depends(require_roles(UserRole.ADMIN)),
     db: Session = Depends(get_db),
 ) -> RetentionPolicyListResponse:
-    items = [RetentionPolicyItem.model_validate(row) for row in list_retention_policies(db)]
+    retention_svc = RetentionService(db)
+    items = [RetentionPolicyItem.model_validate(row) for row in retention_svc.list_policies()]
     return RetentionPolicyListResponse(items=items)
 
 
@@ -873,7 +864,7 @@ def retention_policies_dry_run(
     overrides = None
     if payload and payload.policies:
         overrides = [p.model_dump(exclude_unset=True) for p in payload.policies]
-    items = dry_run_retention(db, policy_id=policy_id, overrides=overrides)
+    items = RetentionService(db).dry_run(policy_id=policy_id, overrides=overrides)
     if policy_id is not None and not items:
         raise HTTPException(status_code=404, detail="보존 정책을 찾을 수 없습니다.")
     total = sum(i.expired_count for i in items if i.is_active)
@@ -924,7 +915,8 @@ def update_retention_policies(
         ip_address=request.client.host if request.client else None,
     )
     db.commit()
-    items = [RetentionPolicyItem.model_validate(row) for row in list_retention_policies(db)]
+    retention_svc = RetentionService(db)
+    items = [RetentionPolicyItem.model_validate(row) for row in retention_svc.list_policies()]
     return RetentionPolicyListResponse(items=items)
 
 
@@ -935,13 +927,13 @@ def run_data_integrity(
     db: Session = Depends(get_db),
 ) -> IntegrityRunResponse:
     """행정구역·영상·인증·검색 체인 정합성 검사 실행."""
-    previous_total = get_previous_integrity_total(db)
-    checks, total_issues = run_integrity_suite(db)
+    integrity_svc = IntegrityService(db)
+    previous_total = integrity_svc.get_previous_total()
+    checks, total_issues = integrity_svc.run_suite()
     delta_issues = (
         total_issues - previous_total if previous_total is not None else None
     )
-    run_id = record_integrity_run(
-        db,
+    run_id = integrity_svc.record_run(
         actor_id=admin.id,
         checks=checks,
         total_issues=total_issues,
@@ -964,7 +956,7 @@ def get_last_data_integrity(
     db: Session = Depends(get_db),
 ) -> IntegrityRunResponse:
     """가장 최근 정합성 검사 결과 (감사 로그에서 복원)."""
-    result = latest_integrity_run(db)
+    result = IntegrityService(db).latest_run()
     if result is None:
         raise HTTPException(status_code=404, detail="저장된 검사 이력이 없습니다.")
     return result
@@ -977,7 +969,7 @@ def get_data_integrity_run(
     db: Session = Depends(get_db),
 ) -> IntegrityRunResponse:
     """감사 로그 ID로 정합성 검사 결과 복원."""
-    result = get_integrity_run_by_id(db, run_id)
+    result = IntegrityService(db).get_run_by_id(run_id)
     if result is None:
         raise HTTPException(status_code=404, detail="검사 이력을 찾을 수 없습니다.")
     return result
@@ -993,7 +985,7 @@ def get_data_integrity_check_issues(
     db: Session = Depends(get_db),
 ) -> IntegrityCheckIssuesResponse:
     """검사 항목별 전체 이슈 목록 (샘플 제한 없음)."""
-    check = find_integrity_check(db, check_id, sample_limit=None)
+    check = IntegrityService(db).find_check(check_id, sample_limit=None)
     if check is None:
         raise HTTPException(status_code=404, detail="검사 항목을 찾을 수 없습니다.")
     return IntegrityCheckIssuesResponse(
@@ -1016,10 +1008,10 @@ def download_integrity_report_csv(
 ) -> Response:
     """정합성 검사 결과 CSV보내기."""
     if source == "fresh":
-        checks, _ = run_integrity_suite(db)
+        checks, _ = IntegrityService(db).run_suite()
         filename = "integrity_report_fresh.csv"
     else:
-        last = latest_integrity_run(db)
+        last = IntegrityService(db).latest_run()
         if last is None:
             raise HTTPException(status_code=404, detail="저장된 검사 결과가 없습니다.")
         checks = last.checks

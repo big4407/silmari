@@ -1,3 +1,4 @@
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from backend.db.models import Region
@@ -6,6 +7,9 @@ from backend.db.models import Region
 class RegionRepository:
     def __init__(self, db: Session):
         self.db = db
+
+    def count(self) -> int:
+        return self.db.scalar(select(func.count()).select_from(Region)) or 0
 
     def find_codes_by_keyword(self, keyword: str) -> list[str]:
         """지역명 자유 텍스트로 region_code 를 찾는다(부분 일치).
