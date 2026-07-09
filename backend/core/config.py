@@ -96,7 +96,14 @@ class Settings(BaseSettings):
 
     @property
     def disaster_api_url(self) -> str:
-        return f"{self.DISASTER_API_BASE_URL}{self.DISASTER_API_PATH}"
+        if self.DISASTER_API_BASE_URL and self.DISASTER_API_PATH:
+            return f"{self.DISASTER_API_BASE_URL.rstrip('/')}{self.DISASTER_API_PATH}"
+        return self.SAFETYDATA_API_URL
+
+    @property
+    def disaster_service_key(self) -> str:
+        """재난안전데이터 API serviceKey — SAFETYDATA_* 우선, DISASTER_API_* 폴백."""
+        return (self.SAFETYDATA_SERVICE_KEY or self.DISASTER_API_SERVICE_KEY or "").strip()
 
     @field_validator("SAFETYDATA_API_URL")
     @classmethod

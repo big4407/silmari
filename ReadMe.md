@@ -138,6 +138,16 @@ cp .env.example .env   # 값 채우기
 | `BOOTSTRAP_ADMIN_*`                                                | 최초 관리자 계정 (개발용은 `NO_PASSWORD=true`)              |
 | `OPENAI_API_KEY`                                                   | 챗봇 슬롯 추출용 LLM 키 (`.env.example`엔 없음 — 직접 추가) |
 | `SAFE182_*`, `SAFETYDATA_*`, `DISASTER_API_*`                      | 외부 재난·실종 API 키                                       |
+
+**실종 안내문자(대시보드 「안내문자 조회」)** — 팀원 각자:
+
+1. 프로젝트 **루트**에서 `cp .env.example .env` (이미 있으면 생략)
+2. `.env`에 **`SAFETYDATA_SERVICE_KEY=`** ← [재난안전데이터공유플랫폼](https://www.safetydata.go.kr/) 발급 **서비스키 값** (팀 채널로 공유, Git 금지)
+3. `SAFETYDATA_API_URL`은 기본값(`DSSP-IF-00247`) 그대로 두면 됨
+4. API 발급 시 **본인 PC 공인 IP**를 유저 IP에 등록 (미등록 시 403/호출 실패)
+5. 값 변경 후 **백엔드 재시작** (`uvicorn` 재실행 — Settings 캐시 때문)
+
+> `backend/.env`는 예시 템플릿일 뿐이며, 실제로 읽히는 파일은 **루트 `.env`** 입니다.
 | `UPLOAD_DIR` / `YOLO_MODEL_PATH` / `CCTV_DATA_DIR` / `RESULTS_DIR` | (선택) 파일 경로. 미지정 시 루트 기준 기본값                |
 
 > **로컬 실행 시 `DB_HOST=localhost`**, Docker 실행 시에는 compose가 자동으로 `DB_HOST=db`로 덮어씁니다.

@@ -168,8 +168,19 @@ class MessageService:
         crt_dt: str | None = None,
         rgn_nm: str | None = None,
     ) -> list[dict]:
+        service_key = settings.disaster_service_key
+        if not service_key:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "재난문자 API 키가 설정되지 않았습니다. "
+                    "프로젝트 루트 .env 에 SAFETYDATA_SERVICE_KEY 를 채운 뒤 "
+                    "백엔드를 재시작하세요."
+                ),
+            )
+
         params = {
-            "serviceKey": settings.DISASTER_API_SERVICE_KEY,
+            "serviceKey": service_key,
             "pageNo": page_no,
             "numOfRows": num_of_rows,
             "returnType": "json",
@@ -181,12 +192,18 @@ class MessageService:
         if rgn_nm:
             params["rgnNm"] = rgn_nm
 
-        async with httpx.AsyncClient(timeout=10) as client:
-            response = await client.get(
-                settings.disaster_api_url,
-                params=params,
-            )
-            response.raise_for_status()
+        async with httpx.AsyncClient(timeout=30) as client:
+            try:
+                response = await client.get(
+                    settings.disaster_api_url,
+                    params=params,
+                )
+                response.raise_for_status()
+            except httpx.HTTPError as exc:
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"재난안전데이터 API 호출에 실패했습니다: {exc}",
+                ) from exc
 
         data = response.json()
 

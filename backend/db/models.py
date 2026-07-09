@@ -361,6 +361,73 @@ class Region(Base):
     parent: Mapped["Region | None"] = relationship(
         remote_side=[region_code], foreign_keys=[parent_code]
     )
+    legal_dongs: Mapped[list["RegionLegalDong"]] = relationship(
+        back_populates="admin_region"
+    )
+
+
+class RegionLegalDong(Base):
+    """행정동 ↔ 법정동 매핑 — administrative_dong.csv 기준."""
+
+    __tablename__ = "region_legal_dong"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    legal_dong_code: Mapped[str] = mapped_column(
+        String(10), nullable=False, index=True, comment="법정동코드(10자리)"
+    )
+    admin_dong_code: Mapped[str] = mapped_column(
+        ForeignKey("region.region_code"),
+        nullable=False,
+        index=True,
+        comment="행정동코드(region.region_code)",
+    )
+    legal_dong_name: Mapped[str] = mapped_column(
+        String(50), nullable=False, comment="법정동명"
+    )
+    admin_area_code: Mapped[str | None] = mapped_column(
+        String(10), nullable=True, comment="행정구역코드(CSV 행정구역코드)"
+    )
+    revised_at: Mapped[date | None] = mapped_column(
+        Date, nullable=True, comment="개정일자"
+    )
+    link_no: Mapped[str | None] = mapped_column(
+        String(100), nullable=True, comment="연결번호(복수일 수 있음)"
+    )
+
+    admin_region: Mapped["Region"] = relationship(back_populates="legal_dongs")
+
+
+class SysCodeGroup(Base):
+    """시스템 enum 코드 그룹 메타 (라벨·설명). code 값은 Python enum 과 동기."""
+
+    __tablename__ = "sys_code_group"
+
+    group_key: Mapped[str] = mapped_column(String(50), primary_key=True)
+    group_label: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    items: Mapped[list["SysCodeItem"]] = relationship(
+        back_populates="group", cascade="all, delete-orphan"
+    )
+
+
+class SysCodeItem(Base):
+    """그룹별 코드 항목 — 표시 라벨·활성 여부만 관리 (코드값 자체는 변경 불가)."""
+
+    __tablename__ = "sys_code_item"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    group_key: Mapped[str] = mapped_column(
+        ForeignKey("sys_code_group.group_key"), nullable=False, index=True
+    )
+    code: Mapped[str] = mapped_column(String(20), nullable=False)
+    label: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    group: Mapped["SysCodeGroup"] = relationship(back_populates="items")
 
 
 class Video(Base):

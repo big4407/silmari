@@ -224,6 +224,99 @@ export const fetchLoginHistory = (params = {}) =>
 export const fetchAdminHistory = (params = {}) =>
   client.get('/member/admin/admin-history', { params }).then((r) => r.data);
 
+/** 행정구역 목록 */
+export const fetchRegions = (params = {}) =>
+  client.get('/member/admin/regions', { params }).then((r) => r.data);
+
+/** 행정구역 상세 */
+export const fetchRegionDetail = (regionCode) =>
+  client.get(`/member/admin/regions/${regionCode}`).then((r) => r.data);
+
+/** 상위 지역 선택용 옵션 목록 */
+export const fetchRegionOptions = () =>
+  client.get('/member/admin/regions/options').then((r) => r.data);
+
+/** 행정구역 등록 */
+export const createRegion = (payload) =>
+  client.post('/member/admin/regions', payload).then((r) => r.data);
+
+/** 행정구역 수정 */
+export const updateRegion = (regionCode, payload) =>
+  client
+    .patch(`/member/admin/regions/${regionCode}`, payload)
+    .then((r) => r.data);
+
+/** 행정구역 삭제 */
+export const deleteRegion = (regionCode) =>
+  client.delete(`/member/admin/regions/${regionCode}`);
+
+/** 행정구역·법정동 매핑 전체 삭제 */
+export const clearAllRegions = () =>
+  client.post('/member/admin/regions/clear-all').then((r) => r.data);
+
+/** 행정구역 CSV보내기 */
+export const exportRegionsCsv = (format = 'region') =>
+  client
+    .get('/member/admin/regions/export.csv', {
+      params: { format },
+      responseType: 'blob',
+    })
+    .then((r) => r.data);
+
+/** 행정구역 CSV 가져오기 (dryRun=true면 검증만) */
+export const importRegionsCsv = (file, dryRun = false) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return client
+    .post('/member/admin/regions/import.csv', formData, {
+      params: { dry_run: dryRun },
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    .then((r) => r.data);
+};
+
+/** 시스템 코드 그룹 목록 */
+export const fetchCodeGroups = () =>
+  client.get('/member/admin/code-groups').then((r) => r.data);
+
+/** 코드 그룹 항목 수정 */
+export const updateCodeItem = (groupKey, code, payload) =>
+  client
+    .patch(`/member/admin/code-groups/${groupKey}/items/${code}`, payload)
+    .then((r) => r.data);
+
+/** Blob 파일 다운로드 */
+export const saveBlobDownload = (blob, filename) => {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
+/** API 오류 메시지 추출 (blob 응답 포함) */
+export const readApiErrorMessage = async (err, fallback) => {
+  const detail = err?.response?.data?.detail;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    return detail.map((item) => item.msg || JSON.stringify(item)).join(', ');
+  }
+
+  const data = err?.response?.data;
+  if (data instanceof Blob) {
+    try {
+      const text = await data.text();
+      const parsed = JSON.parse(text);
+      if (typeof parsed.detail === 'string') return parsed.detail;
+    } catch {
+      // fall through to fallback
+    }
+  }
+
+  return fallback;
+};
+
 // 관리자 행동 유형 코드 → 한글 라벨 (AdminAction enum)
 //   "1" 승인 / "2" 반려 / "3" 정지 / "4" 재승인 / "5" 삭제 / "6" 수정
 export const ADMIN_ACTION_LABELS = {
