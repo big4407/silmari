@@ -18,24 +18,30 @@ import {
 import { findRegionByName } from '../utils/regionSearch';
 import './Dashboard.css';
 
-function toYmd(dateStr) {
-  if (!dateStr) return undefined;
-  return dateStr.replace(/-/g, '');
-}
-
 function resolveDateRange(startDate, endDate) {
-  if (startDate || endDate) {
+  let start = startDate || undefined;
+  let end = endDate || undefined;
+  let swapped = false;
+
+  if (start && end && start > end) {
+    [start, end] = [end, start];
+    swapped = true;
+  }
+
+  if (start || end) {
     return {
-      start_date: startDate || undefined,
-      end_date: endDate || undefined,
+      start_date: start,
+      end_date: end,
+      hasUserRange: true,
+      swapped,
     };
   }
-  const end = new Date();
-  const start = new Date();
-  start.setDate(start.getDate() - 90);
+
   return {
-    start_date: start.toISOString().slice(0, 10),
-    end_date: end.toISOString().slice(0, 10),
+    start_date: undefined,
+    end_date: undefined,
+    hasUserRange: false,
+    swapped: false,
   };
 }
 
@@ -96,6 +102,8 @@ export default function Dashboard() {
   } = useDetectionStore();
 
   const [apiError, setApiError] = useState(null);
+  const [dateWarning, setDateWarning] = useState(null);
+  const [emptyHint, setEmptyHint] = useState(null);
   const [mapFilter, setMapFilter] = useState({ level: 'nation' });
   const [mapFocus, setMapFocus] = useState(null);
   const [regionQuery, setRegionQuery] = useState('');
@@ -112,15 +120,24 @@ export default function Dashboard() {
   const loadList = async ({ refresh = false, cacheOnly = false } = {}) => {
     setLoading(true);
     setApiError(null);
+    setDateWarning(null);
+    setEmptyHint(null);
     try {
-      const { start_date, end_date } = resolveDateRange(startDate, endDate);
+      const range = resolveDateRange(startDate, endDate);
+      const { start_date, end_date, hasUserRange, swapped } = range;
+
+      if (swapped) {
+        setDateWarning('시작일이 종료일보다 늦어 순서를 바꿔 조회했습니다.');
+      }
 
       if (refresh) {
         try {
           await collectMessages({
             page_no: 1,
             num_of_rows: 100,
-            crt_dt: toYmd(startDate) || start_date.replace(/-/g, ''),
+            ...(hasUserRange && start_date
+              ? { crt_dt: start_date.replace(/-/g, '') }
+              : {}),
           });
         } catch (collectError) {
           const detail = collectError.response?.data?.detail;
@@ -135,8 +152,7 @@ export default function Dashboard() {
       const data = await fetchMessages({
         page: 1,
         per_page: 100,
-        start_date,
-        end_date,
+        ...(hasUserRange ? { start_date, end_date } : {}),
         order_by: 'latest',
       });
 
@@ -148,6 +164,13 @@ export default function Dashboard() {
 
       setAlertList(items);
       if (items.length > 0) saveAlertsToSession(items);
+      else if (hasUserRange) {
+        setEmptyHint('선택한 기간에 해당하는 실종 안내문자가 없습니다.');
+      } else if (refresh) {
+        setEmptyHint(
+          '저장된 실종 안내문자가 없습니다. API 키·기간을 확인한 뒤 다시 조회해 보세요.',
+        );
+      }
     } catch (e) {
       console.error('안내문자 목록 불러오기 실패', e);
       setAlertList([]);
@@ -280,12 +303,15 @@ export default function Dashboard() {
           {loading
             ? '안내문자를 불러오는 중입니다.'
             : alertList.length === 0
-              ? '기간·지역을 설정한 뒤 안내문자 조회를 실행하세요. 저장된 목록이 없으면 최근 90일 기준으로 조회합니다.'
+              ? '기간을 비우고 안내문자 조회를 누르면 저장된 목록을 불러옵니다. 기간을 지정하면 해당 범위만 표시합니다.'
               : `총 ${alertList.length}건 · 지도에서 지역을 클릭하거나 검색해 필터할 수 있습니다.`}
         </p>
 
         {regionSearchError && (
           <p className="filter-panel__error">{regionSearchError}</p>
+        )}
+        {dateWarning && (
+          <p className="filter-panel__error">{dateWarning}</p>
         )}
       </section>
 
@@ -338,6 +364,9 @@ export default function Dashboard() {
               <p className="sidebar-hint">지역 필터 · {regionLabel}</p>
             )}
           {apiError && <p className="sidebar-error">{apiError}</p>}
+          {emptyHint && !apiError && (
+            <p className="sidebar-hint sidebar-hint--warn">{emptyHint}</p>
+          )}
 
           <div className="sidebar__list">
             {!loading && filteredAlerts.length === 0 && (

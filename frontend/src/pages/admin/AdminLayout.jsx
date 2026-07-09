@@ -59,9 +59,6 @@ export default function AdminLayout() {
           <span className="admin-sub">관리자 콘솔</span>
         </div>
         <div className="admin-right">
-          <span className="admin-role">시스템 관리자</span>
-          <span className="admin-divider" />
-          <a href="#help">도움</a>
           <button
             type="button"
             className="admin-logout-btn"

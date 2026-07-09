@@ -44,7 +44,7 @@ export const NAV = [
   {
     group: '데이터 관리',
     items: [
-      { id: 'data-codes', label: '기준 코드 관리' },
+      { id: 'data-codes', label: '행정구역 관리' },
       { id: 'data-validate', label: '데이터 정합성 검사' },
       { id: 'data-export', label: '데이터 내보내기' },
       { id: 'data-retention', label: '삭제·보존 정책' },

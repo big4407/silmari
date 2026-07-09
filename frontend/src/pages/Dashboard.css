@@ -329,6 +329,12 @@
   overflow-wrap: anywhere;
 }
 
+.sidebar-hint--warn {
+  border-left-color: #d97706;
+  color: #92400e;
+  background: #fffbeb;
+}
+
 .sidebar-error {
   font-size: var(--font-size-xs);
   color: var(--color-error);

@@ -16,12 +16,24 @@ from backend.repositories.video_repository import VideoRepository
 from backend.schemas.video_schema import VideoCreate, VideoDetailCreate
 from backend.db.models import Video, VideoDetail
 
-_model_path = Path(settings.yolo_model_path)
-model = YOLO(str(_model_path) if _model_path.exists() else "yolov8n.pt")
+_model = None
+_fclip = None
 
-# FashionCLIP 은 로드가 매우 무거우므로(수 초~수십 초) 모듈 로드 시 1회만 생성해 재사용한다.
-# (기존 코드는 임베딩 함수 호출마다 새로 생성해 영상 처리량에 비례해 느려졌다.)
-_fclip = FashionCLIP("fashion-clip")
+
+def _get_yolo_model() -> YOLO:
+    global _model
+    if _model is None:
+        model_path = Path(settings.yolo_model_path)
+        _model = YOLO(str(model_path) if model_path.exists() else "yolov8n.pt")
+    return _model
+
+
+def _get_fashion_clip() -> FashionCLIP:
+    # FashionCLIP 은 로드가 매우 무거우므로(수 초~수십 초) 최초 사용 시 1회만 생성해 재사용한다.
+    global _fclip
+    if _fclip is None:
+        _fclip = FashionCLIP("fashion-clip")
+    return _fclip
 
 # 처리 대상 영상 확장자
 _VIDEO_EXTENSIONS = {".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm"}
@@ -169,7 +181,9 @@ class VideoService:
 
         image_paths = sorted(image_paths)
 
-        results = model.predict(source=image_paths, conf=0.4, save=False, classes=0)
+        results = _get_yolo_model().predict(
+            source=image_paths, conf=0.4, save=False, classes=0
+        )
         print(results[0])
 
         for image_path, r in zip(image_paths, results):
@@ -251,7 +265,7 @@ class VideoService:
     # crop embedding ------------------------------------------------------
     def create_image_embeddings(self, crop_paths: list[str]):
         path_strings = [str(path) for path in crop_paths]
-        embeddings = _fclip.encode_images(path_strings, batch_size=32)
+        embeddings = _get_fashion_clip().encode_images(path_strings, batch_size=32)
         norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
         return embeddings / norms
 
@@ -286,7 +300,7 @@ class VideoService:
         return result
 
     def search_embeddings(self, query: str, video_id: int, n_results: int = 5):
-        text_embeddings = _fclip.encode_text([query], batch_size=1)
+        text_embeddings = _get_fashion_clip().encode_text([query], batch_size=1)
         text_embeddings = text_embeddings / np.linalg.norm(
             text_embeddings, axis=1, keepdims=True
         )
@@ -306,7 +320,7 @@ class VideoService:
         video_ids가 None이면 전체 컬렉션에서 검색한다(지역·기간 필터 없이 전수 검색).
         하나의 챗봇/검색 요청은 보통 지역·기간으로 video_ids를 먼저 좁혀서 넘긴다.
         """
-        text_embeddings = _fclip.encode_text([query], batch_size=1)
+        text_embeddings = _get_fashion_clip().encode_text([query], batch_size=1)
         text_embeddings = text_embeddings / np.linalg.norm(
             text_embeddings, axis=1, keepdims=True
         )

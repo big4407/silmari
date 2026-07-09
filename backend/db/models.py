@@ -7,7 +7,6 @@ ORM 모델 정의 — MySQL 테이블과 1:1 매핑.
 
 # db/models.py
 from sqlalchemy import (
-    Column,
     Date,
     Integer,
     Boolean,
@@ -17,8 +16,6 @@ from sqlalchemy import (
     Float,
     Enum,
     ForeignKey,
-    func,
-    CHAR,
     JSON,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -361,6 +358,40 @@ class Region(Base):
     parent: Mapped["Region | None"] = relationship(
         remote_side=[region_code], foreign_keys=[parent_code]
     )
+    legal_dongs: Mapped[list["RegionLegalDong"]] = relationship(
+        back_populates="admin_region"
+    )
+
+
+class RegionLegalDong(Base):
+    """행정동 ↔ 법정동 매핑 — administrative_dong.csv 기준."""
+
+    __tablename__ = "region_legal_dong"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    legal_dong_code: Mapped[str] = mapped_column(
+        String(10), nullable=False, index=True, comment="법정동코드(10자리)"
+    )
+    admin_dong_code: Mapped[str] = mapped_column(
+        ForeignKey("region.region_code"),
+        nullable=False,
+        index=True,
+        comment="행정동코드(region.region_code)",
+    )
+    legal_dong_name: Mapped[str] = mapped_column(
+        String(50), nullable=False, comment="법정동명"
+    )
+    admin_area_code: Mapped[str | None] = mapped_column(
+        String(10), nullable=True, comment="행정구역코드(CSV 행정구역코드)"
+    )
+    revised_at: Mapped[date | None] = mapped_column(
+        Date, nullable=True, comment="개정일자"
+    )
+    link_no: Mapped[str | None] = mapped_column(
+        String(100), nullable=True, comment="연결번호(복수일 수 있음)"
+    )
+
+    admin_region: Mapped["Region"] = relationship(back_populates="legal_dongs")
 
 
 class Video(Base):
@@ -549,6 +580,23 @@ class AnalysisDetail(Base):
     video: Mapped["Video"] = relationship()
 
 
+class RetentionPolicy(Base):
+    """데이터 유형별 보존·만료 정책."""
+
+    __tablename__ = "retention_policy"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    data_type: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    data_label: Mapped[str] = mapped_column(String(100), nullable=False)
+    storage_target: Mapped[str] = mapped_column(String(150), nullable=False)
+    retention_days: Mapped[int] = mapped_column(Integer, nullable=False)
+    expiry_action: Mapped[str] = mapped_column(
+        String(30), nullable=False, comment="delete | archive | anonymize"
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    notes: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=kst_now, onupdate=kst_now, nullable=False
 class LlmCall(Base):
     __tablename__ = "llm_call"
 
