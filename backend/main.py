@@ -6,10 +6,6 @@ FastAPI 애플리케이션 진입점.
   2. Base.metadata.create_all() — ORM 테이블 자동 생성
   3. bootstrap_admin() — .env 기반 최초 관리자 계정 생성
 
-[라우터]
-  /api/v1/*  — 인증·사용자·관리자·운영
-  /api/alert, /api/cctv, /api/result, /api/alerts — 탐지·결과·재난문자
-  /api/sms, /api/video, /api/missing — 레거시 경로 (하위 호환)
 """
 
 from fastapi import FastAPI

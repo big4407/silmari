@@ -46,6 +46,15 @@
   display: block;
 }
 
+.search-card__img--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #4b5563;
+}
+
 .search-card__delete {
   position: absolute;
   top: 8px;
