@@ -45,11 +45,12 @@ function focusFromAdmRow(row) {
       (r) => normalize(r.label) === normalize(row.sggnm),
     ) || { id: row.sggcd || row.sggnm, label: row.sggnm };
     const path = ['root', sidoId, gu.id];
-    const dong = { id: row.code, label: row.name };
+    const dong = { id: row.code, label: row.name, guLabel: row.sggnm };
     return {
       path,
       selectedLabel: row.name,
       dongId: row.code,
+      guLabel: row.sggnm,
       mapFilter: buildMapFilter(dong, path),
     };
   }

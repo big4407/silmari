@@ -244,10 +244,10 @@ export default function MapDrilldown({
         const mapPath = pathRef.current;
         const sidoId = mapPath.length >= 2 ? mapPath[1] : null;
         const guLabel =
-          activeGuRef.current?.label ||
-          getGuLabelFromPath(mapPath, selectedRegionRef.current);
+          activeGuRef.current?.label || getGuLabelFromPath(mapPath);
         geojson = await loadMapGeoJson(key, { sidoId, guLabel });
-      } catch {
+      } catch (error) {
+        console.error('행정동 경계 로드 실패:', error);
         setGeoLoading(false);
         return;
       } finally {
@@ -409,7 +409,7 @@ export default function MapDrilldown({
     const map = mapInstanceRef.current;
     if (!map) return;
     renderGeoLayer(map);
-  }, [currentKey, renderGeoLayer]);
+  }, [currentKey, activeGu, renderGeoLayer]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
