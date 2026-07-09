@@ -85,3 +85,18 @@ class LlmCallService:
         self.repository.delete(id)
 
         self.db.commit()
+
+    def update_null_search_id_by_session(self, chatbot_s_id: str, search_id: int):
+        (
+            self.db.query(LlmCall)
+            .filter(
+                LlmCall.chatbot_s_id == chatbot_s_id,
+                LlmCall.search_id.is_(None),
+            )
+            .update(
+                {LlmCall.search_id: search_id},
+                synchronize_session=False,
+            )
+        )
+        
+        

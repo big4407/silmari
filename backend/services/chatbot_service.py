@@ -101,6 +101,11 @@ class ChatbotService:
         )
 
         if result.get("search_inserted"):
+            if search_id:
+                self.llm_call_service.update_null_search_id_by_session(
+                    chatbot_s_id=session_id,
+                    search_id=search_id,
+                )
             self.db.delete(chatbot_session)
             session_id = None
         else:
