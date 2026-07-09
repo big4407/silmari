@@ -12,7 +12,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # ── 도메인 라우터 (기능별 API 엔드포인트) ──────────────────────────────────
+from backend.services.storage import ensure_dirs
 from backend.routers import (
+    llm_call,
     messages,
     admin,
     auth,
@@ -118,6 +120,8 @@ app.include_router(messages.router, prefix="/message", tags=["message"])
 app.include_router(chatbot.router, prefix="/chatbot", tags=["chatbot"])
 
 app.include_router(search.router, prefix="/search", tags=["search"])
+app.include_router(llm_call.router, prefix="/llm_call", tags=["llm_call"])
+
 
 app.include_router(video.router, prefix="/video", tags=["video"])
 

@@ -306,9 +306,9 @@ class Message(Base):
 class ChatbotSession(Base):
     __tablename__ = "chatbot_session"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-
-    session_id: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    session_id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, nullable=False
+    )
 
     user_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
 
@@ -547,3 +547,101 @@ class AnalysisDetail(Base):
 
     analysis: Mapped["Analysis"] = relationship(back_populates="details")
     video: Mapped["Video"] = relationship()
+
+
+class LlmCall(Base):
+    __tablename__ = "llm_call"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True,
+        comment="자동 증분 ID",
+    )
+
+    call_type: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        comment="호출 유형 (1: 인상착의 한영변환, 2: 챗봇)",
+    )
+
+    search_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("search.id"),
+        nullable=True,
+        comment="연계된 검색 요청 (search의 PK), 없으면 NULL",
+    )
+
+    user_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("user.id"),
+        nullable=True,
+        comment="요청자 (users의 PK), 챗봇 등 비로그인은 NULL",
+    )
+
+    chatbot_s_id: Mapped[str | None] = mapped_column(
+        String(36),
+        nullable=True,
+        comment="챗봇 대화 단위 묶음 ID (LangGraph 멀티 호출 대비)",
+    )
+
+    model_name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        comment="사용 모델",
+    )
+
+    prompt: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="입력 프롬프트",
+    )
+
+    response: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="응답 원문 (실패 시 NULL)",
+    )
+
+    input_tokens: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="입력 토큰 수",
+    )
+
+    output_tokens: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="출력 토큰 수",
+    )
+
+    latency_ms: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="응답 소요 시간(ms)",
+    )
+
+    cost: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+        comment="환산 비용 (모델 단가 * 토큰)",
+    )
+
+    status: Mapped[str] = mapped_column(
+        String(10),
+        nullable=False,
+        comment="호출 상태 (0: 실패, 1: 성공)",
+    )
+
+    error_msg: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        comment="실패 사유 (status=0일 때)",
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        server_default=func.current_timestamp(),
+        comment="호출 일시",
+    )
