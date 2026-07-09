@@ -40,8 +40,8 @@ class LLmCallRepository:
         if params.user_id is not None:
             query = query.filter(LlmCall.user_id == params.user_id)
 
-        if params.conversation_id is not None:
-            query = query.filter(LlmCall.conversation_id == params.conversation_id)
+        if params.chatbot_s_id is not None:
+            query = query.filter(LlmCall.chatbot_s_id == params.chatbot_s_id)
 
         if params.model_name is not None:
             query = query.filter(LlmCall.model_name == params.model_name)
