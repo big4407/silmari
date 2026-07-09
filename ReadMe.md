@@ -312,7 +312,7 @@ python scripts/smoke_test_auth.py
 
 ## 알려진 이슈 / 진행 중
 
-- **`Region` 시드 데이터 없음** — 지역명→region_code 조회(`RegionRepository.find_codes_by_keyword`)가 매칭 실패 시 지역 필터 없이 진행하도록 되어 있어 당장 에러는 안 나지만, 실제 지역 필터링을 쓰려면 `region` 테이블을 채우는 경로가 다시 필요합니다.
+- **`region` 테이블 비어 있음** — 지역명→region_code 조회(`RegionRepository.find_codes_by_keyword`)가 매칭 실패 시 지역 필터 없이 진행하도록 되어 있어 당장 에러는 안 나지만, 실제 지역 필터링을 쓰려면 관리 UI 또는 `administrative_dong.csv` import로 `region` 테이블을 채워야 합니다.
 - **`routers/video.py`, `core/vision/`, `core/llm/`, `core/pipeline.py`** — 실제 YOLO/FashionCLIP 인덱싱 로직은 `services/video_service.py`로 옮겨갔고, 이 파일들은 대부분 비어있거나 스텁 상태입니다. 특히 `/cctv` 화면(`CCTVUpload.jsx`)이 호출하는 영상 업로드→분석 API가 지금 없어서 이 화면은 동작하지 않습니다 — `routers/video.py`를 채우는 게 이걸 되살리는 자연스러운 자리입니다.
 - **CORS** — `main.py`가 `allow_origins=["*"]` + `allow_credentials=True` 조합인데, 이 조합은 브라우저가 무효로 취급합니다. 운영 전에는 반드시 실제 프론트 도메인으로 좁혀야 합니다.
 - **챗봇의 `start_time`/`end_time`** — LLM이 추출한 시간대 정보가 아직 `Search.start_date`/`end_date`(실제 영상 검색 기간 필터)로 연결되지 않고 응답 문구에 참고용으로만 표시됩니다.

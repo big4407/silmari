@@ -24,8 +24,6 @@ from backend.db.models import (
     LoginHistory,
     Region,
     RetentionPolicy,
-    SysCodeGroup,
-    SysCodeItem,
     User,
     UserRole,
     Video,
@@ -58,11 +56,6 @@ from backend.schemas.retention_schema import (
 from backend.services.integrity_service import IntegrityService
 from backend.services.retention_service import RetentionService
 from backend.schemas.region_schema import (
-    CodeGroupEntry,
-    CodeGroupItem,
-    CodeGroupListResponse,
-    CodeGroupUpdate,
-    CodeItemUpdate,
     RegionCreate,
     RegionItem,
     RegionListResponse,
@@ -71,7 +64,6 @@ from backend.schemas.region_schema import (
     RegionUpdate,
 )
 from backend.services.region_admin_service import RegionAdminService
-from backend.services.code_group_service import CodeGroupService
 
 router = APIRouter(prefix="/admin")
 
@@ -747,98 +739,6 @@ def delete_region(
         ip_address=request.client.host if request.client else None,
     )
     db.commit()
-
-
-@router.get("/code-groups", response_model=CodeGroupListResponse)
-def list_code_groups(
-    _: User = Depends(require_roles(UserRole.ADMIN)),
-    db: Session = Depends(get_db),
-) -> CodeGroupListResponse:
-    """시스템 코드 그룹 — DB 메타 + 참조 수."""
-    return CodeGroupService(db).build_list()
-
-
-@router.patch("/code-groups/{group_key}", response_model=CodeGroupItem)
-def update_code_group(
-    group_key: str,
-    payload: CodeGroupUpdate,
-    request: Request,
-    admin: User = Depends(require_roles(UserRole.ADMIN)),
-    db: Session = Depends(get_db),
-) -> CodeGroupItem:
-    group = db.get(SysCodeGroup, group_key)
-    if group is None:
-        raise HTTPException(status_code=404, detail="코드 그룹을 찾을 수 없습니다.")
-    before = {"group_label": group.group_label, "description": group.description}
-    data = payload.model_dump(exclude_unset=True)
-    if "group_label" in data and data["group_label"]:
-        group.group_label = data["group_label"].strip()
-    if "description" in data:
-        group.description = data["description"].strip() if data["description"] else None
-    AuditService(db).record_admin_action(
-        actor_id=admin.id,
-        action_type=AdminAction.UPDATE,
-        target_type="code_group",
-        target_id=group_key,
-        detail={"before": before, "after": data},
-        ip_address=request.client.host if request.client else None,
-    )
-    db.commit()
-    refreshed = CodeGroupService(db).build_list()
-    for g in refreshed.groups:
-        if g.group == group_key:
-            return g
-    raise HTTPException(status_code=500, detail="갱신된 그룹을 찾지 못했습니다.")
-
-
-@router.patch(
-    "/code-groups/{group_key}/items/{code}",
-    response_model=CodeGroupEntry,
-)
-def update_code_item(
-    group_key: str,
-    code: str,
-    payload: CodeItemUpdate,
-    request: Request,
-    admin: User = Depends(require_roles(UserRole.ADMIN)),
-    db: Session = Depends(get_db),
-) -> CodeGroupEntry:
-    item = db.scalar(
-        select(SysCodeItem).where(
-            SysCodeItem.group_key == group_key,
-            SysCodeItem.code == code,
-        )
-    )
-    if item is None:
-        raise HTTPException(status_code=404, detail="코드 항목을 찾을 수 없습니다.")
-    before = {
-        "label": item.label,
-        "description": item.description,
-        "is_active": item.is_active,
-    }
-    data = payload.model_dump(exclude_unset=True)
-    if "label" in data and data["label"]:
-        item.label = data["label"].strip()
-    if "description" in data:
-        item.description = data["description"].strip() if data["description"] else None
-    if "is_active" in data and data["is_active"] is not None:
-        item.is_active = data["is_active"]
-    AuditService(db).record_admin_action(
-        actor_id=admin.id,
-        action_type=AdminAction.UPDATE,
-        target_type="code_item",
-        target_id=f"{group_key}:{code}",
-        detail={"before": before, "after": data},
-        ip_address=request.client.host if request.client else None,
-    )
-    db.commit()
-    group_list = CodeGroupService(db).build_list()
-    for g in group_list.groups:
-        if g.group == group_key:
-            for entry in g.items:
-                if entry.code == code:
-                    return entry
-    raise HTTPException(status_code=500, detail="갱신된 항목을 찾지 못했습니다.")
 
 
 @router.get("/retention-policies", response_model=RetentionPolicyListResponse)

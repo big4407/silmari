@@ -1,4 +1,4 @@
-"""행정구역·기준 코드 그룹 API 스키마."""
+"""행정구역 API 스키마."""
 
 from datetime import datetime
 
@@ -46,34 +46,3 @@ class RegionOption(BaseModel):
 
 class RegionOptionsResponse(BaseModel):
     items: list[RegionOption]
-
-
-class CodeGroupEntry(BaseModel):
-    id: int | None = None
-    code: str
-    label: str
-    ref_count: int = 0
-    description: str | None = None
-    is_active: bool = True
-
-
-class CodeItemUpdate(BaseModel):
-    label: str | None = Field(default=None, max_length=100)
-    description: str | None = Field(default=None, max_length=300)
-    is_active: bool | None = None
-
-
-class CodeGroupUpdate(BaseModel):
-    group_label: str | None = Field(default=None, max_length=100)
-    description: str | None = Field(default=None, max_length=300)
-
-
-class CodeGroupItem(BaseModel):
-    group: str
-    group_label: str
-    description: str | None = None
-    items: list[CodeGroupEntry] = Field(default_factory=list)
-
-
-class CodeGroupListResponse(BaseModel):
-    groups: list[CodeGroupItem]

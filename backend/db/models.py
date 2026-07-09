@@ -7,7 +7,6 @@ ORM 모델 정의 — MySQL 테이블과 1:1 매핑.
 
 # db/models.py
 from sqlalchemy import (
-    Column,
     Date,
     Integer,
     Boolean,
@@ -17,8 +16,6 @@ from sqlalchemy import (
     Float,
     Enum,
     ForeignKey,
-    func,
-    CHAR,
     JSON,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -395,39 +392,6 @@ class RegionLegalDong(Base):
     )
 
     admin_region: Mapped["Region"] = relationship(back_populates="legal_dongs")
-
-
-class SysCodeGroup(Base):
-    """시스템 enum 코드 그룹 메타 (라벨·설명). code 값은 Python enum 과 동기."""
-
-    __tablename__ = "sys_code_group"
-
-    group_key: Mapped[str] = mapped_column(String(50), primary_key=True)
-    group_label: Mapped[str] = mapped_column(String(100), nullable=False)
-    description: Mapped[str | None] = mapped_column(String(300), nullable=True)
-    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-
-    items: Mapped[list["SysCodeItem"]] = relationship(
-        back_populates="group", cascade="all, delete-orphan"
-    )
-
-
-class SysCodeItem(Base):
-    """그룹별 코드 항목 — 표시 라벨·활성 여부만 관리 (코드값 자체는 변경 불가)."""
-
-    __tablename__ = "sys_code_item"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    group_key: Mapped[str] = mapped_column(
-        ForeignKey("sys_code_group.group_key"), nullable=False, index=True
-    )
-    code: Mapped[str] = mapped_column(String(20), nullable=False)
-    label: Mapped[str] = mapped_column(String(100), nullable=False)
-    description: Mapped[str | None] = mapped_column(String(300), nullable=True)
-    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-
-    group: Mapped["SysCodeGroup"] = relationship(back_populates="items")
 
 
 class Video(Base):
