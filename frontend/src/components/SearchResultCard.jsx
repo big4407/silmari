@@ -14,7 +14,8 @@ export default function SearchResultCard({
   onDelete,
   deleting,
 }) {
-  const confidencePct = Math.round(result.best_confidence * 100);
+  const confidencePct = Math.round((result.best_confidence || 0) * 100);
+  const hasThumb = Boolean(result.thumbnail_url);
 
   return (
     <article
@@ -33,11 +34,17 @@ export default function SearchResultCard({
         }}
       >
         <div className="search-card__img-wrap">
-          <img
-            src={result.thumbnail_url}
-            alt={result.video_filename}
-            className="search-card__img"
-          />
+          {hasThumb ? (
+            <img
+              src={result.thumbnail_url}
+              alt={result.video_filename || result.person_name}
+              className="search-card__img"
+            />
+          ) : (
+            <div className="search-card__img search-card__img--placeholder">
+              {result.person_name || '검색'}
+            </div>
+          )}
           <button
             type="button"
             className="search-card__delete"

@@ -1,7 +1,6 @@
 /** 리포트 뷰 — 시간·지역·검색 통계 (목 UI) */
 import PageHead from '../components/PageHead';
 import EmptyState, { StatValue, TableEmptyRow } from '../components/EmptyState';
-import AdminFeaturePending from '../components/AdminFeaturePending';
 
 export function RepTimeView() {
   return (
@@ -18,7 +17,9 @@ export function RepTimeView() {
           <option>실종 발생시각 기준</option>
         </select>
         <div className="admin-spacer" />
-        <AdminFeaturePending label="리포트보내기" />
+        <button type="button" className="admin-btn" disabled>
+          리포트보내기
+        </button>
       </div>
       <div className="admin-cols">
         <div className="admin-card">
@@ -53,7 +54,9 @@ export function RepRegionView() {
           <option>전체 시·도</option>
         </select>
         <div className="admin-spacer" />
-        <AdminFeaturePending label="리포트보내기" />
+        <button type="button" className="admin-btn" disabled>
+          리포트보내기
+        </button>
       </div>
       <div className="admin-card admin-table-wrap">
         <div className="admin-card-h">지역별 실종 발생 · CCTV 커버리지</div>

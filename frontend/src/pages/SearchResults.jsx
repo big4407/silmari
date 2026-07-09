@@ -1,8 +1,7 @@
 /**
- * 탐지 결과 목록·상세·클립 재생.
+ * 탐지·검색 결과 목록·상세.
  *
- * [모드] activeSearch(선택된 검색 컨텍스트) 또는 DB 이력(fetchSearchResults)
- * [UI] MissingPersonSidebar + ClipSequencePlayer + SearchResultCard
+ * [모드] activeSearch(선택한 검색 컨텍스트) 또는 DB 이력(fetchSearchResults → /search)
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -51,6 +50,11 @@ function buildSidebarPerson(activeSearch, selectedResult, firstResult) {
   return resultToSidebar(selectedResult || firstResult);
 }
 
+function thumbUrl(path) {
+  if (!path) return '';
+  return path.startsWith('http') ? path : `${API_BASE}${path}`;
+}
+
 export default function SearchResults() {
   const { selectedPerson, selectedRegion, activeSearch } = useDetectionStore();
   const [results, setResults] = useState([]);
@@ -59,7 +63,7 @@ export default function SearchResults() {
   const [error, setError] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [clearingAll, setClearingAll] = useState(false);
-  const [sortBy, setSortBy] = useState('confidence-desc');
+  const [sortBy, setSortBy] = useState('newest');
   const [activeClipIndex, setActiveClipIndex] = useState(0);
 
   const searchParams = useMemo(() => {
@@ -169,12 +173,8 @@ export default function SearchResults() {
 
   const clipsWithFullUrl = selectedResult?.clips?.map((c) => ({
     ...c,
-    url: c.url.startsWith('http') ? c.url : `${API_BASE}${c.url}`,
-    thumbnail_url: c.thumbnail_url
-      ? c.thumbnail_url.startsWith('http')
-        ? c.thumbnail_url
-        : `${API_BASE}${c.thumbnail_url}`
-      : null,
+    url: thumbUrl(c.url),
+    thumbnail_url: c.thumbnail_url ? thumbUrl(c.thumbnail_url) : null,
   }));
 
   const contextLabel = activeSearch
@@ -244,7 +244,7 @@ export default function SearchResults() {
             onClick={handleDeleteAll}
             disabled={clearingAll || loading}
           >
-            {clearingAll ? '삭제 중...' : '전체 삭제'}
+            {clearingAll ? '삭제 중…' : '전체 삭제'}
           </button>
         )}
       </header>
@@ -253,7 +253,8 @@ export default function SearchResults() {
         <main className="search-page__main">
           {!activeSearch && !selectedPerson && (
             <p className="search-page__hint">
-              선택한 안내문자 또는 저장된 검색 조건에 맞는 결과가 여기에 표시됩니다.
+              선택한 안내문자 또는 저장된 검색 조건에 맞는 결과가 여기에
+              표시됩니다.
             </p>
           )}
 
@@ -268,7 +269,7 @@ export default function SearchResults() {
               <div className="search-page__analysis-text">
                 {analysisSummary.noMatch ? (
                   <p>
-                    분석이 완료되었으나 탐지된 후보가 없습니다.
+                    분석은 완료되었으나 일치 후보가 없습니다.
                     <span className="search-page__analysis-meta">
                       {analysisSummary.videoFilename}
                     </span>
@@ -286,7 +287,7 @@ export default function SearchResults() {
           )}
 
           <div className="search-page__content">
-            {loading && <p className="search-page__status">불러오는 중...</p>}
+            {loading && <p className="search-page__status">불러오는 중…</p>}
             {error && <p className="search-page__error">{error}</p>}
 
             {resultStats && !selectedResult && (
@@ -294,12 +295,16 @@ export default function SearchResults() {
                 <span className="search-page__stat">
                   탐지 <strong>{resultStats.count}</strong>건
                 </span>
-                <span className="search-page__stat">
-                  최고 신뢰도 <strong>{resultStats.maxConfidence}%</strong>
-                </span>
-                <span className="search-page__stat">
-                  클립 <strong>{resultStats.totalClips}</strong>개
-                </span>
+                {resultStats.totalClips > 0 && (
+                  <>
+                    <span className="search-page__stat">
+                      최고 신뢰도 <strong>{resultStats.maxConfidence}%</strong>
+                    </span>
+                    <span className="search-page__stat">
+                      클립 <strong>{resultStats.totalClips}</strong>개
+                    </span>
+                  </>
+                )}
                 <div className="search-page__sort">
                   <label htmlFor="result-sort">정렬</label>
                   <select
@@ -330,7 +335,10 @@ export default function SearchResults() {
               (results.length === 0 ? (
                 <div className="search-page__empty">
                   <p>아직 검색 결과가 없습니다.</p>
-                  <p>안내문자를 선택한 뒤 저장된 검색 결과를 확인해 주세요.</p>
+                  <p>
+                    대시보드에서 안내문자를 선택하거나 챗봇·CCTV 분석을
+                    진행해 주세요.
+                  </p>
                 </div>
               ) : (
                 <div className="search-grid">
@@ -339,9 +347,7 @@ export default function SearchResults() {
                       key={r.id}
                       result={{
                         ...r,
-                        thumbnail_url: r.thumbnail_url.startsWith('http')
-                          ? r.thumbnail_url
-                          : `${API_BASE}${r.thumbnail_url}`,
+                        thumbnail_url: thumbUrl(r.thumbnail_url),
                       }}
                       onClick={setSelectedResult}
                       onDelete={handleDeleteResult}
@@ -351,7 +357,7 @@ export default function SearchResults() {
                 </div>
               ))}
 
-            {selectedResult && (
+            {selectedResult && clipsWithFullUrl?.length > 0 && (
               <div className="search-page__detail">
                 <ClipSequencePlayer
                   clips={clipsWithFullUrl}
@@ -369,6 +375,25 @@ export default function SearchResults() {
                     null
                   }
                 />
+              </div>
+            )}
+
+            {selectedResult && !clipsWithFullUrl?.length && (
+              <div className="search-page__empty">
+                <p>
+                  <strong>{selectedResult.person_name}</strong> 검색 기록입니다.
+                </p>
+                <p>
+                  {selectedResult.description ||
+                    '영상 클립 결과는 CCTV 분석 연동 후 표시됩니다.'}
+                </p>
+                <button
+                  type="button"
+                  className="search-page__clear-btn"
+                  onClick={() => setSelectedResult(null)}
+                >
+                  목록으로
+                </button>
               </div>
             )}
           </div>

@@ -1,4 +1,4 @@
-/** 로그인 UI — POST /api/auth/login 연동 */
+/** 로그인 UI — POST /member/auth/login 연동 */
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import LandingHeader from '../components/LandingHeader';
@@ -7,7 +7,7 @@ import './AuthPage.css';
 
 const FEATURES = [
   { icon: '01', text: 'AI 이미지 분석으로 인상착의 기반 실종자 검색' },
-  { icon: '02', text: '안전안내문자 연동 실시간 매칭 알림' },
+  { icon: '02', text: '재난안전문자 연동 실시간 매칭 알림' },
   { icon: '03', text: 'CCTV 영상 분석 및 검색 이력 관리' },
 ];
 
@@ -51,7 +51,7 @@ export default function Login() {
             <p className="auth-panel__eyebrow">Silmari Account</p>
             <h2 className="auth-panel__title">실종자 검색을 시작하세요</h2>
             <p className="auth-panel__desc">
-              실마리는 AI 이미지 분석과 안전안내문자 연동으로 실종자를 빠르게
+              실마리는 AI 이미지 분석과 재난안전문자 연동으로 실종자를 빠르게
               찾는 통합 검색 시스템입니다.
             </p>
             <ul className="auth-panel__features">
@@ -114,6 +114,8 @@ export default function Login() {
           </div>
         </div>
       </main>
+
+      <footer className="auth-page__footer" />
     </div>
   );
 }

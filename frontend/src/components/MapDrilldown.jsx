@@ -26,6 +26,17 @@ import './MapDrilldown.css';
 
 const KOREA_BOUNDS = L.latLngBounds([33.0, 124.5], [39.0, 132.1]);
 
+const MAP_FIT_ANIMATION = {
+  duration: 0.75,
+  easeLinearity: 0.22,
+};
+
+function stopMapMotion(map) {
+  if (map._animatingZoom || map._panAnim?._inProgress) {
+    map.stop();
+  }
+}
+
 function getDisplayLabel(_selected, shortLabel, geoName) {
   const compound = (geoName || '').match(/^(.+시)(.+[구군])$/);
   if (compound) return compound[2];
@@ -45,7 +56,7 @@ function createLabelIcon(shortLabel, count, isActive, permanent) {
     iconSize: [0, 0],
     iconAnchor: [0, 0],
   });
-ㅛ}
+}
 
 export default function MapDrilldown({
   onRegionSelect,
@@ -172,13 +183,12 @@ export default function MapDrilldown({
 
   const fitMapToLayer = useCallback((map, layer, key) => {
     if (!layer.getBounds().isValid()) return;
-    map.fitBounds(layer.getBounds(), {
+    stopMapMotion(map);
+    map.flyToBounds(layer.getBounds(), {
       padding: [12, 12],
       maxZoom: key === 'root' ? 9 : hasDongDrilldown(key) ? 15 : 11,
-      animate: true,
-      duration: 0.65,
+      ...MAP_FIT_ANIMATION,
     });
-    requestAnimationFrame(() => map.invalidateSize());
   }, []);
 
   const fitMapToSelection = useCallback((map, selected, key) => {
@@ -195,13 +205,12 @@ export default function MapDrilldown({
     const group = L.featureGroup(activeLayers);
     if (!group.getBounds().isValid()) return false;
 
-    map.fitBounds(group.getBounds(), {
+    stopMapMotion(map);
+    map.flyToBounds(group.getBounds(), {
       padding: [48, 48],
       maxZoom: key === 'root' ? 8 : hasDongDrilldown(key) ? 16 : 13,
-      animate: true,
-      duration: 0.65,
+      ...MAP_FIT_ANIMATION,
     });
-    requestAnimationFrame(() => map.invalidateSize());
     return true;
   }, []);
 
@@ -235,10 +244,10 @@ export default function MapDrilldown({
         const mapPath = pathRef.current;
         const sidoId = mapPath.length >= 2 ? mapPath[1] : null;
         const guLabel =
-          activeGuRef.current?.label ||
-          getGuLabelFromPath(mapPath, selectedRegionRef.current);
+          activeGuRef.current?.label || getGuLabelFromPath(mapPath);
         geojson = await loadMapGeoJson(key, { sidoId, guLabel });
-      } catch {
+      } catch (error) {
+        console.error('행정동 경계 로드 실패:', error);
         setGeoLoading(false);
         return;
       } finally {
@@ -335,7 +344,11 @@ export default function MapDrilldown({
             }
           });
           featureLayer.on('mouseout', applyFeatureStyle);
-          featureLayer.on('click', () => {
+          featureLayer.on('click', (e) => {
+            const target = e.originalEvent?.target;
+            if (target && typeof target.blur === 'function') {
+              target.blur();
+            }
             const center = getFeatureCenter(featureLayer);
             selectRegionRef.current({
               ...region,
@@ -366,14 +379,20 @@ export default function MapDrilldown({
       zoom: 8,
       zoomControl: true,
       maxBounds: KOREA_BOUNDS,
-      maxBoundsViscosity: 1.0,
+      maxBoundsViscosity: 0.85,
       minZoom: 6,
+      maxZoom: 16,
       attributionControl: false,
-      preferCanvas: true,
+      preferCanvas: false,
       zoomAnimation: true,
       fadeAnimation: true,
       markerZoomAnimation: true,
-      wheelPxPerZoomLevel: 80,
+      zoomSnap: 0.5,
+      zoomDelta: 0.5,
+      zoomAnimationThreshold: 10,
+      wheelPxPerZoomLevel: 55,
+      inertia: true,
+      easeLinearity: 0.2,
     });
 
     mapInstanceRef.current = map;
@@ -390,7 +409,7 @@ export default function MapDrilldown({
     const map = mapInstanceRef.current;
     if (!map) return;
     renderGeoLayer(map);
-  }, [currentKey, renderGeoLayer]);
+  }, [currentKey, activeGu, renderGeoLayer]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
@@ -421,8 +440,15 @@ export default function MapDrilldown({
     const map = mapInstanceRef.current;
     if (!map || !mapRef.current) return;
 
+    let resizeRaf = null;
     const observer = new ResizeObserver(() => {
-      map.invalidateSize();
+      if (resizeRaf) cancelAnimationFrame(resizeRaf);
+      resizeRaf = requestAnimationFrame(() => {
+        resizeRaf = null;
+        if (!map._animatingZoom) {
+          map.invalidateSize({ animate: false });
+        }
+      });
     });
     observer.observe(mapRef.current);
     return () => observer.disconnect();

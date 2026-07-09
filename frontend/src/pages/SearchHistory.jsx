@@ -1,12 +1,11 @@
 /**
- * 검색 이력 — CCTV 분석 세션 목록.
+ * 검색 이력 — CCTV 분석·검색 요청 목록.
  *
- * GET /api/detection-results?detail=summary 연동.
- * 행 클릭 시 해당 안내문자 컨텍스트로 검색 결과 페이지 이동.
+ * GET /search 연동 (dev 구조).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { API_BASE, fetchSearchHistory } from '../api/client';
+import { fetchSearchHistory } from '../api/client';
 import { useDetectionStore } from '../store/useDetectionStore';
 import './SearchHistory.css';
 
@@ -21,11 +20,6 @@ function formatDateTime(iso) {
   });
 }
 
-function formatConfidence(value) {
-  if (value == null || Number.isNaN(value)) return '-';
-  return `${(value * 100).toFixed(1)}%`;
-}
-
 function truncateText(text, max = 48) {
   if (!text) return '-';
   const trimmed = text.replace(/\s+/g, ' ').trim();
@@ -37,20 +31,6 @@ function personLabel(item) {
   const name = item.person_name || '미상';
   if (item.person_age) return `${name} (${item.person_age}세)`;
   return name;
-}
-
-function confidenceLevel(value) {
-  if (value == null || Number.isNaN(value)) {
-    return { label: '-', className: 'search-history__badge--muted' };
-  }
-  const pct = value * 100;
-  if (pct >= 80) {
-    return { label: formatConfidence(value), className: 'search-history__badge--high' };
-  }
-  if (pct >= 60) {
-    return { label: formatConfidence(value), className: 'search-history__badge--mid' };
-  }
-  return { label: formatConfidence(value), className: 'search-history__badge--low' };
 }
 
 function isWithinPeriod(iso, period) {
@@ -121,36 +101,21 @@ export default function SearchHistory() {
     const todayItems = items.filter((item) =>
       isWithinPeriod(item.created_at, 'today'),
     );
-    const confidences = items
-      .map((item) => item.best_confidence)
-      .filter((v) => v != null && !Number.isNaN(v));
-    const avgConfidence = confidences.length
-      ? confidences.reduce((sum, v) => sum + v, 0) / confidences.length
-      : null;
-
     return {
       total: items.length,
       today: todayItems.length,
-      avgConfidence:
-        avgConfidence != null ? `${(avgConfidence * 100).toFixed(1)}%` : '-',
     };
   }, [items]);
 
   const handleOpenResults = (item) => {
     setActiveSearch({
-      alertText: item.alert_text,
+      alertText: item.alert_text || '',
       smsInfo: item.sms_info || {
         name: item.person_name,
         age: item.person_age,
       },
       region: item.region && item.region !== '-' ? item.region : null,
       searchResultId: item.id,
-      analysisSummary: {
-        totalDetections: item.candidate_count ?? item.clips?.length ?? 1,
-        videoFilename: item.video_filename,
-        noMatch: false,
-        demoMode: false,
-      },
     });
     navigate('/search-results');
   };
@@ -179,12 +144,8 @@ export default function SearchHistory() {
             <strong>{summary.total}</strong>
           </div>
           <div className="search-history__stat-card">
-            <span className="search-history__stat-label">오늘 분석</span>
+            <span className="search-history__stat-label">오늘 검색</span>
             <strong>{summary.today}</strong>
-          </div>
-          <div className="search-history__stat-card">
-            <span className="search-history__stat-label">평균 신뢰도</span>
-            <strong>{summary.avgConfidence}</strong>
           </div>
         </div>
 
@@ -197,7 +158,11 @@ export default function SearchHistory() {
             onChange={(e) => setKeyword(e.target.value)}
             aria-label="검색 이력 필터"
           />
-          <div className="search-history__period" role="tablist" aria-label="기간 필터">
+          <div
+            className="search-history__period"
+            role="tablist"
+            aria-label="기간 필터"
+          >
             {[
               { id: 'all', label: '전체' },
               { id: 'today', label: '오늘' },
@@ -224,7 +189,7 @@ export default function SearchHistory() {
         {!loading && !error && filteredItems.length === 0 && (
           <div className="search-history__empty">
             <p>저장된 검색 이력이 없습니다.</p>
-            <p>탐지 결과가 저장되면 이력이 여기에 표시됩니다.</p>
+            <p>대시보드에서 안내문자를 선택하거나 챗봇으로 검색해 보세요.</p>
             <Link to="/dashboard" className="search-history__cta">
               실종자 검색
             </Link>
@@ -239,73 +204,41 @@ export default function SearchHistory() {
                   <th scope="col">검색 일시</th>
                   <th scope="col">대상자</th>
                   <th scope="col">지역</th>
-                  <th scope="col">안내문자</th>
-                  <th scope="col">영상</th>
-                  <th scope="col">신뢰도</th>
+                  <th scope="col">인상착의</th>
                   <th scope="col" className="search-history__col-action">
                     결과
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {filteredItems.map((item) => {
-                  const thumbUrl = item.thumbnail_url?.startsWith('http')
-                    ? item.thumbnail_url
-                    : `${API_BASE}${item.thumbnail_url}`;
-
-                  return (
-                    <tr
-                      key={item.id}
-                      className="search-history__row"
-                      onClick={() => handleOpenResults(item)}
-                    >
-                      <td>{formatDateTime(item.created_at)}</td>
-                      <td>
-                        <div className="search-history__person">
-                          {item.thumbnail_url && (
-                            <img
-                              src={thumbUrl}
-                              alt=""
-                              className="search-history__thumb"
-                            />
-                          )}
-                          <span>{personLabel(item)}</span>
-                        </div>
-                      </td>
-                      <td>{item.region || '-'}</td>
-                      <td title={item.alert_text}>
-                        {truncateText(item.alert_text)}
-                      </td>
-                      <td title={item.video_filename}>
-                        {truncateText(item.video_filename, 24)}
-                      </td>
-                      <td>
-                        {(() => {
-                          const badge = confidenceLevel(item.best_confidence);
-                          return (
-                            <span
-                              className={`search-history__badge ${badge.className}`}
-                            >
-                              {badge.label}
-                            </span>
-                          );
-                        })()}
-                      </td>
-                      <td className="search-history__col-action">
-                        <button
-                          type="button"
-                          className="search-history__view-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenResults(item);
-                          }}
-                        >
-                          결과 보기
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {filteredItems.map((item) => (
+                  <tr
+                    key={item.id}
+                    className="search-history__row"
+                    onClick={() => handleOpenResults(item)}
+                  >
+                    <td>{formatDateTime(item.created_at)}</td>
+                    <td>
+                      <span>{personLabel(item)}</span>
+                    </td>
+                    <td>{item.region || '-'}</td>
+                    <td title={item.description}>
+                      {truncateText(item.description)}
+                    </td>
+                    <td className="search-history__col-action">
+                      <button
+                        type="button"
+                        className="search-history__view-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenResults(item);
+                        }}
+                      >
+                        결과 보기
+                      </button>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

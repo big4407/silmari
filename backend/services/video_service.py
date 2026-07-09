@@ -297,3 +297,24 @@ class VideoService:
             where={"video_id": video_id},
         )
         return result  # result["metadatas"][0]에  image_path가 있어 crop을 볼 수 있음.
+
+    def search_embeddings_multi(
+        self, query: str, video_ids: list[int] | None = None, n_results: int = 20
+    ):
+        """여러 영상(video_ids)의 임베딩 안에서 텍스트 유사도로 검색한다.
+
+        video_ids가 None이면 전체 컬렉션에서 검색한다(지역·기간 필터 없이 전수 검색).
+        하나의 챗봇/검색 요청은 보통 지역·기간으로 video_ids를 먼저 좁혀서 넘긴다.
+        """
+        text_embeddings = _fclip.encode_text([query], batch_size=1)
+        text_embeddings = text_embeddings / np.linalg.norm(
+            text_embeddings, axis=1, keepdims=True
+        )
+        collection = get_chromadb()
+        kwargs = {
+            "query_embeddings": text_embeddings.tolist(),
+            "n_results": n_results,
+        }
+        if video_ids:
+            kwargs["where"] = {"video_id": {"$in": video_ids}}
+        return collection.query(**kwargs)

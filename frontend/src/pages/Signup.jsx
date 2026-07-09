@@ -1,4 +1,4 @@
-/** 회원가입 UI — POST /api/auth/signup (승인 대기 상태로 신청) */
+/** 회원가입 UI — POST /member/auth/signup (승인 대기 상태로 신청) */
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import LandingHeader from '../components/LandingHeader';
@@ -148,9 +148,7 @@ export default function Signup() {
                       required
                     />
                   </div>
-                </div>
-                <div className="auth-form__grid">
-                  <div className="auth-form__field">
+                  <div className="auth-form__field auth-form__field--full">
                     <label className="auth-form__label" htmlFor="signup-email">
                       이메일
                     </label>
@@ -165,7 +163,59 @@ export default function Signup() {
                       required
                     />
                   </div>
+                </div>
+              </div>
+
+              <div className="auth-form__section">
+                <h3 className="auth-form__section-title">소속</h3>
+                <div className="auth-form__grid">
+                  <div className="auth-form__field auth-form__field--full">
+                    <label className="auth-form__label" htmlFor="signup-org">
+                      소속 기관
+                    </label>
+                    <input
+                      id="signup-org"
+                      className="auth-form__input"
+                      type="text"
+                      placeholder="소속 기관"
+                      value={form.organization}
+                      onChange={update('organization')}
+                      required
+                    />
+                  </div>
                   <div className="auth-form__field">
+                    <label
+                      className="auth-form__label"
+                      htmlFor="signup-department"
+                    >
+                      부서
+                    </label>
+                    <input
+                      id="signup-department"
+                      className="auth-form__input"
+                      type="text"
+                      placeholder="선택 입력"
+                      value={form.department}
+                      onChange={update('department')}
+                    />
+                  </div>
+                  <div className="auth-form__field">
+                    <label
+                      className="auth-form__label"
+                      htmlFor="signup-position"
+                    >
+                      직위
+                    </label>
+                    <input
+                      id="signup-position"
+                      className="auth-form__input"
+                      type="text"
+                      placeholder="선택 입력"
+                      value={form.position}
+                      onChange={update('position')}
+                    />
+                  </div>
+                  <div className="auth-form__field auth-form__field--full">
                     <label className="auth-form__label" htmlFor="signup-phone">
                       연락처
                     </label>
@@ -184,25 +234,7 @@ export default function Signup() {
               </div>
 
               <div className="auth-form__section">
-                <h3 className="auth-form__section-title">소속 정보</h3>
-                <div className="auth-form__field">
-                  <label className="auth-form__label" htmlFor="signup-org">
-                    소속 기관
-                  </label>
-                  <input
-                    id="signup-org"
-                    className="auth-form__input"
-                    type="text"
-                    placeholder="소속 기관"
-                    value={form.organization}
-                    onChange={update('organization')}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="auth-form__section">
-                <h3 className="auth-form__section-title">계정 보안</h3>
+                <h3 className="auth-form__section-title">비밀번호</h3>
                 <div className="auth-form__grid">
                   <div className="auth-form__field">
                     <label
@@ -256,6 +288,8 @@ export default function Signup() {
           </div>
         </div>
       </main>
+
+      <footer className="auth-page__footer" />
     </div>
   );
 }

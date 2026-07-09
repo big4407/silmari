@@ -1,7 +1,6 @@
 """
 ORM 모델 정의 — MySQL 테이블과 1:1 매핑.
 
-[탐지] DetectionRecord(레거시), SearchResult(CCTV 분석 결과·클립 메타)
 [인증] User, AuthSession — 승인 기반 RBAC + JWT 세션 철회
 [외부] Message — 재난안전데이터 API 수집 재난문자
 """
@@ -39,34 +38,6 @@ def _default_start_date() -> date:
 def _default_end_date() -> date:
     """검색 기본 종료일 — 오늘(KST)."""
     return kst_now().date()
-
-
-class DetectionRecord(Base):
-    __tablename__ = "detection_records"
-
-    id = Column(Integer, primary_key=True, index=True)
-    alert_text = Column(Text)
-    video_filename = Column(String(255))
-    result_json = Column(Text)
-    created_at = Column(DateTime, default=kst_now)
-
-
-class SearchResult(Base):
-    __tablename__ = "search_results"
-
-    id = Column(Integer, primary_key=True, index=True)
-    alert_text = Column(Text)
-    person_name = Column(String(100), index=True)
-    person_age = Column(Integer, nullable=True)
-    region = Column(String(100), nullable=True)
-    video_filename = Column(String(255))
-    thumbnail_filename = Column(String(255))
-    best_confidence = Column(Float)
-    best_timestamp_sec = Column(Float)
-    clips_json = Column(Text)
-    sms_info_json = Column(Text)
-    description = Column(String(500), nullable=True)
-    created_at = Column(DateTime, default=kst_now)
 
 
 class UserRole(str, enum.Enum):
@@ -390,40 +361,6 @@ class Region(Base):
     parent: Mapped["Region | None"] = relationship(
         remote_side=[region_code], foreign_keys=[parent_code]
     )
-    legal_dongs: Mapped[list["RegionLegalDong"]] = relationship(
-        back_populates="admin_region", cascade="all, delete-orphan"
-    )
-
-
-class RegionLegalDong(Base):
-    """행정동 ↔ 법정동 매핑 — administrative_dong.csv 기준."""
-
-    __tablename__ = "region_legal_dong"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    legal_dong_code: Mapped[str] = mapped_column(
-        String(10), nullable=False, index=True, comment="법정동코드(10자리)"
-    )
-    admin_dong_code: Mapped[str] = mapped_column(
-        ForeignKey("region.region_code"),
-        nullable=False,
-        index=True,
-        comment="행정동코드(region.region_code)",
-    )
-    legal_dong_name: Mapped[str] = mapped_column(
-        String(50), nullable=False, comment="법정동명"
-    )
-    admin_area_code: Mapped[str | None] = mapped_column(
-        String(10), nullable=True, comment="행정구역코드(CSV 행정구역코드)"
-    )
-    revised_at: Mapped[date | None] = mapped_column(
-        Date, nullable=True, comment="개정일자"
-    )
-    link_no: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="연결번호(복수일 수 있음)"
-    )
-
-    admin_region: Mapped["Region"] = relationship(back_populates="legal_dongs")
 
 
 class Video(Base):
@@ -610,56 +547,3 @@ class AnalysisDetail(Base):
 
     analysis: Mapped["Analysis"] = relationship(back_populates="details")
     video: Mapped["Video"] = relationship()
-
-
-class SysCodeGroup(Base):
-    """시스템 enum 코드 그룹 메타 (라벨·설명). code 값은 Python enum 과 동기."""
-
-    __tablename__ = "sys_code_group"
-
-    group_key: Mapped[str] = mapped_column(String(50), primary_key=True)
-    group_label: Mapped[str] = mapped_column(String(100), nullable=False)
-    description: Mapped[str | None] = mapped_column(String(300), nullable=True)
-    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-
-    items: Mapped[list["SysCodeItem"]] = relationship(
-        back_populates="group", cascade="all, delete-orphan"
-    )
-
-
-class SysCodeItem(Base):
-    """그룹별 코드 항목 — 표시 라벨·활성 여부만 관리 (코드값 자체는 변경 불가)."""
-
-    __tablename__ = "sys_code_item"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    group_key: Mapped[str] = mapped_column(
-        ForeignKey("sys_code_group.group_key"), nullable=False, index=True
-    )
-    code: Mapped[str] = mapped_column(String(20), nullable=False)
-    label: Mapped[str] = mapped_column(String(100), nullable=False)
-    description: Mapped[str | None] = mapped_column(String(300), nullable=True)
-    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-
-    group: Mapped["SysCodeGroup"] = relationship(back_populates="items")
-
-
-class RetentionPolicy(Base):
-    """데이터 유형별 보존·만료 정책."""
-
-    __tablename__ = "retention_policy"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    data_type: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
-    data_label: Mapped[str] = mapped_column(String(100), nullable=False)
-    storage_target: Mapped[str] = mapped_column(String(150), nullable=False)
-    retention_days: Mapped[int] = mapped_column(Integer, nullable=False)
-    expiry_action: Mapped[str] = mapped_column(
-        String(30), nullable=False, comment="delete | archive | anonymize"
-    )
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    notes: Mapped[str | None] = mapped_column(String(300), nullable=True)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=kst_now, onupdate=kst_now, nullable=False
-    )

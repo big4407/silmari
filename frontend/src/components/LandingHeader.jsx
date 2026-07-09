@@ -32,14 +32,6 @@ export default function LandingHeader() {
           <div className="landing-header__util">
             {admin && (
               <Link
-                to="/dev"
-                className="landing-header__util-link landing-header__util-link--temp"
-              >
-                API 테스트
-              </Link>
-            )}
-            {admin && (
-              <Link
                 to="/admin"
                 className="landing-header__util-link landing-header__util-link--temp"
               >

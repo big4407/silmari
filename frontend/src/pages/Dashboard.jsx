@@ -2,8 +2,8 @@
  * 메인 대시보드 — 지도 + 실종 안내문자 목록.
  *
  * [지도] MapDrilldown — 시·도/구·군 드릴다운, 지역별 문자 필터
- * [데이터] fetchMessages(/api/messages) + sessionStorage 캐시
- * [액션] 문자 선택 → alertText 저장 → /search-results 이동
+ * [데이터] fetchMessages(/message) + sessionStorage 캐시
+ * [액션] 문자 선택 → alertText 저장 → /cctv 또는 /search-results 이동
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -40,7 +40,12 @@ function resolveDateRange(startDate, endDate) {
 }
 
 function mapMessageToAlert(message) {
-  return { ...message, id: message.sn };
+  const crtDt = message.crt_dt;
+  let crt_dt = crtDt;
+  if (crtDt && String(crtDt).includes('T')) {
+    crt_dt = String(crtDt).slice(0, 10).replace(/-/g, '');
+  }
+  return { ...message, id: message.sn, crt_dt };
 }
 
 const ALERTS_STORAGE_KEY = 'silmari_alerts_cache';
@@ -306,6 +311,13 @@ export default function Dashboard() {
               <button
                 type="button"
                 className="sidebar__action-btn sidebar__action-btn--primary"
+                onClick={() => navigate('/cctv')}
+              >
+                CCTV 분석
+              </button>
+              <button
+                type="button"
+                className="sidebar__action-btn"
                 onClick={() => navigate('/search-results')}
               >
                 검색결과 보기

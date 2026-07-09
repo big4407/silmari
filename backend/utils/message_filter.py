@@ -2,7 +2,7 @@
 재난문자 중 실종 안내문자 판별 필터.
 
 [조건] 재해구분명(dst_se_nm) == "기타" AND 실종 키워드 포함 AND 제외 키워드 없음
-[사용] message_service.collect_messages
+[사용] message_service.collect_messages, safetydata_client
 """
 # 실종자 문자는 재난 문자에서 재해구분명 기타에만 속해있음
 MISSING_PERSON_DISASTER_TYPE = "기타"

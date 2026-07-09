@@ -29,19 +29,9 @@ def get_message_service(db: Session = Depends(get_db)) -> MessageService:
 
 router = APIRouter()
 
-TAG_MESSAGES = ["Messages"]
-
-
 @router.post(
     "/collect",
     response_model=MessageCollectResponse,
-    summary="재난문자 수집",
-    description=(
-        "행정안전부 재난문자 API에서 데이터를 가져와 실종 관련 문자만 필터링한 뒤 "
-        "`message` 테이블에 저장합니다. "
-        "연결: `MessageService.collect_messages` → `DisasterMessageClient` → DB `Message`"
-    ),
-    tags=TAG_MESSAGES,
 )
 async def collect_messages(
     page_no: int = Query(default=1, ge=1),
@@ -61,10 +51,7 @@ async def collect_messages(
 @router.post(
     "/manual_input",
     status_code=201,
-    summary="재난문자 수동 등록",
-    description="테스트·보완용으로 `message` 테이블에 문자를 직접 등록합니다. `sn` 중복 시 오류.",
-    tags=TAG_MESSAGES,
-    include_in_schema=False,
+    summary="문자 수동 등록, crt_dt(생성일시), reg_ymd(등록일자), mdfcn_ymd(수정일자)는 지정하지 않을 시 기본값, sn은 중복될시 오류 발생",
 )
 def manual_input(
     message_data: MessageCreate,
@@ -73,17 +60,15 @@ def manual_input(
     return service.manual_input_message(message_data=message_data)
 
 
-@router.get(
-    "",
-    response_model=MessageListResponse,
-    summary="재난문자 목록 조회",
-    description=(
-        "DB `message` 테이블에서 저장된 재난문자를 페이지네이션·기간·지역·검색어로 조회합니다. "
-        "대시보드(`Dashboard.jsx`)가 이 API를 사용합니다. "
-        "연결: `MessageService.get_message_list` → `MessageRepository.find_all`"
-    ),
-    tags=TAG_MESSAGES,
-)
+@router.get("/{sn}", response_model=MessageResponse, summary="문자 단건 조회")
+def get_message(
+    sn: str = Path(..., min_length=1, max_length=22),
+    service: MessageService = Depends(get_message_service),
+):
+    return service.get_message(sn)
+
+
+@router.get("", response_model=MessageListResponse, summary="문자 전체 조회")
 def get_list(
     page: int = Query(1, ge=1, description="페이지번호"),
     per_page: int = Query(10, ge=1, le=100, description="페이지당 항목 수"),
@@ -99,29 +84,7 @@ def get_list(
     )
 
 
-@router.get(
-    "/{sn}",
-    response_model=MessageResponse,
-    summary="재난문자 단건 조회",
-    description="일련번호(`sn`)로 `message` 테이블에서 문자 1건을 조회합니다.",
-    tags=TAG_MESSAGES,
-    include_in_schema=False,
-)
-def get_message(
-    sn: str = Path(..., min_length=1, max_length=22),
-    service: MessageService = Depends(get_message_service),
-):
-    return service.get_message(sn)
-
-
-@router.delete(
-    "/{sn}",
-    status_code=204,
-    summary="재난문자 삭제",
-    description="일련번호(`sn`)로 `message` 테이블에서 문자 1건을 삭제합니다.",
-    tags=TAG_MESSAGES,
-    include_in_schema=False,
-)
+@router.delete("/{sn}", status_code=204, summary="문자 삭제")
 def delete_message(
     sn: str = Path(..., min_length=1, max_length=22),
     service: MessageService = Depends(get_message_service),

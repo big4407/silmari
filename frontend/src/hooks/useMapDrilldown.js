@@ -77,8 +77,11 @@ export default function useMapDrilldown(onRegionSelect) {
       const gu = REGION_DATA[sidoId]?.regions?.find((r) => r.id === guId);
       if (gu) {
         setActiveGu({ id: gu.id, label: gu.label });
-      } else if (focus.mapFilter?.guLabel) {
-        setActiveGu({ id: guId, label: focus.mapFilter.guLabel });
+      } else if (focus.guLabel || focus.mapFilter?.guLabel) {
+        setActiveGu({
+          id: guId,
+          label: focus.guLabel || focus.mapFilter.guLabel,
+        });
       }
     }
 
@@ -249,7 +252,16 @@ export default function useMapDrilldown(onRegionSelect) {
       setSidoFocus(null);
       setGuFocus(null);
       setDongFocus(null);
-      if (newPath.length < 3) setActiveGu(null);
+      if (newPath.length < 3) {
+        setActiveGu(null);
+      } else if (hasDongDrilldown(crumb.key)) {
+        const gu = REGION_DATA[newPath[1]]?.regions?.find(
+          (r) => r.id === crumb.key,
+        );
+        if (gu) {
+          setActiveGu({ id: gu.id, label: gu.label });
+        }
+      }
       const label = REGION_DATA[crumb.key]?.label || crumb.label;
       setSelectedRegion(label);
       const sido = REGION_DATA.root.regions.find((r) => r.id === crumb.key);
