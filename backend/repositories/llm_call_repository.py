@@ -90,6 +90,28 @@ class LLmCallRepository:
 
         return llm_call
 
+    def update_null_search_id_by_session(
+        self,
+        *,
+        chatbot_s_id: str,
+        search_id: int,
+    ) -> int:
+        updated_count = (
+            self.db.query(LlmCall)
+            .filter(
+                LlmCall.chatbot_s_id == chatbot_s_id,
+                LlmCall.search_id.is_(None),
+            )
+            .update(
+                {LlmCall.search_id: search_id},
+                synchronize_session=False,
+            )
+        )
+
+        self.db.flush()
+
+        return updated_count
+
     def delete(self, llm_call_id: int) -> bool:
         llm_call = self.get_by_id(llm_call_id)
 

@@ -101,7 +101,7 @@ class ChatbotService:
                     chatbot_s_id=session_id,
                     search_id=search_id,
                 )
-            self.db.delete(chatbot_session)
+            self.repository.delete(chatbot_session)
             session_id = None
         else:
             chatbot_session.state_json = result
@@ -117,13 +117,9 @@ class ChatbotService:
         """
         세션을 가져오거나 생성하는 함수
         """
-        chatbot_session = (
-            self.db.query(ChatbotSession)
-            .filter(
-                ChatbotSession.session_id == session_id,
-                ChatbotSession.user_id == user_id,
-            )
-            .first()
+        chatbot_session = self.repository.get_by_session_id_and_user_id(
+            session_id=session_id,
+            user_id=user_id,
         )
 
         if chatbot_session is not None:
@@ -131,17 +127,11 @@ class ChatbotService:
 
         state = create_initial_state(user_id=user_id)
 
-        chatbot_session = ChatbotSession(
+        return self.repository.create(
             session_id=session_id,
             user_id=user_id,
             state_json=state,
         )
-
-        self.db.add(chatbot_session)
-        self.db.commit()
-        self.db.refresh(chatbot_session)
-
-        return chatbot_session
 
     def get_session_messages(self, user_id: str, session_id: str):
         """
