@@ -614,3 +614,23 @@ class AnalysisDetail(Base):
 
     analysis: Mapped["Analysis"] = relationship(back_populates="details")
     video: Mapped["Video"] = relationship()
+
+
+class RetentionPolicy(Base):
+    """데이터 유형별 보존·만료 정책."""
+
+    __tablename__ = "retention_policy"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    data_type: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    data_label: Mapped[str] = mapped_column(String(100), nullable=False)
+    storage_target: Mapped[str] = mapped_column(String(150), nullable=False)
+    retention_days: Mapped[int] = mapped_column(Integer, nullable=False)
+    expiry_action: Mapped[str] = mapped_column(
+        String(30), nullable=False, comment="delete | archive | anonymize"
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    notes: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=kst_now, onupdate=kst_now, nullable=False
+    )

@@ -1,4 +1,4 @@
-"""데이터 정합성 검사 응답 스키마."""
+"""??? ??? ?? ?? ???."""
 
 from datetime import datetime
 
@@ -20,9 +20,9 @@ class IntegrityRunResponse(BaseModel):
     total_issues: int
     checks: list[IntegrityCheckResult]
     delta_issues: int | None = Field(
-        default=None, description="직전 검사 대비 이슈 증감 (없으면 null)"
+        default=None, description="?? ?? ?? ?? ?? (??? null)"
     )
-    run_id: str | None = Field(default=None, description="감사 로그 ID")
+    run_id: str | None = Field(default=None, description="?? ?? ID")
 
 
 class IntegrityCheckIssuesResponse(BaseModel):

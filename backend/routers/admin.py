@@ -5,6 +5,8 @@
 [핵심] PATCH /admin/users/{id}/approval — pending → approved/rejected/suspended
 """
 
+import csv
+import io
 from datetime import date, datetime, time, timezone
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
@@ -21,6 +23,7 @@ from backend.db.models import (
     ApprovalStatus,
     LoginHistory,
     Region,
+    RetentionPolicy,
     SysCodeGroup,
     SysCodeItem,
     User,
@@ -40,9 +43,26 @@ from backend.schemas.admin_history_schema import (
     AdminHistoryListResponse,
 )
 from backend.schemas.data_integrity_schema import (
+    IntegrityCheckIssuesResponse,
+    IntegrityRunResponse,
     RegionClearResult,
     RegionImportResult,
 )
+from backend.schemas.retention_schema import (
+    RetentionDryRunRequest,
+    RetentionDryRunResponse,
+    RetentionPolicyBulkUpdate,
+    RetentionPolicyItem,
+    RetentionPolicyListResponse,
+)
+from backend.services.integrity_audit import (
+    get_integrity_run_by_id,
+    get_previous_integrity_total,
+    latest_integrity_run,
+    record_integrity_run,
+)
+from backend.services.region_integrity import find_integrity_check, run_integrity_suite
+from backend.services.retention_service import dry_run_retention, list_retention_policies
 from backend.schemas.region_schema import (
     CodeGroupEntry,
     CodeGroupItem,
@@ -829,5 +849,203 @@ def update_code_item(
                 if entry.code == code:
                     return entry
     raise HTTPException(status_code=500, detail="갱신된 항목을 찾지 못했습니다.")
+
+
+@router.get("/retention-policies", response_model=RetentionPolicyListResponse)
+def get_retention_policies(
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+    db: Session = Depends(get_db),
+) -> RetentionPolicyListResponse:
+    items = [RetentionPolicyItem.model_validate(row) for row in list_retention_policies(db)]
+    return RetentionPolicyListResponse(items=items)
+
+
+@router.post("/retention-policies/dry-run", response_model=RetentionDryRunResponse)
+def retention_policies_dry_run(
+    payload: RetentionDryRunRequest | None = None,
+    policy_id: int | None = Query(
+        default=None, description="특정 정책만 미리보기. 생략 시 전체"
+    ),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+    db: Session = Depends(get_db),
+) -> RetentionDryRunResponse:
+    """보존 기간 초과 데이터 드라이런 — 삭제·익명화 대상 건수·샘플."""
+    overrides = None
+    if payload and payload.policies:
+        overrides = [p.model_dump(exclude_unset=True) for p in payload.policies]
+    items = dry_run_retention(db, policy_id=policy_id, overrides=overrides)
+    if policy_id is not None and not items:
+        raise HTTPException(status_code=404, detail="보존 정책을 찾을 수 없습니다.")
+    total = sum(i.expired_count for i in items if i.is_active)
+    return RetentionDryRunResponse(items=items, total_affected=total)
+
+
+@router.patch("/retention-policies", response_model=RetentionPolicyListResponse)
+def update_retention_policies(
+    payload: RetentionPolicyBulkUpdate,
+    request: Request,
+    admin: User = Depends(require_roles(UserRole.ADMIN)),
+    db: Session = Depends(get_db),
+) -> RetentionPolicyListResponse:
+    changes: list[dict] = []
+    for patch in payload.policies:
+        policy = db.get(RetentionPolicy, patch.id)
+        if policy is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"보존 정책 id={patch.id} 를 찾을 수 없습니다.",
+            )
+        before = {
+            "retention_days": policy.retention_days,
+            "expiry_action": policy.expiry_action,
+            "is_active": policy.is_active,
+            "notes": policy.notes,
+        }
+        data = patch.model_dump(exclude_unset=True)
+        data.pop("id", None)
+        if "retention_days" in data and data["retention_days"] is not None:
+            policy.retention_days = data["retention_days"]
+        if "expiry_action" in data and data["expiry_action"]:
+            if data["expiry_action"] not in ("delete", "archive", "anonymize"):
+                raise HTTPException(status_code=422, detail="만료 처리 값이 올바르지 않습니다.")
+            policy.expiry_action = data["expiry_action"]
+        if "is_active" in data and data["is_active"] is not None:
+            policy.is_active = data["is_active"]
+        if "notes" in data:
+            policy.notes = data["notes"].strip() if data["notes"] else None
+        changes.append({"id": patch.id, "before": before, "after": data})
+
+    AuditService(db).record_admin_action(
+        actor_id=admin.id,
+        action_type=AdminAction.UPDATE,
+        target_type="retention_policy",
+        target_id="bulk",
+        detail={"changes": changes},
+        ip_address=request.client.host if request.client else None,
+    )
+    db.commit()
+    items = [RetentionPolicyItem.model_validate(row) for row in list_retention_policies(db)]
+    return RetentionPolicyListResponse(items=items)
+
+
+@router.post("/data-integrity/run", response_model=IntegrityRunResponse)
+def run_data_integrity(
+    request: Request,
+    admin: User = Depends(require_roles(UserRole.ADMIN)),
+    db: Session = Depends(get_db),
+) -> IntegrityRunResponse:
+    """행정구역·영상·인증·검색 체인 정합성 검사 실행."""
+    previous_total = get_previous_integrity_total(db)
+    checks, total_issues = run_integrity_suite(db)
+    delta_issues = (
+        total_issues - previous_total if previous_total is not None else None
+    )
+    run_id = record_integrity_run(
+        db,
+        actor_id=admin.id,
+        checks=checks,
+        total_issues=total_issues,
+        delta_issues=delta_issues,
+        ip_address=request.client.host if request.client else None,
+    )
+    db.commit()
+    return IntegrityRunResponse(
+        ran_at=kst_now(),
+        total_issues=total_issues,
+        checks=checks,
+        delta_issues=delta_issues,
+        run_id=run_id,
+    )
+
+
+@router.get("/data-integrity/last", response_model=IntegrityRunResponse)
+def get_last_data_integrity(
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+    db: Session = Depends(get_db),
+) -> IntegrityRunResponse:
+    """가장 최근 정합성 검사 결과 (감사 로그에서 복원)."""
+    result = latest_integrity_run(db)
+    if result is None:
+        raise HTTPException(status_code=404, detail="저장된 검사 이력이 없습니다.")
+    return result
+
+
+@router.get("/data-integrity/runs/{run_id}", response_model=IntegrityRunResponse)
+def get_data_integrity_run(
+    run_id: str,
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+    db: Session = Depends(get_db),
+) -> IntegrityRunResponse:
+    """감사 로그 ID로 정합성 검사 결과 복원."""
+    result = get_integrity_run_by_id(db, run_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="검사 이력을 찾을 수 없습니다.")
+    return result
+
+
+@router.get(
+    "/data-integrity/checks/{check_id}/issues",
+    response_model=IntegrityCheckIssuesResponse,
+)
+def get_data_integrity_check_issues(
+    check_id: str,
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+    db: Session = Depends(get_db),
+) -> IntegrityCheckIssuesResponse:
+    """검사 항목별 전체 이슈 목록 (샘플 제한 없음)."""
+    check = find_integrity_check(db, check_id, sample_limit=None)
+    if check is None:
+        raise HTTPException(status_code=404, detail="검사 항목을 찾을 수 없습니다.")
+    return IntegrityCheckIssuesResponse(
+        check_id=check.check_id,
+        label=check.label,
+        issue_count=check.issue_count,
+        issues=check.samples,
+    )
+
+
+@router.get("/data-integrity/report.csv")
+def download_integrity_report_csv(
+    source: str = Query(
+        default="last",
+        pattern="^(last|fresh)$",
+        description="last: 저장된 최근 결과 | fresh: 지금 다시 검사",
+    ),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+    db: Session = Depends(get_db),
+) -> Response:
+    """정합성 검사 결과 CSV보내기."""
+    if source == "fresh":
+        checks, _ = run_integrity_suite(db)
+        filename = "integrity_report_fresh.csv"
+    else:
+        last = latest_integrity_run(db)
+        if last is None:
+            raise HTTPException(status_code=404, detail="저장된 검사 결과가 없습니다.")
+        checks = last.checks
+        filename = "integrity_report.csv"
+    buf = io.StringIO()
+    writer = csv.writer(buf, lineterminator="\n")
+    writer.writerow(
+        ["check_id", "label", "target", "status", "issue_count", "description", "samples"]
+    )
+    for c in checks:
+        writer.writerow(
+            [
+                c.check_id,
+                c.label,
+                c.target,
+                c.status,
+                c.issue_count,
+                c.description,
+                "; ".join(c.samples),
+            ]
+        )
+    body = "\ufeff" + buf.getvalue()
+    return Response(
+        content=body,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
