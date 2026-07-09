@@ -908,7 +908,7 @@ def download_integrity_report_csv(
 ) -> Response:
     """정합성 검사 결과 CSV보내기."""
     if source == "fresh":
-        checks, _ = IntegrityService(db).run_suite()
+        checks, _total = IntegrityService(db).run_suite()
         filename = "integrity_report_fresh.csv"
     else:
         last = IntegrityService(db).latest_run()
