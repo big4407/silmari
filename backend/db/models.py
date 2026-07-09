@@ -17,6 +17,7 @@ from sqlalchemy import (
     Enum,
     ForeignKey,
     JSON,
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import date, datetime, timedelta
@@ -597,6 +598,9 @@ class RetentionPolicy(Base):
     notes: Mapped[str | None] = mapped_column(String(300), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=kst_now, onupdate=kst_now, nullable=False
+    )
+
+
 class LlmCall(Base):
     __tablename__ = "llm_call"
 
