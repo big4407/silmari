@@ -1,10 +1,50 @@
-import client from './client';
+import axios from 'axios';
 
+import { tokenStore } from './client.js';
+
+const token = tokenStore.getAccess();
+const api = axios.create({
+  baseURL: 'http://localhost:8000',
+});
+
+// 챗봇에 메시지를 보내는 요청을 보내고 응답을 받아와서 data를 반환
 export const sendChatMessage = async ({ sessionId, message }) => {
-  const response = await client.post('/chatbot/chat', {
-    session_id: sessionId,
-    message,
-  });
+  const response = await api.post(
+    '/chatbot/chat',
+    {
+      session_id: sessionId,
+      message,
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
 
   return response.data;
 };
+
+// 챗봇과의 채팅세션을 불러오기 위한 함수
+export const getChatSession = async (sessionId) => {
+  const url = sessionId ? `/chatbot/session/${sessionId}` : `/chatbot/session`;
+
+  const { data } = await api.get(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return data;
+};
+
+// import client from './client';
+
+// export const sendChatMessage = async ({ sessionId, message }) => {
+//   const response = await client.post('/chatbot/chat', {
+//     session_id: sessionId,
+//     message,
+//   });
+
+//   return response.data;
+// };

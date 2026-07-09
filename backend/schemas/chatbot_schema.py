@@ -8,4 +8,4 @@ class ChatbotRequest(BaseModel):
 
 class ChatbotResponse(BaseModel):
     response: str
-    session_id: str
+    session_id: str | None
