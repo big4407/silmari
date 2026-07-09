@@ -275,14 +275,51 @@ export const importRegionsCsv = (file, dryRun = false) => {
     .then((r) => r.data);
 };
 
-/** 시스템 코드 그룹 목록 */
-export const fetchCodeGroups = () =>
-  client.get('/member/admin/code-groups').then((r) => r.data);
+/** 보존 정책 목록. */
+export const fetchRetentionPolicies = () =>
+  client.get('/member/admin/retention-policies').then((r) => r.data);
 
-/** 코드 그룹 항목 수정 */
-export const updateCodeItem = (groupKey, code, payload) =>
+/** 보존 정책 일괄 수정. */
+export const updateRetentionPolicies = (policies) =>
   client
-    .patch(`/member/admin/code-groups/${groupKey}/items/${code}`, payload)
+    .patch('/member/admin/retention-policies', { policies })
+    .then((r) => r.data);
+
+/** 보존 정책 드라이런 — 만료 대상 건수·샘플 미리보기. */
+export const runRetentionDryRun = ({ policyId = null, policies = null } = {}) =>
+  client
+    .post(
+      '/member/admin/retention-policies/dry-run',
+      policies?.length ? { policies } : {},
+      { params: policyId ? { policy_id: policyId } : {} },
+    )
+    .then((r) => r.data);
+
+/** 정합성 검사 실행. */
+export const runDataIntegrity = () =>
+  client.post('/member/admin/data-integrity/run').then((r) => r.data);
+
+/** 최근 정합성 검사 결과 (감사 로그). 없으면 404. */
+export const fetchLastIntegrityRun = () =>
+  client.get('/member/admin/data-integrity/last').then((r) => r.data);
+
+/** 감사 로그 ID로 정합성 검사 결과 복원. */
+export const fetchIntegrityRun = (runId) =>
+  client.get(`/member/admin/data-integrity/runs/${runId}`).then((r) => r.data);
+
+/** 검사 항목별 전체 이슈 목록. */
+export const fetchIntegrityCheckIssues = (checkId) =>
+  client
+    .get(`/member/admin/data-integrity/checks/${checkId}/issues`)
+    .then((r) => r.data);
+
+/** 정합성 검사 CSV 리포트보내기. source: last | fresh */
+export const downloadIntegrityReport = (source = 'last') =>
+  client
+    .get('/member/admin/data-integrity/report.csv', {
+      params: { source },
+      responseType: 'blob',
+    })
     .then((r) => r.data);
 
 /** Blob 파일 다운로드 */

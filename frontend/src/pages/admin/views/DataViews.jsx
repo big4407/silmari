@@ -1,23 +1,41 @@
 /** 데이터 관리 뷰 — 코드·검증·보내기·보존 정책 */
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import PageHead from '../components/PageHead';
-import EmptyState, { TableEmptyRow } from '../components/EmptyState';
+import EmptyState, { StatValue, TableEmptyRow } from '../components/EmptyState';
 import {
   ADMIN_ACTION_LABELS,
   deleteRegion,
   clearAllRegions,
   exportRegionsCsv,
   fetchAdminHistory,
-  fetchCodeGroups,
   fetchRegionDetail,
   fetchRegions,
   importRegionsCsv,
+  fetchRetentionPolicies,
+  updateRetentionPolicies,
+  runRetentionDryRun,
+  runDataIntegrity,
+  fetchLastIntegrityRun,
   saveBlobDownload,
+  downloadIntegrityReport,
   readApiErrorMessage,
+  fetchIntegrityRun,
 } from '../../../api/client';
 import RegionFormModal from '../components/RegionFormModal';
-import CodeGroupEditModal from '../components/CodeGroupEditModal';
 import AdminCsvFeedback from '../components/AdminCsvFeedback';
+import IntegrityCheckDetailModal from '../components/IntegrityCheckDetailModal';
+import RetentionDryRunModal from '../components/RetentionDryRunModal';
+import {
+  checksToCsvBlob,
+  historyItemToIntegrityResult,
+  integrityStatusClass,
+  integrityStatusLabel,
+  integrityTargetLabel,
+  INTEGRITY_STATUS_OPTIONS,
+  INTEGRITY_TARGET_OPTIONS,
+  integrityFixLink,
+} from '../integrityConfig';
 
 function regionErrorMessage(err) {
   const status = err?.response?.status;
@@ -25,14 +43,6 @@ function regionErrorMessage(err) {
   if (status === 401) return '로그인이 만료되었습니다. 다시 로그인해 주세요.';
   if (!err?.response) return '네트워크 오류로 불러오지 못했습니다.';
   return '행정구역을 불러오지 못했습니다.';
-}
-
-function codeGroupErrorMessage(err) {
-  const status = err?.response?.status;
-  if (status === 403) return '관리자 권한이 필요합니다.';
-  if (status === 401) return '로그인이 만료되었습니다.';
-  if (!err?.response) return '네트워크 오류로 불러오지 못했습니다.';
-  return '코드 그룹을 불러오지 못했습니다.';
 }
 
 const REGION_ACTION_LABELS = {
@@ -211,10 +221,6 @@ export function DataCodesView() {
   const [loadingParents, setLoadingParents] = useState(() => new Set());
   const [selected, setSelected] = useState(null);
 
-  const [codeGroups, setCodeGroups] = useState([]);
-  const [groupsLoading, setGroupsLoading] = useState(true);
-  const [groupsError, setGroupsError] = useState('');
-
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('create');
   const [modalInitial, setModalInitial] = useState(null);
@@ -226,7 +232,6 @@ export function DataCodesView() {
   const [clearBusy, setClearBusy] = useState(false);
   const [exportFormat, setExportFormat] = useState('region');
   const [regionHistory, setRegionHistory] = useState([]);
-  const [codeEditItem, setCodeEditItem] = useState(null);
 
   const isSearchMode = keyword.trim().length > 0;
 
@@ -264,20 +269,6 @@ export function DataCodesView() {
     }
   }, [keyword, searchPage]);
 
-  const loadCodeGroups = useCallback(async () => {
-    setGroupsLoading(true);
-    setGroupsError('');
-    try {
-      const data = await fetchCodeGroups();
-      setCodeGroups(data.groups ?? []);
-    } catch (err) {
-      setGroupsError(codeGroupErrorMessage(err));
-      setCodeGroups([]);
-    } finally {
-      setGroupsLoading(false);
-    }
-  }, []);
-
   const loadRegionHistory = useCallback(async () => {
     try {
       const data = await fetchAdminHistory({
@@ -292,9 +283,8 @@ export function DataCodesView() {
 
   useEffect(() => {
     loadRoots();
-    loadCodeGroups();
     loadRegionHistory();
-  }, [loadRoots, loadCodeGroups, loadRegionHistory]);
+  }, [loadRoots, loadRegionHistory]);
 
   useEffect(() => {
     if (!isSearchMode) return;
@@ -581,31 +571,13 @@ export function DataCodesView() {
     }
   };
 
-  const flatCodeRows = useMemo(() => {
-    const rows = [];
-    for (const group of codeGroups) {
-      for (const item of group.items ?? []) {
-        rows.push({
-          groupKey: group.group,
-          groupLabel: group.group_label,
-          code: item.code,
-          label: item.label,
-          ref: item.ref_count,
-          description: item.description,
-          is_active: item.is_active !== false,
-        });
-      }
-    }
-    return rows;
-  }, [codeGroups]);
-
   const searchPages = Math.max(1, Math.ceil(searchTotal / 30));
 
   return (
     <>
       <PageHead
         viewId="data-codes"
-        desc="지역(행정구역)·역할·검색유형 등 시스템 기준 코드를 관리합니다. 왼쪽은 CCTV·검색이 참조하는 행정구역 계층, 오른쪽은 앱 전역 enum 코드입니다."
+        desc="CCTV·검색이 참조하는 행정구역(region) 계층을 관리합니다. CSV 가져오기·보내기, 등록·수정·삭제를 지원합니다."
       />
 
       {csvBusy && csvBusyMode === 'import' && (
@@ -706,15 +678,7 @@ export function DataCodesView() {
         onSaved={handleSaved}
       />
 
-      <CodeGroupEditModal
-        open={!!codeEditItem}
-        item={codeEditItem}
-        onClose={() => setCodeEditItem(null)}
-        onSaved={() => loadCodeGroups()}
-      />
-
-      <div className="admin-cols">
-        <div className="admin-card">
+      <div className="admin-card admin-card--region-full">
           <div className="admin-card-h">
             <div>
               행정구역 (region)
@@ -731,7 +695,8 @@ export function DataCodesView() {
               </button>
             )}
           </div>
-          <div className="admin-card-b">
+          <div className="admin-card-b admin-region-layout">
+            <div className="admin-region-layout__tree">
             {regionLoading && (
               <p className="admin-inline-status">행정구역 불러오는 중…</p>
             )}
@@ -757,8 +722,8 @@ export function DataCodesView() {
               <div className="admin-empty admin-empty--cta">
                 <p>등록된 행정구역이 없습니다.</p>
                 <p className="admin-empty__sub">
-                  서버 기동 시 기본 시·도 데이터가 자동 시드됩니다. 백엔드를 재시작해
-                  보세요.
+                  서버 기동 시 administrative_dong.csv 가 있으면 자동 적재됩니다.
+                  없으면 CSV 가져오기로 등록하세요.
                 </p>
                 <button
                   type="button"
@@ -839,9 +804,11 @@ export function DataCodesView() {
                 )}
               </div>
             )}
+            </div>
 
-            {selected && (
-              <div className="admin-region-detail">
+            <aside className="admin-region-layout__side">
+            {selected ? (
+              <div className="admin-region-detail admin-region-detail--panel">
                 <div className="admin-region-detail__head">
                   <div className="admin-region-detail__title">선택 항목</div>
                   <div className="admin-region-detail__actions">
@@ -903,6 +870,12 @@ export function DataCodesView() {
                   </div>
                 </dl>
               </div>
+            ) : (
+              <div className="admin-region-detail admin-region-detail--panel admin-region-detail--empty">
+                <p className="admin-region-detail__placeholder">
+                  왼쪽 목록에서 행정구역을 선택하면 상세 정보와 작업 버튼이 표시됩니다.
+                </p>
+              </div>
             )}
 
             <p className="admin-footnote">
@@ -925,110 +898,270 @@ export function DataCodesView() {
                 </ul>
               </div>
             )}
+            </aside>
           </div>
-        </div>
-
-        <div className="admin-card">
-          <div className="admin-card-h">
-            코드 그룹
-            <span className="admin-card-hint">앱 전역 enum · DB에 저장된 참조 수</span>
-          </div>
-          <div
-            className="admin-card-b admin-table-wrap"
-            style={{ paddingTop: 6 }}
-          >
-            {groupsLoading && (
-              <p className="admin-inline-status" style={{ padding: '12px 14px' }}>
-                코드 그룹 불러오는 중…
-              </p>
-            )}
-
-            {!groupsLoading && groupsError && (
-              <div className="admin-inline-error" style={{ padding: '12px 14px' }}>
-                <p>{groupsError}</p>
-                <button
-                  type="button"
-                  className="admin-btn admin-btn--sm"
-                  onClick={loadCodeGroups}
-                >
-                  다시 시도
-                </button>
-              </div>
-            )}
-
-            {!groupsLoading && !groupsError && (
-              <table>
-                <thead>
-                  <tr>
-                    <th>그룹</th>
-                    <th>코드값</th>
-                    <th>라벨</th>
-                    <th>상태</th>
-                    <th style={{ textAlign: 'right' }}>참조</th>
-                    <th style={{ textAlign: 'right' }} />
-                  </tr>
-                </thead>
-                <tbody>
-                  {flatCodeRows.length === 0 ? (
-                    <TableEmptyRow colSpan={6} message="등록된 코드 그룹이 없습니다." />
-                  ) : (
-                    flatCodeRows.map((row, idx) => (
-                      <tr
-                        key={`${row.groupKey}-${row.code}-${idx}`}
-                        className={!row.is_active ? 'admin-row--muted' : undefined}
-                      >
-                        <td>{row.groupLabel}</td>
-                        <td>
-                          <code>{row.code}</code>
-                        </td>
-                        <td>{row.label}</td>
-                        <td>
-                          {row.is_active ? (
-                            <span className="admin-pill admin-pill--ok">활성</span>
-                          ) : (
-                            <span className="admin-pill admin-pill--muted">비활성</span>
-                          )}
-                        </td>
-                        <td style={{ textAlign: 'right' }}>{row.ref}</td>
-                        <td style={{ textAlign: 'right' }}>
-                          <button
-                            type="button"
-                            className="admin-btn admin-btn--sm"
-                            onClick={() => setCodeEditItem(row)}
-                          >
-                            수정
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
       </div>
     </>
   );
 }
 
 export function DataValidateView() {
+  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [result, setResult] = useState(null);
+  const [activeRunId, setActiveRunId] = useState(null);
+  const [reportBusy, setReportBusy] = useState(false);
+  const [targetFilter, setTargetFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [history, setHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [detailCheck, setDetailCheck] = useState(null);
+
+  const loadHistory = useCallback(async () => {
+    try {
+      const data = await fetchAdminHistory({
+        target_type: 'integrity_check',
+        per_page: 10,
+      });
+      setHistory(data.items ?? []);
+    } catch {
+      setHistory([]);
+    }
+  }, []);
+
+  const loadLastRun = useCallback(async () => {
+    try {
+      const data = await fetchLastIntegrityRun();
+      setResult(data);
+      setActiveRunId(data.run_id ?? null);
+    } catch (err) {
+      if (err?.response?.status !== 404) {
+        setError('최근 검사 결과를 불러오지 못했습니다.');
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      setInitialLoading(true);
+      await Promise.all([loadLastRun(), loadHistory()]);
+      if (active) setInitialLoading(false);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [loadLastRun, loadHistory]);
+
+  const summary = useMemo(() => {
+    if (!result?.checks?.length) return null;
+    const checks = result.checks;
+    return {
+      ok: checks.filter((c) => c.status === 'ok').length,
+      warn: checks.filter((c) => c.status === 'warn').length,
+      error: checks.filter((c) => c.status === 'error').length,
+      totalIssues: result.total_issues ?? 0,
+    };
+  }, [result]);
+
+  const displayedChecks = useMemo(() => {
+    if (!result?.checks) return [];
+    return result.checks.filter((c) => {
+      if (targetFilter && c.target !== targetFilter) return false;
+      if (statusFilter === 'issues' && c.status === 'ok') return false;
+      if (statusFilter === 'error' && c.status !== 'error') return false;
+      if (statusFilter === 'warn' && c.status !== 'warn') return false;
+      return true;
+    });
+  }, [result, targetFilter, statusFilter]);
+
+  const runCheck = async () => {
+    setLoading(true);
+    setError('');
+    setMessage('');
+    try {
+      const data = await runDataIntegrity();
+      setResult(data);
+      setActiveRunId(data.run_id ?? null);
+      setMessage(
+        data.total_issues > 0
+          ? `정합성 검사를 완료했습니다. 이슈 ${data.total_issues}건이 발견되었습니다.`
+          : '정합성 검사를 완료했습니다. 이슈가 없습니다.',
+      );
+      await loadHistory();
+    } catch (err) {
+      setError(
+        err?.response?.status === 403
+          ? '관리자 권한이 필요합니다.'
+          : '정합성 검사를 실행하지 못했습니다.',
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const restoreHistoryRun = async (item) => {
+    setHistoryLoading(true);
+    setError('');
+    setMessage('');
+    try {
+      let restored = historyItemToIntegrityResult(item);
+      if (!restored) {
+        restored = await fetchIntegrityRun(item.id);
+      }
+      setResult(restored);
+      setActiveRunId(item.id);
+      setMessage(
+        `${new Date(item.created_at).toLocaleString('ko-KR')} 검사 결과를 불러왔습니다.`,
+      );
+    } catch {
+      setError('과거 검사 결과를 불러오지 못했습니다.');
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const downloadCurrentResult = () => {
+    if (!result?.checks?.length) {
+      setError('보낼 검사 결과가 없습니다.');
+      return;
+    }
+    const blob = checksToCsvBlob(result.checks);
+    saveBlobDownload(blob, 'integrity_report.csv');
+    setMessage('현재 표시 중인 검사 결과 CSV를 저장했습니다.');
+  };
+
+  const downloadFreshReport = async () => {
+    setReportBusy(true);
+    setError('');
+    try {
+      const blob = await downloadIntegrityReport('fresh');
+      saveBlobDownload(blob, 'integrity_report_fresh.csv');
+      setMessage('새로 검사한 결과 CSV를 저장했습니다.');
+    } catch {
+      setError('새 검사 리포트보내기에 실패했습니다.');
+    } finally {
+      setReportBusy(false);
+    }
+  };
+
   return (
     <>
       <PageHead
         viewId="data-validate"
-        desc="테이블 간 참조 무결성과 데이터 정합성을 검사합니다. 고아 레코드·끊긴 계층·잘못된 코드값을 탐지합니다."
+        desc="테이블 간 참조 무결성과 데이터 정합성을 검사합니다. 실행 이력은 감사 로그에 기록됩니다."
       />
       <div className="admin-toolbar">
-        <button type="button" className="admin-btn admin-btn--primary" disabled>
-          정합성 검사 실행
+        <button
+          type="button"
+          className="admin-btn admin-btn--primary"
+          onClick={runCheck}
+          disabled={loading || initialLoading}
+        >
+          {loading ? '검사 중…' : '정합성 검사 실행'}
         </button>
-        <span className="admin-pill admin-pill--muted">마지막 검사 —</span>
+        <span className="admin-pill admin-pill--muted">
+          마지막 검사{' '}
+          {result?.ran_at
+            ? new Date(result.ran_at).toLocaleString('ko-KR')
+            : '—'}
+        </span>
+        {result && (
+          <span
+            className={
+              result.total_issues > 0
+                ? 'admin-pill admin-pill--err'
+                : 'admin-pill admin-pill--ok'
+            }
+          >
+            이슈 {result.total_issues}건
+          </span>
+        )}
         <div className="admin-spacer" />
-        <button type="button" className="admin-btn" disabled>
-          오류 리포트 다운로드
+        <select
+          className="admin-toolbar-select"
+          value={targetFilter}
+          onChange={(e) => setTargetFilter(e.target.value)}
+          disabled={!result}
+          aria-label="대상 필터"
+        >
+          {INTEGRITY_TARGET_OPTIONS.map((opt) => (
+            <option key={opt.value || 'all'} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        <select
+          className="admin-toolbar-select"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          disabled={!result}
+          aria-label="심각도 필터"
+        >
+          {INTEGRITY_STATUS_OPTIONS.map((opt) => (
+            <option key={opt.value || 'all'} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          className="admin-btn"
+          onClick={downloadCurrentResult}
+          disabled={!result?.checks?.length}
+        >
+          결과 CSV
+        </button>
+        <button
+          type="button"
+          className="admin-btn"
+          onClick={downloadFreshReport}
+          disabled={reportBusy || loading}
+        >
+          {reportBusy ? '검사·보내기 중…' : '새 검사 후 CSV'}
         </button>
       </div>
+
+      {message && <p className="admin-inline-ok admin-mb">{message}</p>}
+
+      {error && (
+        <div className="admin-inline-error admin-mb">
+          <p>{error}</p>
+          <button type="button" className="admin-btn admin-btn--sm" onClick={runCheck}>
+            다시 시도
+          </button>
+        </div>
+      )}
+
+      {summary && (
+        <div className="admin-stat-grid admin-mb">
+          <div className="admin-stat admin-stat--green">
+            <div className="admin-label">정상 항목</div>
+            <StatValue value={summary.ok} unit="개" />
+          </div>
+          <div className="admin-stat admin-stat--amber">
+            <div className="admin-label">주의 항목</div>
+            <StatValue value={summary.warn} unit="개" />
+          </div>
+          <div className="admin-stat admin-stat--red">
+            <div className="admin-label">오류 항목</div>
+            <StatValue value={summary.error} unit="개" />
+          </div>
+          <div className="admin-stat">
+            <div className="admin-label">총 이슈</div>
+            <StatValue value={summary.totalIssues} unit="건" />
+            {result?.delta_issues != null && result.delta_issues !== 0 && (
+              <div className={integrityDeltaClass(result.delta_issues)}>
+                이전 대비 {result.delta_issues > 0 ? '+' : ''}
+                {result.delta_issues}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="admin-card admin-table-wrap">
         <table>
           <thead>
@@ -1037,17 +1170,116 @@ export function DataValidateView() {
               <th>대상</th>
               <th>검사 내용</th>
               <th>결과</th>
-              <th style={{ textAlign: 'right' }} />
+              <th>이슈</th>
+              <th>샘플</th>
+              <th />
             </tr>
           </thead>
           <tbody>
-            <TableEmptyRow
-              colSpan={5}
-              message="정합성 검사를 실행하면 결과가 표시됩니다."
-            />
+            {!result ? (
+              <TableEmptyRow
+                colSpan={7}
+                message={
+                  initialLoading
+                    ? '최근 검사 결과를 불러오는 중…'
+                    : '정합성 검사를 실행하면 결과가 표시됩니다.'
+                }
+              />
+            ) : displayedChecks.length === 0 ? (
+              <TableEmptyRow
+                colSpan={7}
+                message="필터 조건에 맞는 검사 항목이 없습니다."
+              />
+            ) : (
+              displayedChecks.map((row) => {
+                const fixLink = integrityFixLink(row);
+                return (
+                  <tr
+                    key={row.check_id}
+                    className="admin-row--clickable"
+                    onClick={() => setDetailCheck(row)}
+                  >
+                    <td>{row.label}</td>
+                    <td>{integrityTargetLabel(row.target)}</td>
+                    <td>{row.description}</td>
+                    <td>
+                      <span className={integrityStatusClass(row.status)}>
+                        {integrityStatusLabel(row.status)}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>{row.issue_count}</td>
+                    <td className="admin-table-samples">
+                      {row.samples?.length ? row.samples.join(', ') : '—'}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      {fixLink ? (
+                        <Link
+                          to={`/admin/${fixLink.viewId}`}
+                          className="admin-table-link"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {fixLink.label}
+                        </Link>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
+        {result && (
+          <p className="admin-footnote">
+            행을 클릭하면 이슈 전체 목록·복사·CSV 다운로드를 할 수 있습니다.
+          </p>
+        )}
       </div>
+
+      <div className="admin-card admin-table-wrap">
+        <div className="admin-card-h">최근 검사 이력 (감사 로그)</div>
+        <table>
+          <thead>
+            <tr>
+              <th>일시</th>
+              <th>요약</th>
+              <th>실행자</th>
+            </tr>
+          </thead>
+          <tbody>
+            {history.length === 0 ? (
+              <TableEmptyRow colSpan={3} message="검사 이력이 없습니다." />
+            ) : (
+              history.map((item) => (
+                <tr
+                  key={item.id}
+                  className={`admin-history-row${
+                    activeRunId === item.id ? ' admin-history-row--active' : ''
+                  }`}
+                  onClick={() => restoreHistoryRun(item)}
+                >
+                  <td>{new Date(item.created_at).toLocaleString('ko-KR')}</td>
+                  <td>
+                    {integrityHistorySummary(item)}
+                    {historyLoading && activeRunId === item.id ? ' …' : ''}
+                  </td>
+                  <td>{item.actor_name || '—'}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+        <p className="admin-footnote">
+          이력 행을 클릭하면 해당 시점의 검사 결과를 다시 불러옵니다.
+        </p>
+      </div>
+
+      <IntegrityCheckDetailModal
+        open={!!detailCheck}
+        check={detailCheck}
+        onClose={() => setDetailCheck(null)}
+      />
     </>
   );
 }
@@ -1116,23 +1348,149 @@ export function DataExportView() {
 }
 
 export function DataRetentionView() {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [dryRunOpen, setDryRunOpen] = useState(false);
+  const [dryRunItems, setDryRunItems] = useState([]);
+  const [dryRunTitle, setDryRunTitle] = useState('');
+  const [dryRunLoading, setDryRunLoading] = useState(false);
+  const [dryRunError, setDryRunError] = useState('');
+
+  const loadHistory = useCallback(async () => {
+    try {
+      const data = await fetchAdminHistory({
+        target_type: 'retention_policy',
+        per_page: 10,
+      });
+      setHistory(data.items ?? []);
+    } catch {
+      setHistory([]);
+    }
+  }, []);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await fetchRetentionPolicies();
+      setRows(data.items ?? []);
+      await loadHistory();
+    } catch {
+      setError('보존 정책을 불러오지 못했습니다.');
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [loadHistory]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const patchRow = (id, field, value) => {
+    setRows((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)),
+    );
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError('');
+    setMessage('');
+    try {
+      const data = await updateRetentionPolicies(
+        rows.map((r) => ({
+          id: r.id,
+          retention_days: r.retention_days,
+          expiry_action: r.expiry_action,
+          is_active: r.is_active,
+          notes: r.notes,
+        })),
+      );
+      setRows(data.items ?? []);
+      setMessage('보존 정책을 저장했습니다.');
+      await loadHistory();
+    } catch {
+      setError('정책 저장에 실패했습니다.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openDryRun = async (policyId = null, title = '보존 정책 드라이런') => {
+    setDryRunOpen(true);
+    setDryRunTitle(title);
+    setDryRunItems([]);
+    setDryRunError('');
+    setDryRunLoading(true);
+    try {
+      const data = await runRetentionDryRun({
+        policyId,
+        policies: retentionPolicyPatches(rows),
+      });
+      setDryRunItems(data.items ?? []);
+    } catch {
+      setDryRunError('드라이런 미리보기에 실패했습니다.');
+    } finally {
+      setDryRunLoading(false);
+    }
+  };
+
+  const expiryLabel = (v) => RETENTION_EXPIRY_LABELS[v] || v;
+  const totalExpired = useMemo(
+    () => rows.reduce((sum, row) => sum + (row.expired_count ?? 0), 0),
+    [rows],
+  );
+
   return (
     <>
       <PageHead
         viewId="data-retention"
         desc="데이터 유형별 보존 기간과 자동 삭제 정책을 설정합니다. 영상·임베딩 등 민감·대용량 데이터의 만료 관리가 핵심입니다."
       />
-      <div className="admin-card admin-table-wrap">
-        <div className="admin-card-h">
-          보존 정책{' '}
-          <button
-            type="button"
-            className="admin-btn admin-btn--sm admin-btn--primary"
-            disabled
-          >
-            정책 저장
+      <div className="admin-toolbar admin-mb">
+        <button
+          type="button"
+          className="admin-btn admin-btn--primary"
+          onClick={handleSave}
+          disabled={saving || loading || rows.length === 0}
+        >
+          {saving ? '저장 중…' : '정책 저장'}
+        </button>
+        <button type="button" className="admin-btn" onClick={load} disabled={loading}>
+          새로고침
+        </button>
+        <button
+          type="button"
+          className="admin-btn"
+          onClick={() => openDryRun(null, '전체 보존 정책 드라이런')}
+          disabled={loading || rows.length === 0}
+        >
+          전체 드라이런
+        </button>
+        {message && <span className="admin-inline-ok">{message}</span>}
+        {!loading && totalExpired > 0 && (
+          <span className="admin-warn-tag">
+            만료 예정 {totalExpired.toLocaleString()}건
+          </span>
+        )}
+      </div>
+
+      {error && (
+        <div className="admin-inline-error admin-mb">
+          <p>{error}</p>
+          <button type="button" className="admin-btn admin-btn--sm" onClick={load}>
+            다시 시도
           </button>
         </div>
+      )}
+
+      <div className="admin-card admin-table-wrap">
+        <div className="admin-card-h">보존 정책</div>
         <table>
           <thead>
             <tr>
@@ -1140,21 +1498,135 @@ export function DataRetentionView() {
               <th>테이블/저장소</th>
               <th>보존 기간</th>
               <th>만료 처리</th>
-              <th>현재 보관량</th>
+              <th style={{ textAlign: 'right' }}>현재 보관량</th>
+              <th style={{ textAlign: 'right' }}>만료 예정</th>
               <th>상태</th>
+              <th />
             </tr>
           </thead>
           <tbody>
-            <TableEmptyRow
-              colSpan={6}
-              message="보존 정책이 설정되지 않았습니다."
-            />
+            {loading ? (
+              <TableEmptyRow colSpan={8} message="불러오는 중…" />
+            ) : rows.length === 0 ? (
+              <TableEmptyRow colSpan={8} message="보존 정책이 없습니다." />
+            ) : (
+              rows.map((row) => (
+                <tr key={row.id} className={!row.is_active ? 'admin-row--muted' : undefined}>
+                  <td>
+                    <strong>{row.data_label}</strong>
+                    {row.notes && (
+                      <div className="admin-cell-sub">{row.notes}</div>
+                    )}
+                  </td>
+                  <td>{row.storage_target}</td>
+                  <td>
+                    <input
+                      type="number"
+                      className="admin-input-inline"
+                      min={1}
+                      max={3650}
+                      value={row.retention_days}
+                      onChange={(e) =>
+                        patchRow(row.id, 'retention_days', Number(e.target.value))
+                      }
+                    />
+                    <span className="admin-cell-unit">일</span>
+                  </td>
+                  <td>
+                    <select
+                      className="admin-select-inline"
+                      value={row.expiry_action}
+                      onChange={(e) =>
+                        patchRow(row.id, 'expiry_action', e.target.value)
+                      }
+                    >
+                      <option value="delete">삭제</option>
+                      <option value="archive">보관</option>
+                      <option value="anonymize">익명화</option>
+                    </select>
+                    <span className="admin-cell-sub">{expiryLabel(row.expiry_action)}</span>
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    {(row.current_count ?? 0).toLocaleString()}
+                  </td>
+                  <td
+                    style={{ textAlign: 'right' }}
+                    className={
+                      (row.expired_count ?? 0) > 0 ? 'admin-cell-warn' : undefined
+                    }
+                  >
+                    {(row.expired_count ?? 0).toLocaleString()}
+                  </td>
+                  <td>
+                    <label className="admin-check admin-check--compact">
+                      <input
+                        type="checkbox"
+                        checked={row.is_active}
+                        onChange={(e) =>
+                          patchRow(row.id, 'is_active', e.target.checked)
+                        }
+                      />
+                      {row.is_active ? '적용' : '중지'}
+                    </label>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      className="admin-btn admin-btn--sm"
+                      onClick={() =>
+                        openDryRun(row.id, `${row.data_label} 드라이런`)
+                      }
+                    >
+                      미리보기
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
+
+      <div className="admin-card admin-table-wrap admin-mt">
+        <div className="admin-card-h">정책 변경 이력 (감사 로그)</div>
+        <table>
+          <thead>
+            <tr>
+              <th>일시</th>
+              <th>변경 내용</th>
+              <th>실행자</th>
+            </tr>
+          </thead>
+          <tbody>
+            {history.length === 0 ? (
+              <TableEmptyRow colSpan={3} message="변경 이력이 없습니다." />
+            ) : (
+              history.map((item) => (
+                <tr key={item.id}>
+                  <td>{new Date(item.created_at).toLocaleString('ko-KR')}</td>
+                  <td>{retentionHistorySummary(item)}</td>
+                  <td>{item.actor_name || '—'}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
       <p className="admin-footnote">
-        ※ 영상 삭제 시 Chroma 임베딩도 함께 삭제돼야 정합성이 유지됩니다.
+        ※ 드라이런은 화면에 입력한 보존 기간·상태를 반영한 미리보기입니다. 실제
+        삭제는 실행하지 않습니다. 영상 삭제 시 Chroma 임베딩도 함께 삭제해야
+        정합성이 유지됩니다.
       </p>
+
+      <RetentionDryRunModal
+        open={dryRunOpen}
+        items={dryRunItems}
+        title={dryRunTitle}
+        loading={dryRunLoading}
+        error={dryRunError}
+        onClose={() => setDryRunOpen(false)}
+      />
     </>
   );
 }
