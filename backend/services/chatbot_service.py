@@ -2,14 +2,16 @@ from sqlalchemy.orm import Session
 from langchain_openai import ChatOpenAI
 
 from backend.core.config import settings
-from backend.chatbot.graph import build_chatbot_graph
-from backend.chatbot.utils import create_initial_state
+from backend.core.chatbot.graph import build_chatbot_graph
+from backend.core.chatbot.utils import create_initial_state
 from backend.db.models import ChatbotSession
+from backend.repositories.chatbot_repository import ChatbotRepository
 
 
 class ChatbotService:
     def __init__(self, db: Session):
         self.db = db
+        self.repository = ChatbotRepository(db)
         self.graph = build_chatbot_graph()
         self.llm = ChatOpenAI(
             model="gpt-4o-mini",
@@ -45,10 +47,7 @@ class ChatbotService:
 
         response = result["response"]
 
-        chatbot_session.state_json = result
-        chatbot_session.user_id = user_id
-        self.db.commit()
-        self.db.refresh(chatbot_session)
+        self.repository.save_state(chatbot_session, result, user_id)
 
         return {
             "response": response,
@@ -56,25 +55,11 @@ class ChatbotService:
         }
 
     def get_or_create_session(self, session_id: str, user_id: str) -> ChatbotSession:
-        chatbot_session = (
-            self.db.query(ChatbotSession)
-            .filter(ChatbotSession.session_id == session_id)
-            .first()
-        )
+        chatbot_session = self.repository.find_by_session_id(session_id)
 
         if chatbot_session is not None:
             return chatbot_session
 
         state = create_initial_state(user_id=user_id)
 
-        chatbot_session = ChatbotSession(
-            session_id=session_id,
-            user_id=user_id,
-            state_json=state,
-        )
-
-        self.db.add(chatbot_session)
-        self.db.commit()
-        self.db.refresh(chatbot_session)
-
-        return chatbot_session
+        return self.repository.create(session_id, user_id, state)

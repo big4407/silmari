@@ -1,7 +1,6 @@
 """
 ORM 모델 정의 — MySQL 테이블과 1:1 매핑.
 
-[탐지] DetectionRecord(레거시), SearchResult(CCTV 분석 결과·클립 메타)
 [인증] User, AuthSession — 승인 기반 RBAC + JWT 세션 철회
 [외부] Message — 재난안전데이터 API 수집 재난문자
 """
@@ -39,34 +38,6 @@ def _default_start_date() -> date:
 def _default_end_date() -> date:
     """검색 기본 종료일 — 오늘(KST)."""
     return kst_now().date()
-
-
-class DetectionRecord(Base):
-    __tablename__ = "detection_records"
-
-    id = Column(Integer, primary_key=True, index=True)
-    alert_text = Column(Text)
-    video_filename = Column(String(255))
-    result_json = Column(Text)
-    created_at = Column(DateTime, default=kst_now)
-
-
-class SearchResult(Base):
-    __tablename__ = "search_results"
-
-    id = Column(Integer, primary_key=True, index=True)
-    alert_text = Column(Text)
-    person_name = Column(String(100), index=True)
-    person_age = Column(Integer, nullable=True)
-    region = Column(String(100), nullable=True)
-    video_filename = Column(String(255))
-    thumbnail_filename = Column(String(255))
-    best_confidence = Column(Float)
-    best_timestamp_sec = Column(Float)
-    clips_json = Column(Text)
-    sms_info_json = Column(Text)
-    description = Column(String(500), nullable=True)
-    created_at = Column(DateTime, default=kst_now)
 
 
 class UserRole(str, enum.Enum):

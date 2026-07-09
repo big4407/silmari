@@ -50,3 +50,33 @@ class VideoRepository:
             )
             .all()
         )
+
+    def find_ids(
+        self,
+        region_codes: list[str] | None = None,
+        start_date=None,
+        end_date=None,
+    ) -> list[int]:
+        """지역 코드 목록·기간으로 video.id 를 좁혀서 조회한다.
+
+        세 조건 모두 optional — 아무 조건도 없으면 빈 리스트를 돌려준다
+        (전체 대상 여부는 호출 측에서 판단; 여기서 암묵적으로 "전체"를
+        의미하지 않도록 명시적으로 빈 리스트를 반환한다).
+        """
+        query = self.db.query(Video.id)
+        has_filter = False
+
+        if region_codes:
+            query = query.filter(Video.region_code.in_(region_codes))
+            has_filter = True
+        if start_date:
+            query = query.filter(Video.recorded_at >= start_date)
+            has_filter = True
+        if end_date:
+            query = query.filter(Video.recorded_at <= end_date)
+            has_filter = True
+
+        if not has_filter:
+            return []
+
+        return [row[0] for row in query.all()]

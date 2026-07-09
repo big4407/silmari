@@ -1,8 +1,7 @@
-from backend.chatbot.schemas import ExtractedSearchSlots
-from backend.chatbot.prompts import SLOT_EXTRACTION_PROMPT
+from backend.core.chatbot.schemas import ExtractedSearchSlots
+from backend.core.chatbot.prompts import SLOT_EXTRACTION_PROMPT
 from backend.schemas.search_schema import SearchCreate
 from backend.services.search_service import SearchService
-from backend.repositories.analysis_repository import AnalysisRepository
 
 
 def extract_slots_node(state, config):
@@ -76,11 +75,10 @@ def create_search_node(state, config):
         search_type="2",
     )
 
-    # create_search()가 내부에서 AnalysisService.run_analysis()까지 동기 실행한다.
-    search = service.create_search(search_data)
-
-    analyses = AnalysisRepository(db).find_by_search_id(search.id)
-    match_count = len(analyses[0].details) if analyses else 0
+    # create_search_with_match_count()가 내부에서 AnalysisService.run_analysis()까지
+    # 동기 실행하고 매칭 건수도 같이 돌려준다 — 여기서 AnalysisRepository를 따로
+    # 알 필요가 없다(레이어를 건너뛰지 않도록).
+    search, match_count = service.create_search_with_match_count(search_data)
 
     time_note = ""
     if state.get("start_time") and state.get("end_time"):
@@ -100,4 +98,16 @@ def create_search_node(state, config):
     return {
         "search_id": search.id,
         "response": response,
+        # 검색이 끝났으면 슬롯을 비워서 다음 메시지부터는 새 검색으로 취급한다.
+        # 안 비우면 이후 어떤 메시지를 보내도 "슬롯이 이미 다 채워져 있음"으로
+        # 판단해 매번 전체 파이프라인(LLM 추출 + FashionCLIP 임베딩 + Chroma
+        # 검색)을 다시 돌리게 된다.
+        "region": None,
+        "start_time": None,
+        "end_time": None,
+        "appearance": None,
+        "missing_name": None,
+        "gender": None,
+        "age": None,
+        "missing_slots": [],
     }

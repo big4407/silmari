@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from backend.db.database import get_db
 from backend.deps import get_current_user
 from backend.db.models import User
-from backend.chatbot.schemas import ChatbotRequest, ChatbotResponse
+from backend.schemas.chatbot_schema import ChatbotRequest, ChatbotResponse
 from backend.services.chatbot_service import ChatbotService
 
 

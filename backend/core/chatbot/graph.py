@@ -1,6 +1,6 @@
 from langgraph.graph import StateGraph, END
-from backend.chatbot.state import ChatState
-from backend.chatbot.nodes import (
+from backend.core.chatbot.state import ChatState
+from backend.core.chatbot.nodes import (
     extract_slots_node,
     validate_slots_node,
     ask_missing_node,

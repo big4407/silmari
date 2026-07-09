@@ -22,14 +22,14 @@ from backend.db.models import (
     User,
     UserRole,
 )
-from backend.schemas.auth import UserResponse
-from backend.schemas.user import ApprovalRequest
+from backend.schemas.auth_schema import UserResponse
+from backend.schemas.user_schema import ApprovalRequest
 from backend.schemas.login_history_schema import (
     LoginHistoryItem,
     LoginHistoryListResponse,
 )
 from backend.utils.timeutils import kst_now
-from backend.services.audit_service import record_admin_action
+from backend.services.audit_service import AuditService
 from backend.schemas.admin_history_schema import (
     AdminHistoryItem,
     AdminHistoryListResponse,
@@ -126,8 +126,7 @@ def update_approval(
     db.add(target)
 
     # 감사 로그 기록 (같은 트랜잭션에 묶어 커밋)
-    record_admin_action(
-        db,
+    AuditService(db).record_admin_action(
         actor_id=admin.id,
         action_type=action,
         target_type="user",

@@ -19,14 +19,30 @@ class SearchService:
         self.repository = SearchRepository(db)
 
     def create_search(self, search_data: SearchCreate) -> SearchDetail:
+        detail, _analysis = self._create_search_and_run_analysis(search_data)
+        return detail
+
+    def create_search_with_match_count(
+        self, search_data: SearchCreate
+    ) -> tuple[SearchDetail, int]:
+        """검색 생성 + 분석 실행 후 매칭 건수까지 함께 돌려준다.
+
+        챗봇처럼 "몇 건 찾았는지"를 바로 응답에 써야 하는 호출부를 위한 것.
+        AnalysisRepository를 직접 알 필요 없이 이 메서드 하나로 끝나게 한다.
+        """
+        detail, analysis = self._create_search_and_run_analysis(search_data)
+        match_count = len(analysis.details) if analysis is not None else 0
+        return detail, match_count
+
+    def _create_search_and_run_analysis(self, search_data: SearchCreate):
         search = self.repository.save(search_data)
         detail = SearchDetail.model_validate(search)
 
         # 동기 실행 — 검색 시점엔 이미 인덱싱된 임베딩만 조회하므로 가벼움(1차 결정).
         # 나중에 검색 대상이 많아지면 BackgroundTasks 등 비동기 전환 검토.
-        AnalysisService(self.db).run_analysis(detail)
+        analysis = AnalysisService(self.db).run_analysis(detail)
 
-        return detail
+        return detail, analysis
 
     def get_search(self, search_id: int) -> SearchDetail:
         search = self.repository.find_by_id(search_id)

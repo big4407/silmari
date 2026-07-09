@@ -3,22 +3,24 @@
 
 흐름:
   1) clothing(한글) → clothes_en (core/search/clothing_query.build_clothes_en)
-  2) missing_location(한글) → region_code 후보 (Region 테이블 LIKE 매칭)
-  3) region_code + start_date~end_date → 대상 video_id 목록 (MySQL)
+  2) missing_location(한글) → region_code 후보 (RegionRepository LIKE 매칭)
+  3) region_code + start_date~end_date → 대상 video_id 목록 (VideoRepository)
   4) VideoService.search_embeddings_multi() → Chroma 코사인 유사도 검색
   5) 유사도 threshold를 넘는 후보만 AnalysisDetail로 저장
 
 동기 실행(1차 결정 — 검색 시점엔 이미 인덱싱된 임베딩만 조회하므로 가벼움).
 나중에 검색 대상이 많아지면 BackgroundTasks로 전환 검토.
 """
+
 from __future__ import annotations
 
 from sqlalchemy.orm import Session
-from sqlalchemy import select
 
 from backend.core.search.clothing_query import build_clothes_en
-from backend.db.models import Analysis, AnalysisStatus, Region, Video
+from backend.db.models import Analysis, AnalysisStatus
 from backend.repositories.analysis_repository import AnalysisRepository
+from backend.repositories.region_repository import RegionRepository
+from backend.repositories.video_repository import VideoRepository
 from backend.schemas.search_schema import SearchDetail
 from backend.services.video_service import VideoService
 
@@ -27,54 +29,33 @@ DEFAULT_MIN_SIMILARITY = 0.2
 DEFAULT_N_RESULTS = 20
 
 
-def resolve_region_codes(db: Session, location_text: str | None) -> list[str]:
-    """자유 텍스트 지역명을 region_code 목록으로 변환한다.
-
-    full_name/specific_name 부분 일치로 찾는다. 매칭이 없으면 빈 리스트를
-    반환하고(=지역 필터 없이 검색), 여러 개 걸리면 전부 후보로 사용한다.
-    """
-    if not location_text or not location_text.strip():
-        return []
-
-    keyword = location_text.strip()
-    stmt = select(Region.region_code).where(
-        (Region.full_name.like(f"%{keyword}%"))
-        | (Region.specific_name.like(f"%{keyword}%"))
-    )
-    return [row[0] for row in db.execute(stmt).all()]
-
-
-def resolve_video_ids(
-    db: Session,
-    region_codes: list[str],
-    start_date,
-    end_date,
-) -> list[int] | None:
-    """지역·기간 조건에 맞는 video.id 목록. 조건이 없으면 None(=전체 대상)."""
-    stmt = select(Video.id)
-    has_filter = False
-
-    if region_codes:
-        stmt = stmt.where(Video.region_code.in_(region_codes))
-        has_filter = True
-    if start_date:
-        stmt = stmt.where(Video.recorded_at >= start_date)
-        has_filter = True
-    if end_date:
-        stmt = stmt.where(Video.recorded_at <= end_date)
-        has_filter = True
-
-    if not has_filter:
-        return None
-
-    return [row[0] for row in db.execute(stmt).all()]
-
-
 class AnalysisService:
     def __init__(self, db: Session):
         self.db = db
         self.repository = AnalysisRepository(db)
+        self.region_repository = RegionRepository(db)
+        self.video_repository = VideoRepository(db)
         self.video_service = VideoService(db)
+
+    def resolve_region_codes(self, location_text: str | None) -> list[str]:
+        """자유 텍스트 지역명을 region_code 목록으로 변환한다.
+
+        매칭이 없으면 빈 리스트를 반환하고(=지역 필터 없이 검색), 여러 개
+        걸리면 전부 후보로 사용한다.
+        """
+        if not location_text or not location_text.strip():
+            return []
+        return self.region_repository.find_codes_by_keyword(location_text.strip())
+
+    def resolve_video_ids(
+        self, region_codes: list[str], start_date, end_date
+    ) -> list[int] | None:
+        """지역·기간 조건에 맞는 video.id 목록. 조건이 하나도 없으면 None(=전체 대상)."""
+        if not region_codes and not start_date and not end_date:
+            return None
+        return self.video_repository.find_ids(
+            region_codes=region_codes, start_date=start_date, end_date=end_date
+        )
 
     def run_analysis(self, search: SearchDetail) -> Analysis:
         analysis = self.repository.create(user_id=search.user_id, search_id=search.id)
@@ -84,9 +65,9 @@ class AnalysisService:
             # 인상착의 정보가 전혀 없으면 매칭을 시도할 수 없다 — 빈 결과로 완료 처리.
             return self.repository.set_status(analysis, AnalysisStatus.COMPLETED)
 
-        region_codes = resolve_region_codes(self.db, search.missing_location)
-        video_ids = resolve_video_ids(
-            self.db, region_codes, search.start_date, search.end_date
+        region_codes = self.resolve_region_codes(search.missing_location)
+        video_ids = self.resolve_video_ids(
+            region_codes, search.start_date, search.end_date
         )
         if video_ids is not None and not video_ids:
             # 조건에 맞는 영상 자체가 없음 — 매칭 없음으로 완료.
