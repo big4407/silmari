@@ -71,27 +71,21 @@ class ChatbotService:
             raise
 
         finally:
-            latency_ms = int((time.perf_counter() - start) * 1000)
-
             search_id = result.get("search_id") if result else None
 
-            call_payload = CallCreate(
-                call_type="2",  # 챗봇
-                search_id=search_id,
-                user_id=user_id,
-                chatbot_s_id=session_id,
+            self.llm_call_service.record_call(
+                call_type="2",
                 model_name=getattr(self.llm, "model", "unknown"),
                 prompt=message,
                 response=response,
-                input_tokens=cb.prompt_tokens if cb else None,
-                output_tokens=cb.completion_tokens if cb else None,
-                latency_ms=latency_ms,
-                cost=cb.total_cost if cb else None,
+                start_time=start,
+                callback=cb,
                 status=call_status,
                 error_msg=error_msg,
+                user_id=user_id,
+                search_id=search_id,
+                chatbot_s_id=session_id,
             )
-
-            self.llm_call_service.input_call(call_payload)
 
         result["messages"].append(
             {
