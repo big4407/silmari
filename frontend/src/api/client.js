@@ -2,10 +2,10 @@
  * 백엔드 API 클라이언트 — axios 래퍼.
  *
  * [베이스] localhost:8000 (개발) — 배포 시 환경변수로 교체 필요
- * [인증]  signup, login, logout → /member/auth/* (JWT + localStorage)
- * [탐지]  analyzeVideo → POST /api/video/analyze
- * [결과]  fetchSearchResults, fetchSearchResultDetail → /api/missing/search
- * [재난]  fetchDisasterAlerts → /api/alerts/list (Dashboard)
+ * [인증]  signup, login, logout → /member/auth/*
+ * [재난]  fetchMessages, collectMessages → /message/*
+ * [검색]  fetchSearchList, fetchSearchDetail → /search/*
+ * [챗봇]  chatbot_api.js → /chatbot/*
  */
 import axios from 'axios';
 
@@ -42,14 +42,20 @@ client.interceptors.request.use((config) => {
 // ── 응답 인터셉터: access 토큰 만료(401) 시 refresh 로 자동 재발급 후 원요청 재시도 ──
 // 동시에 여러 요청이 401 나도 refresh 는 한 번만 수행하고, 나머지는 그 결과를 기다린다.
 let _refreshing = null;
+let _loggingOut = false;
+
+const isAuthBypassCall = (url = '') =>
+  url.includes('/member/auth/refresh') || url.includes('/member/auth/logout');
 
 const doRefresh = async () => {
+  if (_loggingOut) throw new Error('logging out');
   const refreshToken = tokenStore.getRefresh();
   if (!refreshToken) throw new Error('no refresh token');
   // 인터셉터 무한루프 방지를 위해 raw axios 로 호출(client 대신)
   const { data } = await axios.post(`${API_BASE}/member/auth/refresh`, {
     refresh_token: refreshToken,
   });
+  if (_loggingOut) throw new Error('logging out');
   tokenStore.set(data.access_token, data.refresh_token);
   return data.access_token;
 };
@@ -60,9 +66,13 @@ client.interceptors.response.use(
     const original = error.config;
     const status = error.response?.status;
 
-    // 401 이고, 아직 재시도 안 했고, refresh 요청 자체가 아닌 경우에만
-    const isRefreshCall = original?.url?.includes('/member/auth/refresh');
-    if (status === 401 && !original?._retry && !isRefreshCall) {
+    // 401 이고, 아직 재시도 안 했고, refresh/logout 요청이 아닌 경우에만
+    if (
+      status === 401 &&
+      !original?._retry &&
+      !isAuthBypassCall(original?.url) &&
+      !_loggingOut
+    ) {
       original._retry = true;
       try {
         // 이미 갱신 중이면 그 Promise 를 공유(중복 refresh 방지)
@@ -74,7 +84,7 @@ client.interceptors.response.use(
       } catch (e) {
         // refresh 도 실패(만료/무효) → 토큰 정리 후 로그인 유도
         tokenStore.clear();
-        if (typeof window !== 'undefined') {
+        if (typeof window !== 'undefined' && !_loggingOut) {
           window.location.assign('/login');
         }
         return Promise.reject(e);
@@ -113,14 +123,32 @@ export const login = async (username, password) => {
 };
 
 /**
- * 로그아웃. 서버 세션을 무효화하고 로컬 토큰을 지운다.
- * 서버 호출이 실패해도 로컬 토큰은 항상 제거한다.
+ * 로그아웃. 로컬 토큰을 먼저 지운 뒤 서버 세션을 무효화한다.
+ * 서버가 응답하지 않아도 로컬 세션은 즉시 종료된다.
  */
 export const logout = async () => {
+  if (_loggingOut) return;
+  _loggingOut = true;
+  _refreshing = null;
+
+  const accessToken = tokenStore.getAccess();
+  tokenStore.clear();
+
   try {
-    await client.post('/member/auth/logout');
+    if (accessToken) {
+      await axios.post(
+        `${API_BASE}/member/auth/logout`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          timeout: 5000,
+        },
+      );
+    }
+  } catch {
+    // 서버 무응답·세션 만료 등 — 로컬 토큰은 이미 제거됨
   } finally {
-    tokenStore.clear();
+    _loggingOut = false;
   }
 };
 
@@ -224,32 +252,108 @@ export const LOGIN_FAIL_LABELS = {
 };
 
 // ══════════════════════════════════════════════════════════
-// 레거시 (초기 단발 파이프라인) — /api/video, /api/missing, /api/alerts
+// 재난문자 — /message/*
+// ══════════════════════════════════════════════════════════
+
+/** DB에 저장된 재난문자 목록 조회 */
+export const fetchMessages = (params = {}) =>
+  client.get('/message', { params }).then((r) => r.data);
+
+/** 외부 API에서 재난문자 수집 후 DB 저장 */
+export const collectMessages = (params = {}) =>
+  client.post('/message/collect', null, { params }).then((r) => r.data);
+
+// ══════════════════════════════════════════════════════════
+// 검색 요청 — /search/*
+// ══════════════════════════════════════════════════════════
+
+export const fetchSearchList = (params = {}) =>
+  client.get('/search', { params }).then((r) => r.data);
+
+export const fetchSearchDetail = (id) =>
+  client.get(`/search/${id}`).then((r) => r.data);
+
+export const deleteSearch = (id) => client.delete(`/search/${id}`);
+
+function mapSearchItemToHistory(item) {
+  return {
+    id: item.id,
+    person_name: item.missing_name || '미상',
+    person_age: item.age,
+    region: item.missing_location || '-',
+    alert_text: null,
+    video_filename: null,
+    description: item.clothing,
+    created_at: item.searched_at,
+    best_confidence: null,
+    sms_info: { gender: item.gender, clothes: item.clothing },
+  };
+}
+
+function mapSearchItemToResult(item) {
+  return {
+    id: item.id,
+    person_name: item.missing_name || '미상',
+    person_age: item.age,
+    region: item.missing_location || '-',
+    alert_text: '',
+    video_filename: '',
+    thumbnail_url: '',
+    best_confidence: 0,
+    best_timestamp_sec: null,
+    clips: [],
+    sms_info: { gender: item.gender, clothes: item.clothing },
+    created_at: item.searched_at,
+    description: item.clothing || '',
+  };
+}
+
+/** 검색 이력 화면용 — GET /search */
+export const fetchSearchHistory = async (params = {}) => {
+  const size = params.limit || 100;
+  const data = await fetchSearchList({ page: 1, size });
+  return (data.items || []).map(mapSearchItemToHistory);
+};
+
+/** 검색 결과 목록 — GET /search (필터는 클라이언트에서 적용) */
+export const fetchSearchResults = async (params = {}) => {
+  const data = await fetchSearchList({ page: 1, size: 100 });
+  let items = (data.items || []).map(mapSearchItemToResult);
+  if (params.person_name) {
+    const q = params.person_name.toLowerCase();
+    items = items.filter((i) => i.person_name?.toLowerCase().includes(q));
+  }
+  if (params.region) {
+    const q = params.region.toLowerCase();
+    items = items.filter((i) => i.region?.toLowerCase().includes(q));
+  }
+  return items;
+};
+
+export const fetchSearchResultDetail = async (id) => {
+  const item = await fetchSearchDetail(id);
+  return mapSearchItemToResult(item);
+};
+
+export const deleteSearchResult = (id) =>
+  deleteSearch(id).then((r) => r?.data ?? { ok: true });
+
+export const deleteAllSearchResults = async () => {
+  const data = await fetchSearchList({ page: 1, size: 100 });
+  const items = data.items || [];
+  await Promise.all(items.map((item) => deleteSearch(item.id)));
+  return { ok: true, deleted_count: items.length };
+};
+
+// ══════════════════════════════════════════════════════════
+// CCTV — /video/* (백엔드 분석 엔드포인트 연동 시 사용)
 // ══════════════════════════════════════════════════════════
 
 export const analyzeVideo = (formData) =>
   client
-    .post('/api/video/analyze', formData, {
+    .post('/video/analyze', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
     .then((r) => r.data);
-
-export const fetchMissingList = (params = {}) =>
-  client.get('/api/missing/list', { params }).then((r) => r.data);
-
-export const fetchSearchResults = (params = {}) =>
-  client.get('/api/missing/search', { params }).then((r) => r.data);
-
-export const fetchSearchResultDetail = (id) =>
-  client.get(`/api/missing/search/${id}`).then((r) => r.data);
-
-export const deleteSearchResult = (id) =>
-  client.delete(`/api/missing/search/${id}`).then((r) => r.data);
-
-export const deleteAllSearchResults = (params = {}) =>
-  client.delete('/api/missing/search', { params }).then((r) => r.data);
-
-export const fetchDisasterAlerts = (params = {}) =>
-  client.get('/api/alerts/list', { params }).then((r) => r.data);
 
 export default client;

@@ -20,7 +20,6 @@ from backend.core.search.clothing_query import build_clothes_en
 from backend.db.models import Analysis, AnalysisStatus, Region, Video
 from backend.repositories.analysis_repository import AnalysisRepository
 from backend.schemas.search_schema import SearchDetail
-from backend.services.video_service import VideoService
 
 # 코사인 거리 기준 최소 유사도(= 1 - distance). 데이터가 쌓이면 재조정 필요.
 DEFAULT_MIN_SIMILARITY = 0.2
@@ -74,7 +73,15 @@ class AnalysisService:
     def __init__(self, db: Session):
         self.db = db
         self.repository = AnalysisRepository(db)
-        self.video_service = VideoService(db)
+        self._video_service = None
+
+    @property
+    def video_service(self):
+        if self._video_service is None:
+            from backend.services.video_service import VideoService
+
+            self._video_service = VideoService(self.db)
+        return self._video_service
 
     def run_analysis(self, search: SearchDetail) -> Analysis:
         analysis = self.repository.create(user_id=search.user_id, search_id=search.id)

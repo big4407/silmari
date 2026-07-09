@@ -98,6 +98,37 @@
   color: #fff;
 }
 
+.admin-topbar .admin-right .admin-logout-btn {
+  padding: 6px 12px;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  font-family: inherit;
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: none;
+  border: none;
+  border-radius: var(--radius-md);
+  background: none;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.admin-topbar .admin-right .admin-logout-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.admin-topbar .admin-right .admin-logout-btn:focus,
+.admin-topbar .admin-right .admin-logout-btn:focus-visible {
+  outline: none;
+}
+
+.admin-topbar .admin-right .admin-logout-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
 .admin-topbar .admin-right .admin-divider {
   width: 1px;
   height: 14px;

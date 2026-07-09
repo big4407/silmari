@@ -32,6 +32,20 @@
 .leaflet-container {
   background: transparent;
   font-family: inherit;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.leaflet-container:focus,
+.leaflet-container:focus-visible,
+.leaflet-interactive:focus,
+.leaflet-interactive:focus-visible {
+  outline: none !important;
+}
+
+.leaflet-map .leaflet-zoom-animated {
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 /* ── Leaflet zoom controls ── */

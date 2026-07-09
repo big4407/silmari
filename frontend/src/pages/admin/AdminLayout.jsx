@@ -14,7 +14,7 @@ export default function AdminLayout() {
   const [collapsed, setCollapsed] = useState(() =>
     Object.fromEntries(NAV.map((node, i) => [node.group || node.id, i > 3])),
   );
-  const { doLogout } = useLogout();
+  const { doLogout, loading } = useLogout();
   const [pendingCount, setPendingCount] = useState(0);
 
   // 가입 승인 대기 건수 — 사이드바 배지용
@@ -62,15 +62,14 @@ export default function AdminLayout() {
           <span className="admin-role">시스템 관리자</span>
           <span className="admin-divider" />
           <a href="#help">도움</a>
-          <a
-            href="#logout"
-            onClick={(e) => {
-              e.preventDefault();
-              doLogout();
-            }}
+          <button
+            type="button"
+            className="admin-logout-btn"
+            onClick={doLogout}
+            disabled={loading}
           >
             로그아웃
-          </a>
+          </button>
         </div>
       </header>
 

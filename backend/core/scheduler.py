@@ -3,7 +3,6 @@ from backend.db.database import SessionLocal
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from backend.services.message_service import MessageService
-from backend.services.video_service import VideoService
 from datetime import date, timedelta
 
 import logging
@@ -53,6 +52,8 @@ async def process_videos_job():
     """
     db = SessionLocal()
     try:
+        from backend.services.video_service import VideoService
+
         service = VideoService(db=db)
 
         # 전날 하루 (start=end=어제)
