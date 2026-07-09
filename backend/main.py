@@ -12,7 +12,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # ── 도메인 라우터 (기능별 API 엔드포인트) ──────────────────────────────────
-from backend.services.storage import ensure_dirs
 from backend.routers import (
     llm_call,
     messages,

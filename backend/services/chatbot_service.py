@@ -9,12 +9,6 @@ from backend.db.models import ChatbotSession
 from backend.repositories.chatbot_repository import ChatbotRepository
 
 from backend.services.llm_call_service import LlmCallService
-from backend.schemas.llm_call_schema import CallCreate
-
-
-import json
-from pathlib import Path
-from datetime import datetime
 import time
 
 
@@ -113,7 +107,6 @@ class ChatbotService:
             chatbot_session.state_json = result
 
         self.db.commit()
-        # self.repository.save_state(chatbot_session, result, user_id)
 
         return {
             "response": response,
@@ -132,7 +125,6 @@ class ChatbotService:
             )
             .first()
         )
-        # chatbot_session = self.repository.find_by_session_id(session_id)
 
         if chatbot_session is not None:
             return chatbot_session
@@ -150,7 +142,6 @@ class ChatbotService:
         self.db.refresh(chatbot_session)
 
         return chatbot_session
-        # return self.repository.create(session_id, user_id, state)
 
     def get_session_messages(self, user_id: str, session_id: str):
         """

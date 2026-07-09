@@ -7,9 +7,6 @@ from backend.db.models import User
 from backend.schemas.chatbot_schema import ChatbotRequest, ChatbotResponse
 from backend.services.chatbot_service import ChatbotService
 
-from backend.deps import get_current_user
-from backend.db.models import User
-
 import uuid
 
 router = APIRouter()
@@ -20,7 +17,6 @@ def chat(
     request: ChatbotRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     """
     챗봇을 직접 호출하는데 사용하는 함수. 사용자 요청(채팅 등)과 사용자 정보를 받아서 챗봇의 응답을 받아온다.
