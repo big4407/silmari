@@ -1,4 +1,4 @@
-"""??? ??? ?? ?? ???."""
+"""데이터 정합성 점검 API 스키마."""
 
 from datetime import datetime
 
@@ -20,9 +20,9 @@ class IntegrityRunResponse(BaseModel):
     total_issues: int
     checks: list[IntegrityCheckResult]
     delta_issues: int | None = Field(
-        default=None, description="?? ?? ?? ?? ?? (??? null)"
+        default=None, description="직전 실행 대비 이슈 수 증감 (최초 실행 시 null)"
     )
-    run_id: str | None = Field(default=None, description="?? ?? ID")
+    run_id: str | None = Field(default=None, description="실행 회차 ID")
 
 
 class IntegrityCheckIssuesResponse(BaseModel):
@@ -30,29 +30,3 @@ class IntegrityCheckIssuesResponse(BaseModel):
     label: str
     issue_count: int
     issues: list[str] = Field(default_factory=list)
-
-
-class RegionImportResult(BaseModel):
-    created: int = 0
-    updated: int = 0
-    skipped: int = 0
-    errors: list[str] = Field(default_factory=list)
-    format: str = Field(default="region", description="region | administrative_dong")
-    legal_dong_created: int = 0
-    legal_dong_updated: int = 0
-    csv_rows: int = 0
-
-
-class RegionClearResult(BaseModel):
-    region_deleted: int = 0
-    legal_dong_deleted: int = 0
-    video_unlinked: int = 0
-
-
-class AdministrativeDongImportResult(BaseModel):
-    sido_count: int = 0
-    sigungu_count: int = 0
-    admin_dong_count: int = 0
-    legal_dong_count: int = 0
-    csv_rows: int = 0
-    errors: list[str] = Field(default_factory=list)
