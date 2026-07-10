@@ -50,7 +50,16 @@ class SearchService:
         if search is None:
             raise ValueError("검색 기록을 찾을 수 없습니다.")
 
-        return SearchDetail.model_validate(search)
+        analysis_results = []
+
+        for analysis in search.analyses:
+            analysis_results.extend(analysis.details)
+
+        search_detail = SearchDetail.model_validate(search)
+
+        return search_detail.model_copy(
+            update={"analysis_results": analysis_results}
+        )
 
     def get_search_list(self, page: int, size: int) -> SearchListResponse:
         items, total = self.repository.find_all(page=page, per_page=size)

@@ -448,6 +448,14 @@ function mapSearchItemToHistory(item) {
 }
 
 function mapSearchItemToResult(item) {
+  const results = item.analysis_results || [];
+  const bestResult =
+    results.length > 0
+      ? results.reduce((best, current) =>
+          current.matching_rate > best.matching_rate ? current : best,
+        )
+      : null;
+
   return {
     id: item.id,
     person_name: item.missing_name || '미상',
@@ -455,10 +463,17 @@ function mapSearchItemToResult(item) {
     region: item.missing_location || '-',
     alert_text: '',
     video_filename: '',
-    thumbnail_url: '',
-    best_confidence: 0,
-    best_timestamp_sec: null,
-    clips: [],
+    thumbnail_url: bestResult?.crop_img_path || '',
+    best_confidence: bestResult?.matching_rate || 0,
+    best_timestamp_sec: bestResult?.video_timestamp ?? null,
+    clips: results.map((result) => ({
+      id: result.id,
+      video_id: result.video_id,
+      timestamp_sec: result.video_timestamp,
+      thumbnail_url: result.crop_img_path,
+      confidence: result.matching_rate,
+      position: result.position,
+    })),
     sms_info: { gender: item.gender, clothes: item.clothing },
     created_at: item.searched_at,
     description: item.clothing || '',

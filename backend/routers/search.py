@@ -51,7 +51,7 @@ def get_search_list(
 # response_model => 단건이라 SearchDetail로 바꾸는게 좋아보임
 @router.get(
     "/{search_id}",
-    response_model=SearchItem,
+    response_model=SearchDetail,
     summary="검색 요청 단건 조회",
 )
 def get_search(

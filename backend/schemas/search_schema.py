@@ -60,6 +60,17 @@ class SearchCreate(BaseModel):
         default="1", max_length=1
     )  # 1 : SMS API에서 파싱한데이터, 2: 챗봇, 3: 자동검색(선택사항)
 
+class SearchResultClip(BaseModel):
+    id: int
+    video_id: int
+    video_timestamp: int
+    crop_id: int
+    position: str
+    crop_img_path: str | None
+    matching_rate: float
+
+    class Config:
+        from_attributes = True
 
 class SearchDetail(BaseModel):
     """
@@ -79,6 +90,7 @@ class SearchDetail(BaseModel):
     start_date: date
     end_date: date
     search_type: str
+    analysis_results: list[SearchResultClip] = Field(default_factory=list)
 
     class Config:
         from_attributes = True
