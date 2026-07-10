@@ -336,7 +336,7 @@ export default function SearchResults() {
                 <div className="search-page__empty">
                   <p>아직 검색 결과가 없습니다.</p>
                   <p>
-                    대시보드에서 안내문자를 선택하거나 챗봇·CCTV 분석을
+                    대시보드에서 안내문자를 선택해 실종자 검색을
                     진행해 주세요.
                   </p>
                 </div>
@@ -385,7 +385,7 @@ export default function SearchResults() {
                 </p>
                 <p>
                   {selectedResult.description ||
-                    '영상 클립 결과는 CCTV 분석 연동 후 표시됩니다.'}
+                    '영상 클립 결과는 분석 상세 API 연동 후 표시됩니다.'}
                 </p>
                 <button
                   type="button"

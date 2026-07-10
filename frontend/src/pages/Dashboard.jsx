@@ -3,13 +3,18 @@
  *
  * [지도] MapDrilldown — 시·도/구·군 드릴다운, 지역별 문자 필터
  * [데이터] fetchMessages(/message) + sessionStorage 캐시
- * [액션] 문자 선택 → alertText 저장 → /cctv 또는 /search-results 이동
+ * [액션] 문자 선택 → 실종자 검색(POST /search) → /search-results 이동
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MapDrilldown from '../components/MapDrilldown';
 import AlertMessageCard from '../components/AlertMessageCard';
-import { collectMessages, fetchMessages } from '../api/client';
+import {
+  collectMessages,
+  createSearch,
+  fetchMessages,
+  getUserId,
+} from '../api/client';
 import { useDetectionStore } from '../store/useDetectionStore';
 import {
   filterAlertsByRegion,
@@ -83,6 +88,17 @@ function regionFilterLabel(mapFilter) {
   return mapFilter.label;
 }
 
+/** 안내문자 본문에서 인상착의 후보 텍스트 추출 (최대 100자) */
+function extractClothingFromAlert(text) {
+  if (!text) return null;
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  const wearMatch = normalized.match(
+    /[^.。\n]{0,80}(?:착용|입고|입은|차림)[^.。\n]{0,40}/,
+  );
+  if (wearMatch) return wearMatch[0].slice(0, 100);
+  return normalized.slice(0, 100);
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const {
@@ -99,9 +115,12 @@ export default function Dashboard() {
     setEndDate,
     setAlertText,
     setActiveSearch,
+    selectedRegion,
   } = useDetectionStore();
 
   const [apiError, setApiError] = useState(null);
+  const [searchError, setSearchError] = useState(null);
+  const [searchRunning, setSearchRunning] = useState(false);
   const [dateWarning, setDateWarning] = useState(null);
   const [emptyHint, setEmptyHint] = useState(null);
   const [mapFilter, setMapFilter] = useState({ level: 'nation' });
@@ -214,6 +233,7 @@ export default function Dashboard() {
     setSelectedAlert(alert);
     setAlertText(alert.msg_cn);
     setSelectedRegion(alert.rcptn_rgn_nm || '전국');
+    setSearchError(null);
     setActiveSearch({
       alertText: alert.msg_cn,
       smsInfo: {},
@@ -222,6 +242,64 @@ export default function Dashboard() {
     const focus = resolveAlertMapFocus(alert.rcptn_rgn_nm);
     if (focus) {
       setMapFocus({ ...focus, key: Date.now() });
+    }
+  };
+
+  const handleRunMissingPersonSearch = async () => {
+    if (!selectedAlert || searchRunning) return;
+
+    const userId = getUserId();
+    if (!userId) {
+      setSearchError('로그인이 필요합니다.');
+      navigate('/login');
+      return;
+    }
+
+    setSearchRunning(true);
+    setSearchError(null);
+
+    try {
+      const range = resolveDateRange(startDate, endDate);
+      const region =
+        (selectedRegion && selectedRegion !== '전국' ? selectedRegion : null) ||
+        selectedAlert.rcptn_rgn_nm ||
+        null;
+
+      const payload = {
+        user_id: userId,
+        message_sn: selectedAlert.sn || selectedAlert.id,
+        clothing: extractClothingFromAlert(selectedAlert.msg_cn),
+        missing_location: region ? region.slice(0, 20) : null,
+        search_type: '1',
+        ...(range.hasUserRange && range.start_date && range.end_date
+          ? { start_date: range.start_date, end_date: range.end_date }
+          : {}),
+      };
+
+      const result = await createSearch(payload);
+
+      setActiveSearch({
+        alertText: selectedAlert.msg_cn,
+        smsInfo: {
+          name: result.missing_name,
+          age: result.age,
+          gender: result.gender,
+          clothes: result.clothing,
+        },
+        region: result.missing_location || region,
+        searchResultId: result.id,
+      });
+      navigate('/search-results');
+    } catch (e) {
+      console.error('실종자 검색 요청 실패', e);
+      const detail = e.response?.data?.detail;
+      setSearchError(
+        typeof detail === 'string'
+          ? detail
+          : '실종자 검색 요청에 실패했습니다.',
+      );
+    } finally {
+      setSearchRunning(false);
     }
   };
 
@@ -289,8 +367,21 @@ export default function Dashboard() {
             <button
               type="button"
               className="filter-panel__btn filter-panel__btn--primary"
+              onClick={handleRunMissingPersonSearch}
+              disabled={!selectedAlert || searchRunning || loading}
+              title={
+                selectedAlert
+                  ? '선택한 안내문자로 CCTV 검색을 실행합니다'
+                  : '실종 안내문자를 먼저 선택하세요'
+              }
+            >
+              {searchRunning ? '검색 중…' : '실종자 검색'}
+            </button>
+            <button
+              type="button"
+              className="filter-panel__btn filter-panel__btn--secondary"
               onClick={handleSearch}
-              disabled={loading}
+              disabled={loading || searchRunning}
             >
               {loading ? '조회 중…' : '안내문자 조회'}
             </button>
@@ -309,6 +400,9 @@ export default function Dashboard() {
 
         {regionSearchError && (
           <p className="filter-panel__error">{regionSearchError}</p>
+        )}
+        {searchError && (
+          <p className="filter-panel__error">{searchError}</p>
         )}
         {dateWarning && (
           <p className="filter-panel__error">{dateWarning}</p>
@@ -331,25 +425,6 @@ export default function Dashboard() {
               </span>
             )}
           </div>
-
-          {selectedAlert && (
-            <div className="sidebar__actions">
-              <button
-                type="button"
-                className="sidebar__action-btn sidebar__action-btn--primary"
-                onClick={() => navigate('/cctv')}
-              >
-                CCTV 분석
-              </button>
-              <button
-                type="button"
-                className="sidebar__action-btn"
-                onClick={() => navigate('/search-results')}
-              >
-                검색결과 보기
-              </button>
-            </div>
-          )}
 
           {!loading && filteredAlerts.length > 0 && isDefaultQuery && (
             <p className="sidebar-hint">

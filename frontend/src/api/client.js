@@ -173,6 +173,9 @@ const decodeAccessToken = () => {
   }
 };
 
+/** 현재 로그인 사용자 ID (JWT sub) 또는 null */
+export const getUserId = () => decodeAccessToken()?.sub ?? null;
+
 /** 현재 로그인 사용자의 역할 코드('1'관리자/'2'수사관/'3'공무원) 또는 null */
 export const getRole = () => decodeAccessToken()?.role ?? null;
 
@@ -427,6 +430,10 @@ export const collectMessages = (params = {}) =>
 export const fetchSearchList = (params = {}) =>
   client.get('/search', { params }).then((r) => r.data);
 
+/** 검색 요청 생성 + 분석 실행 — POST /search */
+export const createSearch = (payload) =>
+  client.post('/search', payload).then((r) => r.data);
+
 export const fetchSearchDetail = (id) =>
   client.get(`/search/${id}`).then((r) => r.data);
 
@@ -501,16 +508,5 @@ export const deleteAllSearchResults = async () => {
   await Promise.all(items.map((item) => deleteSearch(item.id)));
   return { ok: true, deleted_count: items.length };
 };
-
-// ══════════════════════════════════════════════════════════
-// CCTV — /video/* (백엔드 분석 엔드포인트 연동 시 사용)
-// ══════════════════════════════════════════════════════════
-
-export const analyzeVideo = (formData) =>
-  client
-    .post('/video/analyze', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
-    .then((r) => r.data);
 
 export default client;
