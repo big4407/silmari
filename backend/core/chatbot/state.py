@@ -1,23 +1,28 @@
-from typing import TypedDict, Any
+from typing import TypedDict
+
+from datetime import date
 
 
 class ChatState(TypedDict):
     user_id: str
 
-    message_sn: str | None
     missing_name: str | None
     gender: str | None
     age: int | None
 
     region: str | None
-    start_date: str | None
-    end_date: str | None
+    region_code: str | None
+
+    start_date: date | None
+    end_date: date | None
+
     appearance: str | None
 
-    missing_slots: list[str]
+    validation_step: str | None
+    validation_status: str | None
+
     search_id: int | None
+    search_inserted: bool
 
-    response: str
-    messages: list[dict[str, Any]]
-
-    search_inserted: bool = False
+    response: str | None
+    messages: list[dict]
