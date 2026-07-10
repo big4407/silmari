@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from backend.db.models import Video, VideoDetail
@@ -8,6 +9,26 @@ from backend.db.models import Video, VideoDetail
 class VideoRepository:
     def __init__(self, db: Session):
         self.db = db
+
+    def count_with_region_code(self) -> int:
+        return (
+            self.db.scalar(
+                select(func.count())
+                .select_from(Video)
+                .where(Video.region_code.isnot(None))
+            )
+            or 0
+        )
+
+    def unlink_all_region_codes(self) -> int:
+        """모든 video.region_code 를 NULL 처리한다 (region 테이블 전체 삭제 전 정리용).
+
+        반환값: 영향받은 row 수.
+        """
+        result = self.db.execute(
+            update(Video).where(Video.region_code.isnot(None)).values(region_code=None)
+        )
+        return result.rowcount or 0
 
     def create(self, video: Video) -> Video:
         self.db.add(video)

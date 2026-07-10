@@ -122,3 +122,19 @@ class LLmCallRepository:
         self.db.flush()
 
         return True
+
+    def update_null_search_id_by_session(
+        self, chatbot_s_id: str, search_id: int
+    ) -> None:
+        """세션의 search_id 가 아직 비어있는(검색 생성 전) 기록들을 일괄 채운다."""
+        (
+            self.db.query(LlmCall)
+            .filter(
+                LlmCall.chatbot_s_id == chatbot_s_id,
+                LlmCall.search_id.is_(None),
+            )
+            .update(
+                {LlmCall.search_id: search_id},
+                synchronize_session=False,
+            )
+        )

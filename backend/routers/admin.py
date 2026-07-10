@@ -43,8 +43,16 @@ from backend.schemas.admin_history_schema import (
 from backend.schemas.data_integrity_schema import (
     IntegrityCheckIssuesResponse,
     IntegrityRunResponse,
+)
+from backend.schemas.region_schema import (
     RegionClearResult,
+    RegionCreate,
     RegionImportResult,
+    RegionItem,
+    RegionListResponse,
+    RegionOption,
+    RegionOptionsResponse,
+    RegionUpdate,
 )
 from backend.schemas.retention_schema import (
     RetentionDryRunRequest,
@@ -55,14 +63,6 @@ from backend.schemas.retention_schema import (
 )
 from backend.services.integrity_service import IntegrityService
 from backend.services.retention_service import RetentionService
-from backend.schemas.region_schema import (
-    RegionCreate,
-    RegionItem,
-    RegionListResponse,
-    RegionOption,
-    RegionOptionsResponse,
-    RegionUpdate,
-)
 from backend.services.region_admin_service import RegionAdminService
 
 router = APIRouter(prefix="/admin")
@@ -252,7 +252,9 @@ def list_admin_history(
     action_type: AdminAction | None = Query(default=None, description="행동 유형 필터"),
     approval_only: bool = Query(default=False, description="승인·권한 변경만(1~4)"),
     actor: str | None = Query(default=None, description="행위자 이름·아이디 부분 검색"),
-    target_type: str | None = Query(default=None, description="대상 유형 필터 (user, region 등)"),
+    target_type: str | None = Query(
+        default=None, description="대상 유형 필터 (user, region 등)"
+    ),
     start_date: date | None = Query(default=None),
     end_date: date | None = Query(default=None),
     page: int = Query(default=1, ge=1),
@@ -597,7 +599,9 @@ def _validate_parent(
     if parent_code is None or parent_code == "":
         return
     if region_code and parent_code == region_code:
-        raise HTTPException(status_code=422, detail="자기 자신을 상위 지역으로 지정할 수 없습니다.")
+        raise HTTPException(
+            status_code=422, detail="자기 자신을 상위 지역으로 지정할 수 없습니다."
+        )
     parent = db.get(Region, parent_code)
     if parent is None:
         raise HTTPException(status_code=404, detail="상위 행정구역을 찾을 수 없습니다.")
@@ -747,7 +751,9 @@ def get_retention_policies(
     db: Session = Depends(get_db),
 ) -> RetentionPolicyListResponse:
     retention_svc = RetentionService(db)
-    items = [RetentionPolicyItem.model_validate(row) for row in retention_svc.list_policies()]
+    items = [
+        RetentionPolicyItem.model_validate(row) for row in retention_svc.list_policies()
+    ]
     return RetentionPolicyListResponse(items=items)
 
 
@@ -798,7 +804,9 @@ def update_retention_policies(
             policy.retention_days = data["retention_days"]
         if "expiry_action" in data and data["expiry_action"]:
             if data["expiry_action"] not in ("delete", "archive", "anonymize"):
-                raise HTTPException(status_code=422, detail="만료 처리 값이 올바르지 않습니다.")
+                raise HTTPException(
+                    status_code=422, detail="만료 처리 값이 올바르지 않습니다."
+                )
             policy.expiry_action = data["expiry_action"]
         if "is_active" in data and data["is_active"] is not None:
             policy.is_active = data["is_active"]
@@ -816,7 +824,9 @@ def update_retention_policies(
     )
     db.commit()
     retention_svc = RetentionService(db)
-    items = [RetentionPolicyItem.model_validate(row) for row in retention_svc.list_policies()]
+    items = [
+        RetentionPolicyItem.model_validate(row) for row in retention_svc.list_policies()
+    ]
     return RetentionPolicyListResponse(items=items)
 
 
@@ -830,9 +840,7 @@ def run_data_integrity(
     integrity_svc = IntegrityService(db)
     previous_total = integrity_svc.get_previous_total()
     checks, total_issues = integrity_svc.run_suite()
-    delta_issues = (
-        total_issues - previous_total if previous_total is not None else None
-    )
+    delta_issues = total_issues - previous_total if previous_total is not None else None
     run_id = integrity_svc.record_run(
         actor_id=admin.id,
         checks=checks,
@@ -919,7 +927,15 @@ def download_integrity_report_csv(
     buf = io.StringIO()
     writer = csv.writer(buf, lineterminator="\n")
     writer.writerow(
-        ["check_id", "label", "target", "status", "issue_count", "description", "samples"]
+        [
+            "check_id",
+            "label",
+            "target",
+            "status",
+            "issue_count",
+            "description",
+            "samples",
+        ]
     )
     for c in checks:
         writer.writerow(
@@ -939,5 +955,3 @@ def download_integrity_report_csv(
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
-
-
