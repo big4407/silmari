@@ -46,3 +46,29 @@ class RegionOption(BaseModel):
 
 class RegionOptionsResponse(BaseModel):
     items: list[RegionOption]
+
+
+class RegionImportResult(BaseModel):
+    created: int = 0
+    updated: int = 0
+    skipped: int = 0
+    errors: list[str] = Field(default_factory=list)
+    format: str = Field(default="region", description="region | administrative_dong")
+    legal_dong_created: int = 0
+    legal_dong_updated: int = 0
+    csv_rows: int = 0
+
+
+class RegionClearResult(BaseModel):
+    region_deleted: int = 0
+    legal_dong_deleted: int = 0
+    video_unlinked: int = 0
+
+
+class AdministrativeDongImportResult(BaseModel):
+    sido_count: int = 0
+    sigungu_count: int = 0
+    admin_dong_count: int = 0
+    legal_dong_count: int = 0
+    csv_rows: int = 0
+    errors: list[str] = Field(default_factory=list)
