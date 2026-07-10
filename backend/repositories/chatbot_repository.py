@@ -39,6 +39,19 @@ class ChatbotRepository:
             .first()
         )
 
+    def get_by_user_id(
+        self,
+        *,
+        user_id: str,
+    ) -> ChatbotSession | None:
+        return (
+            self.db.query(ChatbotSession)
+            .filter(
+                ChatbotSession.user_id == user_id,
+            )
+            .first()
+        )
+
     def delete(self, chatbot_session: ChatbotSession) -> None:
         self.db.delete(chatbot_session)
         self.db.flush()
