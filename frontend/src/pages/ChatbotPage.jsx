@@ -62,13 +62,14 @@ export default function ChatbotPage() {
             text: m.content,
           })),
         );
-      } catch {
+      } catch (err) {
         setMessages([
           {
             role: 'bot',
             text: '챗봇 세션을 불러오지 못했습니다.',
           },
         ]);
+        console.log(err);
       }
     };
 
