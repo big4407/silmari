@@ -88,8 +88,16 @@ class LlmCallService:
 
         self.db.commit()
 
-    def update_null_search_id_by_session(self, chatbot_s_id: str, search_id: int):
-        self.repository.update_null_search_id_by_session(chatbot_s_id, search_id)
+    def update_null_search_id_by_session(
+        self,
+        *,
+        chatbot_s_id: str,
+        search_id: int,
+    ) -> int:
+        return self.repository.update_null_search_id_by_session(
+            chatbot_s_id=chatbot_s_id,
+            search_id=search_id,
+        )
 
     def record_call(
         self,

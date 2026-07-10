@@ -40,8 +40,8 @@ class LLmCallRepository:
         if params.user_id is not None:
             query = query.filter(LlmCall.user_id == params.user_id)
 
-        if params.conversation_id is not None:
-            query = query.filter(LlmCall.conversation_id == params.conversation_id)
+        if params.chatbot_s_id is not None:
+            query = query.filter(LlmCall.chatbot_s_id == params.chatbot_s_id)
 
         if params.model_name is not None:
             query = query.filter(LlmCall.model_name == params.model_name)
@@ -89,6 +89,28 @@ class LLmCallRepository:
         self.db.refresh(llm_call)
 
         return llm_call
+
+    def update_null_search_id_by_session(
+        self,
+        *,
+        chatbot_s_id: str,
+        search_id: int,
+    ) -> int:
+        updated_count = (
+            self.db.query(LlmCall)
+            .filter(
+                LlmCall.chatbot_s_id == chatbot_s_id,
+                LlmCall.search_id.is_(None),
+            )
+            .update(
+                {LlmCall.search_id: search_id},
+                synchronize_session=False,
+            )
+        )
+
+        self.db.flush()
+
+        return updated_count
 
     def delete(self, llm_call_id: int) -> bool:
         llm_call = self.get_by_id(llm_call_id)
