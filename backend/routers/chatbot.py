@@ -41,16 +41,18 @@ def create_chat_session(
     current_user: User = Depends(get_current_user),
 ):
     """
-    새로운 챗봇 세션을 생성한다.
+    유저가 세션을 가지고 있지 않은 경우, 새로운 챗봇 세션을 생성하고, message를 반환한다.
     """
     service = ChatbotService(db)
 
-    session_id = str(uuid.uuid4())
+    user_session = service.get_session_by_user_id(current_user.id)
 
-    return service.get_or_create_session(
-        user_id=current_user.id,
-        session_id=session_id,
-    )
+    if user_session:
+        session_id = user_session.session_id
+    else:
+        session_id = str(uuid.uuid4())
+
+    return service.get_session_messages(user_id=current_user.id, session_id=session_id)
 
 
 @router.get("/session/{session_id}")
@@ -63,4 +65,9 @@ def get_chat_session(
     챗봇과의 채팅 세션을 읽어오는 함수. session_id와 사용자 정보를 이용하여 채팅 세션을 읽어온다.
     """
     service = ChatbotService(db)
+
+    # 만약 localStorage를 통해 만들어진 session_id가 db에 없다면 create_chat_session으로 넘긴다
+    if not service.exist_session(session_id, current_user.id):
+        return create_chat_session(db, current_user)
+
     return service.get_session_messages(user_id=current_user.id, session_id=session_id)
