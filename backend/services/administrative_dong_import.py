@@ -24,6 +24,7 @@ _ADMIN_DONG_HEADERS = frozenset(
     {"시도명", "시군구명", "행정동명", "법정동명", "행정동코드", "법정동코드"}
 )
 
+
 def join_region_names(*parts: str) -> str:
     """행정구역 명칭을 이어 붙일 때 연속 중복 구간은 한 번만 포함."""
     names: list[str] = []
@@ -82,7 +83,9 @@ def _parse_date(value: str | None) -> date | None:
         return None
 
 
-def _scan_reader(reader: csv.DictReader) -> tuple[
+def _scan_reader(
+    reader: csv.DictReader,
+) -> tuple[
     dict[str, dict],
     dict[str, dict],
     dict[str, dict],
@@ -152,7 +155,9 @@ def _scan_reader(reader: csv.DictReader) -> tuple[
     return sido, sigungu, admin_dong, legal_pairs, row_count
 
 
-def _scan_csv(csv_path: Path) -> tuple[
+def _scan_csv(
+    csv_path: Path,
+) -> tuple[
     dict[str, dict],
     dict[str, dict],
     dict[str, dict],
@@ -238,9 +243,7 @@ def _upsert_legal_dongs(
                 RegionLegalDong.admin_dong_code.in_(admin_codes),
             )
         ).all()
-        existing_map = {
-            (row.legal_dong_code, row.admin_dong_code): row for row in rows
-        }
+        existing_map = {(row.legal_dong_code, row.admin_dong_code): row for row in rows}
 
     new_rows: list[dict] = []
     for item in legal_rows:
@@ -281,16 +284,16 @@ def import_administrative_dong_from_upload(
     sido, sigungu, admin_dong, legal_pairs, row_count = _scan_reader(reader)
     result.csv_rows = row_count
 
-    region_rows = list(sido.values()) + list(sigungu.values()) + list(admin_dong.values())
+    region_rows = (
+        list(sido.values()) + list(sigungu.values()) + list(admin_dong.values())
+    )
     legal_rows = list(legal_pairs.values())
 
     created, updated = _upsert_regions(db, region_rows, dry_run=dry_run)
     result.created = created
     result.updated = updated
 
-    legal_created, legal_updated = _upsert_legal_dongs(
-        db, legal_rows, dry_run=dry_run
-    )
+    legal_created, legal_updated = _upsert_legal_dongs(db, legal_rows, dry_run=dry_run)
     result.legal_dong_created = legal_created
     result.legal_dong_updated = legal_updated
     return result
@@ -353,9 +356,14 @@ def import_administrative_dong_csv(
         return result
 
     if replace and existing > 0:
-        video_refs = db.scalar(
-            select(func.count()).select_from(Video).where(Video.region_code.isnot(None))
-        ) or 0
+        video_refs = (
+            db.scalar(
+                select(func.count())
+                .select_from(Video)
+                .where(Video.region_code.isnot(None))
+            )
+            or 0
+        )
         if video_refs > 0:
             result.errors.append(
                 f"video.region_code 참조 {video_refs}건 — region 전체 삭제 불가"
@@ -366,7 +374,9 @@ def import_administrative_dong_csv(
     sido, sigungu, admin_dong, legal_pairs, row_count = _scan_csv(path)
     result.csv_rows = row_count
 
-    region_rows = list(sido.values()) + list(sigungu.values()) + list(admin_dong.values())
+    region_rows = (
+        list(sido.values()) + list(sigungu.values()) + list(admin_dong.values())
+    )
     for i in range(0, len(region_rows), _BATCH):
         db.bulk_insert_mappings(Region, region_rows[i : i + _BATCH])
 
@@ -398,7 +408,9 @@ def repair_region_full_names(
         return 0
 
     sido, sigungu, admin_dong, _, _ = _scan_csv(path)
-    region_rows = list(sido.values()) + list(sigungu.values()) + list(admin_dong.values())
+    region_rows = (
+        list(sido.values()) + list(sigungu.values()) + list(admin_dong.values())
+    )
     updated = 0
     for item in region_rows:
         existing = db.get(Region, item["region_code"])

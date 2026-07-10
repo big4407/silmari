@@ -573,6 +573,9 @@ class AnalysisDetail(Base):
     position: Mapped[str] = mapped_column(
         String(100), nullable=False, comment="bbox (x,y,width,height)"
     )
+    crop_img_path: Mapped[str | None] = mapped_column(
+        String(260), nullable=True, comment="매칭된 인물 crop 이미지 경로(썸네일)"
+    )
     matching_rate: Mapped[float] = mapped_column(
         Float, nullable=False, default=0, comment="매칭 정확도"
     )
