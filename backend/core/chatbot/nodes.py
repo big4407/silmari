@@ -168,7 +168,6 @@ def validate_period_node(state, config):
             "response": (
                 "해당 지역에는 입력한 기간의 CCTV 영상이 없습니다. "
                 "다른 기간을 입력해 주세요."
-                f"{state}"
             ),
         }
 
