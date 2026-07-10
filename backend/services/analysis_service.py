@@ -111,6 +111,7 @@ class AnalysisService:
                     "video_timestamp": metadata["video_timestamp"],
                     "crop_id": metadata["crop_id"],
                     "position": metadata["position"],
+                    "crop_img_path": metadata.get("image_path"),
                     "matching_rate": round(similarity, 4),
                 }
             )
