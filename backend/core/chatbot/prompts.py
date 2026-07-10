@@ -5,8 +5,8 @@ SLOT_EXTRACTION_PROMPT = """
 
 필수 정보:
 - region: 지역
-- start_time: 검색 시작 시간
-- end_time: 검색 종료 시간
+- start_date: 검색 시작 일자 (date 타입)
+- end_date: 검색 종료 일자 (date 타입)
 - appearance: 인상착의
 
 선택 정보:

@@ -1,26 +1,151 @@
 /** 안내문자 관리 뷰 — 목록·인상착의 파싱 검수 (목 UI) */
 import PageHead from '../components/PageHead';
 import EmptyState, { TableEmptyRow } from '../components/EmptyState';
+import { ReportRow } from '../components/MessageBody';
+import { useState, useEffect } from 'react';
+import { getMessageList } from '../../../api/client';
 
+// 문자 목록을 보여주는 함수
 export function ReportsView() {
+  const PAGE_SIZE = 10; // 한 페이지에 보여줄 문자 수
+  const [reports, setReports] = useState([]);
+  const [page, setPage] = useState(1); // 현재 페이지
+  const [total, setTotal] = useState(0); // 총 문자 수
+  const [content, setContent] = useState(''); // 내용 검색어
+  const [region, setRegion] = useState(''); // 지역 검색어
+  const [startDate, setStartDate] = useState(''); // 검색 시작일
+  const [endDate, setEndDate] = useState(''); // 검색 종료일
+  const [orderBy, setOrderBy] = useState('latest'); // 정렬 기준
+
+  // 실제 API에 전달되는 검색 조건
+  const [search, setSearch] = useState({
+    content: '',
+    region: '',
+    startDate: null,
+    endDate: null,
+    orderBy: 'latest',
+  });
+
+  const handleSearch = () => {
+    setPage(1); // 첫 페이지부터 검색
+    setSearch({
+      content: content,
+      region: region,
+      startDate: startDate || null,
+      endDate: endDate || null,
+      orderBy: orderBy,
+    });
+  };
+
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+
+  // 실제로 보일 페이지 배열을 계산하는 함수, 첫 페이지와 마지막 페이지는 항상 보이므로 그 외만 처리
+  const getPageNumbers = () => {
+    const maxVisible = 5; // 가운데 보일 페이지 수, 이외의 페이지는 ... 처리
+
+    let start = Math.max(1, page - Math.floor(maxVisible / 2));
+    let end = start + maxVisible - 1;
+
+    if (end > totalPages) {
+      end = totalPages;
+      start = Math.max(1, end - maxVisible + 1);
+    }
+
+    return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+  };
+
+  const pageNumbers = getPageNumbers();
+
+  const renderPageButton = (
+    pageNumber,
+    paginationButtonClass = 'admin-btn',
+  ) => (
+    <button
+      key={pageNumber}
+      type="button"
+      className={paginationButtonClass}
+      onClick={() => setPage(pageNumber)}
+    >
+      {pageNumber}
+    </button>
+  );
+
+  useEffect(() => {
+    async function fetchReports() {
+      try {
+        const data = await getMessageList({
+          page,
+          per_page: PAGE_SIZE,
+          ...search,
+          orderBy: orderBy,
+        });
+        setReports(data.items);
+        setTotal(data.total);
+      } catch (error) {
+        setReports([]);
+        setTotal(0);
+      }
+    }
+
+    fetchReports();
+  }, [page, search, orderBy]);
+
   return (
     <>
       <PageHead
         viewId="reports"
         desc="수집된 재난문자 중 실종 관련 안내문자를 조회합니다. 선택한 문자는 인상착의 파싱 검수와 CCTV 검색의 입력으로 사용됩니다."
       />
-      <div className="admin-toolbar">
-        <input placeholder="내용·지역 검색" disabled />
-        <select disabled>
-          <option>긴급단계 전체</option>
-        </select>
-        <select disabled>
-          <option>재해구분 전체</option>
-        </select>
-        <input type="date" disabled />
+
+      <form
+        className="admin-toolbar"
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSearch();
+        }}
+      >
+        <input
+          placeholder="내용 검색"
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+        />
+
+        <input
+          placeholder="지역 검색"
+          value={region}
+          onChange={(e) => setRegion(e.target.value)}
+        />
+
+        <span>기간</span>
+
+        <input
+          type="date"
+          value={startDate}
+          onChange={(e) => setStartDate(e.target.value)}
+        />
+        <span>-</span>
+        <input
+          type="date"
+          value={endDate}
+          onChange={(e) => setEndDate(e.target.value)}
+        />
+
+        <button type="submit" className="admin-btn admin-btn--primary">
+          검색
+        </button>
+
         <div className="admin-spacer" />
-        <span className="admin-pill admin-pill--muted">실종 관련만 표시</span>
-      </div>
+        <select
+          value={orderBy}
+          onChange={(e) => {
+            setOrderBy(e.target.value);
+          }}
+        >
+          <option value="latest">최신순</option>
+          <option value="oldest">오래된 순</option>
+        </select>
+      </form>
+
       <div className="admin-card admin-table-wrap">
         <table>
           <thead>
@@ -28,16 +153,64 @@ export function ReportsView() {
               <th>일련번호</th>
               <th>수신 일시</th>
               <th>수신 지역</th>
-              <th>긴급단계</th>
               <th>내용</th>
-              <th>분류 상태</th>
             </tr>
           </thead>
           <tbody>
-            <TableEmptyRow colSpan={6} />
+            {reports.length === 0 ? (
+              <TableEmptyRow colSpan={6} />
+            ) : (
+              reports.map((report) => (
+                <ReportRow key={report.sn} report={report} />
+              ))
+            )}
           </tbody>
         </table>
       </div>
+
+      <div className="admin-pagination">
+        <button
+          className="admin-btn"
+          type="button"
+          disabled={page === 1}
+          onClick={() => setPage((prev) => prev - 1)}
+        >
+          이전
+        </button>
+
+        {pageNumbers[0] > 1 && (
+          <>
+            {renderPageButton(1)}
+            {pageNumbers[0] > 2 && <span>...</span>}
+          </>
+        )}
+
+        {pageNumbers.map((pageNumber) =>
+          renderPageButton(
+            pageNumber,
+            page === pageNumber ? 'admin-btn admin-btn--primary' : 'admin-btn',
+          ),
+        )}
+
+        {pageNumbers[pageNumbers.length - 1] < totalPages && (
+          <>
+            {pageNumbers[pageNumbers.length - 1] < totalPages - 1 && (
+              <span>...</span>
+            )}
+            {renderPageButton(totalPages)}
+          </>
+        )}
+
+        <button
+          className="admin-btn"
+          type="button"
+          disabled={page === totalPages || totalPages === 0}
+          onClick={() => setPage((prev) => prev + 1)}
+        >
+          다음
+        </button>
+      </div>
+
       <p className="admin-footnote">
         ※ 재난문자 원천 데이터(<code>message</code>)에서 재해구분·키워드로 실종
         관련 건만 필터링해 표시합니다.
