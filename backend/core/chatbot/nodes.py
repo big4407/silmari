@@ -1,57 +1,34 @@
 from backend.core.chatbot.schemas import ExtractedSearchSlots
-from backend.core.chatbot.prompts import SLOT_EXTRACTION_PROMPT
 from backend.schemas.search_schema import SearchCreate
 from backend.services.search_service import SearchService
+
+from backend.repositories.region_repository import RegionRepository
+from backend.repositories.video_repository import VideoRepository
+from backend.services.region_resolver import RegionResolver, RegionResolveStatus
+from backend.services.video_period_validator import (
+    VideoPeriodValidator,
+    VideoPeriodValidationStatus,
+)
+
+from datetime import date
 
 
 def extract_slots_node(state, config):
     llm = config["configurable"]["llm"]
 
     extractor = llm.with_structured_output(ExtractedSearchSlots)
-    # SLOT_EXTRACTION_PROMPT를 안 붙이면 LLM이 스키마의 필드 설명만 보고
-    # "알 수 없으면 null" 원칙 없이 지역·시간 등을 추측해서 채울 수 있다.
-    prompt_messages = [{"role": "system", "content": SLOT_EXTRACTION_PROMPT}] + list(
-        state["messages"]
-    )
-    slots = extractor.invoke(prompt_messages)
+    slots = extractor.invoke(state["messages"])
 
     return {
         "region": slots.region or state.get("region"),
-        "start_time": slots.start_time or state.get("start_time"),
-        "end_time": slots.end_time or state.get("end_time"),
+        "start_date": slots.start_date or state.get("start_date"),
+        "end_date": slots.end_date or state.get("end_date"),
         "appearance": slots.appearance or state.get("appearance"),
         "missing_name": slots.missing_name or state.get("missing_name"),
         "gender": slots.gender or state.get("gender"),
         "age": slots.age or state.get("age"),
     }
 
-
-def validate_slots_node(state):
-    missing_slots = []
-
-    if not state.get("region"):
-        missing_slots.append("region")
-
-    if not state.get("start_time") or not state.get("end_time"):
-        missing_slots.append("time")
-
-    if not state.get("appearance"):
-        missing_slots.append("appearance")
-
-    return {"missing_slots": missing_slots}
-
-
-def ask_missing_node(state):
-    missing_slots = state["missing_slots"]
-
-    if "region" in missing_slots:
-        response = "검색할 지역을 알려주세요. 예: 대전 동구, 고흥읍 등암리"
-    elif "time" in missing_slots:
-        response = "검색할 시간대를 알려주세요. 예: 오늘 오후 2시부터 4시 사이"
-    else:
-        response = "인상착의를 알려주세요. 예: 검은 후드티, 회색 바지, 검은 백팩"
-
-    return {"response": response}
 
 
 def create_search_node(state, config):
@@ -67,47 +44,167 @@ def create_search_node(state, config):
         age=state.get("age"),
         clothing=state.get("appearance"),
         missing_location=state.get("region"),
-        # missing_time은 datetime 필드인데 챗봇이 뽑는 start_time/end_time은
-        # "14:00" 같은 시각뿐인 자유 텍스트라 그대로 넣으면 pydantic 검증에서
-        # 터진다(날짜 정보가 없음). start_date/end_date(영상 검색 기간, date 타입)로
-        # 자연어 시간을 정확히 변환하는 로직은 아직 없어서 일단 기본값(최근 7일)을
-        # 쓰고, 시간대 정보는 응답 문구에만 참고로 남긴다.
+        missing_time=state.get("start_time"),
+        start_date=state.get("start_date"),
+        end_date=state.get("end_date"),
         search_type="2",
     )
 
-    # create_search_with_match_count()가 내부에서 AnalysisService.run_analysis()까지
-    # 동기 실행하고 매칭 건수도 같이 돌려준다 — 여기서 AnalysisRepository를 따로
-    # 알 필요가 없다(레이어를 건너뛰지 않도록).
-    search, match_count = service.create_search_with_match_count(search_data)
-
-    time_note = ""
-    if state.get("start_time") and state.get("end_time"):
-        time_note = f" (요청하신 시간대 {state['start_time']}~{state['end_time']}는 참고용으로만 기록했고, 실제 검색 기간 필터는 아직 최근 7일 기본값을 씁니다.)"
-
-    if match_count > 0:
-        response = (
-            f"검색을 완료했습니다. 조건에 맞는 후보 {match_count}건을 찾았어요. "
-            f"검색 ID는 {search.id}입니다. 상세 결과는 검색 내역에서 확인해주세요.{time_note}"
-        )
-    else:
-        response = (
-            f"검색 조건으로 후보를 찾지 못했습니다(검색 ID: {search.id}). "
-            f"인상착의나 지역·기간을 조금 더 넓혀서 다시 시도해보시겠어요?{time_note}"
-        )
+    search = service.create_search(search_data)
 
     return {
         "search_id": search.id,
-        "response": response,
-        # 검색이 끝났으면 슬롯을 비워서 다음 메시지부터는 새 검색으로 취급한다.
-        # 안 비우면 이후 어떤 메시지를 보내도 "슬롯이 이미 다 채워져 있음"으로
-        # 판단해 매번 전체 파이프라인(LLM 추출 + FashionCLIP 임베딩 + Chroma
-        # 검색)을 다시 돌리게 된다.
-        "region": None,
-        "start_time": None,
-        "end_time": None,
-        "appearance": None,
-        "missing_name": None,
-        "gender": None,
-        "age": None,
-        "missing_slots": [],
+        "response": f"검색 조건을 저장했습니다. 검색 ID는 {search.id}입니다.",
+        "search_inserted": True,
     }
+
+
+def validate_region_node(state, config):
+    """
+    입력된 지역의 존재 여부를 확인하고 지역 코드를 확정한다.
+
+    지역이 없거나 유효하지 않은 경우 사용자에게 지역을 다시 요청한다.
+    """
+
+    region = (state.get("region") or "").strip()
+
+    if not region:
+        return {
+            "validation_status": "invalid",
+            "response": ("검색할 지역을 알려주세요. 예: 대전 동구, 고흥읍 등암리"),
+        }
+
+    db = config["configurable"]["db"]
+
+    region_repository = RegionRepository(db)
+    region_resolver = RegionResolver(region_repository)
+
+    result = region_resolver.resolve(region)
+
+    if result.status == RegionResolveStatus.NOT_FOUND:
+        return {
+            "region": None,
+            "region_code": None,
+            "validation_status": "invalid",
+            "response": (
+                "입력한 지역을 찾을 수 없습니다. 검색할 지역을 다시 알려주세요."
+            ),
+        }
+
+    if result.status == RegionResolveStatus.AMBIGUOUS:
+        candidate_names = ", ".join(
+            candidate.full_name for candidate in result.candidates[:5]
+        )
+
+        return {
+            "region": None,
+            "region_code": None,
+            "validation_status": "invalid",
+            "response": (
+                "입력한 지역과 일치하는 후보가 여러 개 있습니다. "
+                f"다음 후보를 참고하여 더 구체적으로 입력해 주세요: "
+                f"{candidate_names}"
+            ),
+        }
+
+    return {
+        "region": result.full_name,
+        "region_code": result.region_code,
+        "validation_status": "valid",
+        "response": None,
+    }
+
+
+def validate_period_node(state, config):
+    """
+    시작일과 종료일이 입력되었는지 확인하고,
+    확정된 지역과 기간에 영상이 존재하는지 검증한다.
+    """
+
+    start_date = state.get("start_date")
+    end_date = state.get("end_date")
+
+    if not start_date or not end_date:
+        return {
+            "validation_status": "invalid",
+            "response": ("검색할 일자를 알려주세요. 예: 2026년 6월 28일 ~ 6월 29일"),
+        }
+
+    region_code = state.get("region_code")
+
+    if not region_code:
+        return {
+            "region": None,
+            "validation_status": "invalid",
+            "response": "먼저 검색할 지역을 알려주세요.",
+        }
+
+    db = config["configurable"]["db"]
+
+    video_repository = VideoRepository(db)
+    period_validator = VideoPeriodValidator(video_repository)
+
+    result = period_validator.validate(
+        region_code=region_code,
+        start_date=date.fromisoformat(start_date),
+        end_date=date.fromisoformat(end_date),
+    )
+
+    if result.status == VideoPeriodValidationStatus.INVALID_RANGE:
+        return {
+            "start_date": None,
+            "end_date": None,
+            "validation_status": "invalid",
+            "response": (
+                "시작일은 종료일보다 늦을 수 없습니다. 검색할 기간을 다시 알려주세요."
+            ),
+        }
+
+    if result.status == VideoPeriodValidationStatus.VIDEO_NOT_FOUND:
+        return {
+            "start_date": None,
+            "end_date": None,
+            "validation_status": "invalid",
+            "response": (
+                "해당 지역에는 입력한 기간의 CCTV 영상이 없습니다. "
+                "다른 기간을 입력해 주세요."
+            ),
+        }
+
+    return {
+        "validation_status": "valid",
+        "response": None,
+    }
+
+
+def validate_appearance_node(state):
+    """
+    인상착의가 입력되었는지 확인한다.
+    """
+
+    appearance = (state.get("appearance") or "").strip()
+
+    if not appearance:
+        return {
+            "validation_status": "invalid",
+            "response": (
+                "인상착의를 알려주세요. 예: 검은 후드티, 회색 바지, 검은 백팩"
+            ),
+        }
+
+    return {
+        "appearance": appearance,
+        "validation_status": "valid",
+        "response": None,
+    }
+
+
+def route_validation(state):
+    """
+    검증 성공 여부에 따라 다음 노드 진행 여부를 결정한다.
+    """
+
+    if state.get("validation_status") == "valid":
+        return "next"
+
+    return "end"

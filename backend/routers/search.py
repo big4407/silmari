@@ -7,9 +7,12 @@ from backend.schemas.search_schema import (
     SearchItem,
     SearchListResponse,
     SearchDetail,
-    SearchStatus
+    SearchStatus,
 )
 from backend.services.search_service import SearchService
+
+from backend.deps import get_current_user
+from backend.db.models import User
 
 
 # Service 객체를 Depends로 주입하기 위해 생성한 함수
@@ -43,15 +46,16 @@ def create_search(
 def get_search_list(
     page: int = Query(1, ge=1, description="페이지 번호"),
     size: int = Query(10, ge=1, le=100, description="페이지당 항목 수"),
+    current_user: User = Depends(get_current_user),
     service: SearchService = Depends(get_search_service),
 ):
-    return service.get_search_list(page=page, size=size)
+    return service.get_search_list(page=page, size=size, user_id=current_user.id)
 
 
 # response_model => 단건이라 SearchDetail로 바꾸는게 좋아보임
 @router.get(
     "/{search_id}",
-    response_model=SearchItem,
+    response_model=SearchDetail,
     summary="검색 요청 단건 조회",
 )
 def get_search(

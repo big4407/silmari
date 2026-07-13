@@ -173,6 +173,9 @@ const decodeAccessToken = () => {
   }
 };
 
+/** 현재 로그인 사용자 ID (JWT sub) 또는 null */
+export const getUserId = () => decodeAccessToken()?.sub ?? null;
+
 /** 현재 로그인 사용자의 역할 코드('1'관리자/'2'수사관/'3'공무원) 또는 null */
 export const getRole = () => decodeAccessToken()?.role ?? null;
 
@@ -212,6 +215,33 @@ export const updateApproval = (userId, payload) =>
     .patch(`/member/admin/users/${userId}/approval`, payload)
     .then((r) => r.data);
 
+// ===============================
+// 안내문자 관련
+// ===============================
+export const getMessageList = ({
+  page,
+  per_page,
+  content,
+  region,
+  startDate,
+  endDate,
+  orderBy,
+}) => {
+  return client
+    .get('/message', {
+      params: {
+        page: page,
+        per_page: per_page,
+        search_content: content || null,
+        region: region || null,
+        start_date: startDate,
+        end_date: endDate,
+        order_by: orderBy,
+      },
+    })
+    .then((r) => r.data);
+};
+
 // ══════════════════════════════════════════════════════════
 // 감사 로그 — 로그인 이력 (/member/admin/login-history)
 // ══════════════════════════════════════════════════════════
@@ -223,6 +253,136 @@ export const fetchLoginHistory = (params = {}) =>
 /** 관리자 행동 이력(감사 로그) 조회. approval_only=true 면 승인·권한 변경만. */
 export const fetchAdminHistory = (params = {}) =>
   client.get('/member/admin/admin-history', { params }).then((r) => r.data);
+
+/** 행정구역 목록 */
+export const fetchRegions = (params = {}) =>
+  client.get('/member/admin/regions', { params }).then((r) => r.data);
+
+/** 행정구역 상세 */
+export const fetchRegionDetail = (regionCode) =>
+  client.get(`/member/admin/regions/${regionCode}`).then((r) => r.data);
+
+/** 상위 지역 선택용 옵션 목록 */
+export const fetchRegionOptions = () =>
+  client.get('/member/admin/regions/options').then((r) => r.data);
+
+/** 행정구역 등록 */
+export const createRegion = (payload) =>
+  client.post('/member/admin/regions', payload).then((r) => r.data);
+
+/** 행정구역 수정 */
+export const updateRegion = (regionCode, payload) =>
+  client
+    .patch(`/member/admin/regions/${regionCode}`, payload)
+    .then((r) => r.data);
+
+/** 행정구역 삭제 */
+export const deleteRegion = (regionCode) =>
+  client.delete(`/member/admin/regions/${regionCode}`);
+
+/** 행정구역·법정동 매핑 전체 삭제 */
+export const clearAllRegions = () =>
+  client.post('/member/admin/regions/clear-all').then((r) => r.data);
+
+/** 행정구역 CSV보내기 */
+export const exportRegionsCsv = (format = 'region') =>
+  client
+    .get('/member/admin/regions/export.csv', {
+      params: { format },
+      responseType: 'blob',
+    })
+    .then((r) => r.data);
+
+/** 행정구역 CSV 가져오기 (dryRun=true면 검증만) */
+export const importRegionsCsv = (file, dryRun = false) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return client
+    .post('/member/admin/regions/import.csv', formData, {
+      params: { dry_run: dryRun },
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    .then((r) => r.data);
+};
+
+/** 보존 정책 목록. */
+export const fetchRetentionPolicies = () =>
+  client.get('/member/admin/retention-policies').then((r) => r.data);
+
+/** 보존 정책 일괄 수정. */
+export const updateRetentionPolicies = (policies) =>
+  client
+    .patch('/member/admin/retention-policies', { policies })
+    .then((r) => r.data);
+
+/** 보존 정책 드라이런 — 만료 대상 건수·샘플 미리보기. */
+export const runRetentionDryRun = ({ policyId = null, policies = null } = {}) =>
+  client
+    .post(
+      '/member/admin/retention-policies/dry-run',
+      policies?.length ? { policies } : {},
+      { params: policyId ? { policy_id: policyId } : {} },
+    )
+    .then((r) => r.data);
+
+/** 정합성 검사 실행. */
+export const runDataIntegrity = () =>
+  client.post('/member/admin/data-integrity/run').then((r) => r.data);
+
+/** 최근 정합성 검사 결과 (감사 로그). 없으면 404. */
+export const fetchLastIntegrityRun = () =>
+  client.get('/member/admin/data-integrity/last').then((r) => r.data);
+
+/** 감사 로그 ID로 정합성 검사 결과 복원. */
+export const fetchIntegrityRun = (runId) =>
+  client.get(`/member/admin/data-integrity/runs/${runId}`).then((r) => r.data);
+
+/** 검사 항목별 전체 이슈 목록. */
+export const fetchIntegrityCheckIssues = (checkId) =>
+  client
+    .get(`/member/admin/data-integrity/checks/${checkId}/issues`)
+    .then((r) => r.data);
+
+/** 정합성 검사 CSV 리포트보내기. source: last | fresh */
+export const downloadIntegrityReport = (source = 'last') =>
+  client
+    .get('/member/admin/data-integrity/report.csv', {
+      params: { source },
+      responseType: 'blob',
+    })
+    .then((r) => r.data);
+
+/** Blob 파일 다운로드 */
+export const saveBlobDownload = (blob, filename) => {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
+/** API 오류 메시지 추출 (blob 응답 포함) */
+export const readApiErrorMessage = async (err, fallback) => {
+  const detail = err?.response?.data?.detail;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    return detail.map((item) => item.msg || JSON.stringify(item)).join(', ');
+  }
+
+  const data = err?.response?.data;
+  if (data instanceof Blob) {
+    try {
+      const text = await data.text();
+      const parsed = JSON.parse(text);
+      if (typeof parsed.detail === 'string') return parsed.detail;
+    } catch {
+      // fall through to fallback
+    }
+  }
+
+  return fallback;
+};
 
 // 관리자 행동 유형 코드 → 한글 라벨 (AdminAction enum)
 //   "1" 승인 / "2" 반려 / "3" 정지 / "4" 재승인 / "5" 삭제 / "6" 수정
@@ -270,6 +430,10 @@ export const collectMessages = (params = {}) =>
 export const fetchSearchList = (params = {}) =>
   client.get('/search', { params }).then((r) => r.data);
 
+/** 검색 요청 생성 + 분석 실행 — POST /search */
+export const createSearch = (payload) =>
+  client.post('/search', payload).then((r) => r.data);
+
 export const fetchSearchDetail = (id) =>
   client.get(`/search/${id}`).then((r) => r.data);
 
@@ -291,18 +455,74 @@ function mapSearchItemToHistory(item) {
 }
 
 function mapSearchItemToResult(item) {
+  const results = item.analysis_results || [];
+  const groupedByVideo = results.reduce((groups, result) => {
+    const videoId = result.video_id;
+
+    if (!groups[videoId]) {
+      groups[videoId] = [];
+    }
+
+    groups[videoId].push(result);
+    return groups;
+  }, {});
+  const bestResult =
+    results.length > 0
+      ? results.reduce((best, current) =>
+          current.matching_rate > best.matching_rate ? current : best,
+        )
+      : null;
+
   return {
     id: item.id,
     person_name: item.missing_name || '미상',
     person_age: item.age,
     region: item.missing_location || '-',
-    alert_text: '',
-    video_filename: '',
-    thumbnail_url: '',
-    best_confidence: 0,
-    best_timestamp_sec: null,
-    clips: [],
-    sms_info: { gender: item.gender, clothes: item.clothing },
+
+    video_results: Object.entries(groupedByVideo).map(
+      ([videoId, videoResults]) => {
+        const bestVideoResult = videoResults.reduce((best, current) =>
+          current.matching_rate > best.matching_rate ? current : best,
+        );
+
+        return {
+          video_id: Number(videoId),
+          video_path: bestVideoResult.video_path || '',
+          thumbnail_url: bestVideoResult.crop_img_path || '',
+          best_confidence: bestVideoResult.matching_rate || 0,
+          best_timestamp_sec: bestVideoResult.video_timestamp,
+          clips: videoResults.map((result) => ({
+            id: result.id,
+            video_id: result.video_id,
+            url: result.video_path || '',
+            start_sec: result.video_timestamp,
+            end_sec: result.video_timestamp + 5,
+            thumbnail_url: result.crop_img_path || '',
+            confidence: result.matching_rate,
+            position: result.position,
+          })),
+        };
+      },
+    ),
+
+    thumbnail_url: bestResult?.crop_img_path || '',
+    best_confidence: bestResult?.matching_rate || 0,
+    best_timestamp_sec: bestResult?.video_timestamp ?? null,
+    clips: results.map((result) => ({
+      id: result.id,
+      video_id: result.video_id,
+      url: result.video_path || '',
+      start_sec: result.video_timestamp,
+      end_sec: result.video_timestamp + 5,
+      thumbnail_url: result.crop_img_path || '',
+      confidence: result.matching_rate,
+      position: result.position,
+    })),
+
+    sms_info: {
+      gender: item.gender,
+      clothes: item.clothing,
+    },
     created_at: item.searched_at,
     description: item.clothing || '',
   };
@@ -344,16 +564,5 @@ export const deleteAllSearchResults = async () => {
   await Promise.all(items.map((item) => deleteSearch(item.id)));
   return { ok: true, deleted_count: items.length };
 };
-
-// ══════════════════════════════════════════════════════════
-// CCTV — /video/* (백엔드 분석 엔드포인트 연동 시 사용)
-// ══════════════════════════════════════════════════════════
-
-export const analyzeVideo = (formData) =>
-  client
-    .post('/video/analyze', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
-    .then((r) => r.data);
 
 export default client;

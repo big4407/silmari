@@ -22,7 +22,6 @@ from backend.repositories.analysis_repository import AnalysisRepository
 from backend.repositories.region_repository import RegionRepository
 from backend.repositories.video_repository import VideoRepository
 from backend.schemas.search_schema import SearchDetail
-from backend.services.video_service import VideoService
 
 # 코사인 거리 기준 최소 유사도(= 1 - distance). 데이터가 쌓이면 재조정 필요.
 DEFAULT_MIN_SIMILARITY = 0.2
@@ -35,7 +34,15 @@ class AnalysisService:
         self.repository = AnalysisRepository(db)
         self.region_repository = RegionRepository(db)
         self.video_repository = VideoRepository(db)
-        self.video_service = VideoService(db)
+        self._video_service = None
+
+    @property
+    def video_service(self):
+        if self._video_service is None:
+            from backend.services.video_service import VideoService
+
+            self._video_service = VideoService(self.db)
+        return self._video_service
 
     def resolve_region_codes(self, location_text: str | None) -> list[str]:
         """자유 텍스트 지역명을 region_code 목록으로 변환한다.
@@ -104,6 +111,7 @@ class AnalysisService:
                     "video_timestamp": metadata["video_timestamp"],
                     "crop_id": metadata["crop_id"],
                     "position": metadata["position"],
+                    "crop_img_path": metadata.get("image_path"),
                     "matching_rate": round(similarity, 4),
                 }
             )

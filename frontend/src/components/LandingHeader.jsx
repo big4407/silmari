@@ -65,7 +65,9 @@ export default function LandingHeader() {
           </div>
         </div>
       </div>
-      <div className="landing-header__nav-wrap">
+      <div
+        className={`landing-header__nav-wrap${authed ? '' : ' landing-header__nav-wrap--hidden'}`}
+      >
         <nav className="landing-header__nav" aria-label="주요 메뉴">
           {TABS.map((tab) => (
             <NavLink

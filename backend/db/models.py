@@ -7,7 +7,6 @@ ORM 모델 정의 — MySQL 테이블과 1:1 매핑.
 
 # db/models.py
 from sqlalchemy import (
-    Column,
     Date,
     Integer,
     Boolean,
@@ -17,9 +16,8 @@ from sqlalchemy import (
     Float,
     Enum,
     ForeignKey,
-    func,
-    CHAR,
     JSON,
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import date, datetime, timedelta
@@ -306,9 +304,9 @@ class Message(Base):
 class ChatbotSession(Base):
     __tablename__ = "chatbot_session"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-
-    session_id: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    session_id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, nullable=False
+    )
 
     user_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
 
@@ -361,6 +359,40 @@ class Region(Base):
     parent: Mapped["Region | None"] = relationship(
         remote_side=[region_code], foreign_keys=[parent_code]
     )
+    legal_dongs: Mapped[list["RegionLegalDong"]] = relationship(
+        back_populates="admin_region"
+    )
+
+
+class RegionLegalDong(Base):
+    """행정동 ↔ 법정동 매핑 — administrative_dong.csv 기준."""
+
+    __tablename__ = "region_legal_dong"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    legal_dong_code: Mapped[str] = mapped_column(
+        String(10), nullable=False, index=True, comment="법정동코드(10자리)"
+    )
+    admin_dong_code: Mapped[str] = mapped_column(
+        ForeignKey("region.region_code"),
+        nullable=False,
+        index=True,
+        comment="행정동코드(region.region_code)",
+    )
+    legal_dong_name: Mapped[str] = mapped_column(
+        String(50), nullable=False, comment="법정동명"
+    )
+    admin_area_code: Mapped[str | None] = mapped_column(
+        String(10), nullable=True, comment="행정구역코드(CSV 행정구역코드)"
+    )
+    revised_at: Mapped[date | None] = mapped_column(
+        Date, nullable=True, comment="개정일자"
+    )
+    link_no: Mapped[str | None] = mapped_column(
+        String(100), nullable=True, comment="연결번호(복수일 수 있음)"
+    )
+
+    admin_region: Mapped["Region"] = relationship(back_populates="legal_dongs")
 
 
 class Video(Base):
@@ -541,9 +573,130 @@ class AnalysisDetail(Base):
     position: Mapped[str] = mapped_column(
         String(100), nullable=False, comment="bbox (x,y,width,height)"
     )
+    crop_img_path: Mapped[str | None] = mapped_column(
+        String(260), nullable=True, comment="매칭된 인물 crop 이미지 경로(썸네일)"
+    )
     matching_rate: Mapped[float] = mapped_column(
         Float, nullable=False, default=0, comment="매칭 정확도"
     )
 
     analysis: Mapped["Analysis"] = relationship(back_populates="details")
     video: Mapped["Video"] = relationship()
+
+
+class RetentionPolicy(Base):
+    """데이터 유형별 보존·만료 정책."""
+
+    __tablename__ = "retention_policy"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    data_type: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    data_label: Mapped[str] = mapped_column(String(100), nullable=False)
+    storage_target: Mapped[str] = mapped_column(String(150), nullable=False)
+    retention_days: Mapped[int] = mapped_column(Integer, nullable=False)
+    expiry_action: Mapped[str] = mapped_column(
+        String(30), nullable=False, comment="delete | archive | anonymize"
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    notes: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=kst_now, onupdate=kst_now, nullable=False
+    )
+
+
+class LlmCall(Base):
+    __tablename__ = "llm_call"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True,
+        comment="자동 증분 ID",
+    )
+
+    call_type: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        comment="호출 유형 (1: 인상착의 한영변환, 2: 챗봇)",
+    )
+
+    search_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("search.id"),
+        nullable=True,
+        comment="연계된 검색 요청 (search의 PK), 없으면 NULL",
+    )
+
+    user_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("user.id"),
+        nullable=True,
+        comment="요청자 (users의 PK), 챗봇 등 비로그인은 NULL",
+    )
+
+    chatbot_s_id: Mapped[str | None] = mapped_column(
+        String(36),
+        nullable=True,
+        comment="챗봇 대화 단위 묶음 ID (LangGraph 멀티 호출 대비)",
+    )
+
+    model_name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        comment="사용 모델",
+    )
+
+    prompt: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="입력 프롬프트",
+    )
+
+    response: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="응답 원문 (실패 시 NULL)",
+    )
+
+    input_tokens: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="입력 토큰 수",
+    )
+
+    output_tokens: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="출력 토큰 수",
+    )
+
+    latency_ms: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="응답 소요 시간(ms)",
+    )
+
+    cost: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+        comment="환산 비용 (모델 단가 * 토큰)",
+    )
+
+    status: Mapped[str] = mapped_column(
+        String(10),
+        nullable=False,
+        comment="호출 상태 (0: 실패, 1: 성공)",
+    )
+
+    error_msg: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        comment="실패 사유 (status=0일 때)",
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        server_default=func.current_timestamp(),
+        comment="호출 일시",
+    )

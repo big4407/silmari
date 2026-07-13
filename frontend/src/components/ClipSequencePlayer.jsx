@@ -2,29 +2,46 @@
 import { useEffect, useRef, useState } from 'react';
 import './ClipSequencePlayer.css';
 
-export default function ClipSequencePlayer({ clips, onBack }) {
+export default function ClipSequencePlayer({
+  clips,
+  currentIndex = 0,
+  onClipChange,
+  onBack,
+}) {
   const videoRef = useRef(null);
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [playError, setPlayError] = useState(null);
 
   useEffect(() => {
-    setCurrentIndex(0);
     setPlayError(null);
   }, [clips]);
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !clips?.length) return;
+
+    const current = clips[currentIndex];
+
     setPlayError(null);
     video.load();
-    video.play().catch(() => {
-      setPlayError('자동 재생이 차단되었습니다. 재생 버튼을 눌러주세요.');
-    });
+
+    const handleLoadedMetadata = () => {
+      video.currentTime = current.start_sec || 0;
+
+      video.play().catch(() => {
+        setPlayError('자동 재생이 차단되었습니다. 재생 버튼을 눌러주세요.');
+      });
+    };
+
+    video.addEventListener('loadedmetadata', handleLoadedMetadata);
+
+    return () => {
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+    };
   }, [currentIndex, clips]);
 
   const handleEnded = () => {
     if (currentIndex < clips.length - 1) {
-      setCurrentIndex((prev) => prev + 1);
+      onClipChange?.(currentIndex + 1);
     }
   };
 

@@ -52,7 +52,24 @@ function buildSidebarPerson(activeSearch, selectedResult, firstResult) {
 
 function thumbUrl(path) {
   if (!path) return '';
-  return path.startsWith('http') ? path : `${API_BASE}${path}`;
+
+  if (path.startsWith('http')) {
+    return path;
+  }
+
+  const normalizedPath = path.replace(/\\/g, '/');
+  const dataIndex = normalizedPath.indexOf('/data/');
+
+  if (dataIndex !== -1) {
+    const relativePath = normalizedPath.slice(dataIndex + 6);
+    return `${API_BASE}/media/${relativePath}`;
+  }
+
+  if (normalizedPath.startsWith('data/')) {
+    return `${API_BASE}/media/${normalizedPath.slice(5)}`;
+  }
+
+  return `${API_BASE}/${normalizedPath.replace(/^\/+/, '')}`;
 }
 
 export default function SearchResults() {
@@ -63,7 +80,7 @@ export default function SearchResults() {
   const [error, setError] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [clearingAll, setClearingAll] = useState(false);
-  const [sortBy, setSortBy] = useState('newest');
+  const [sortBy, setSortBy] = useState('confidence-desc');
   const [activeClipIndex, setActiveClipIndex] = useState(0);
 
   const searchParams = useMemo(() => {
@@ -94,13 +111,45 @@ export default function SearchResults() {
   );
 
   const loadResults = useCallback(async () => {
+    console.log('activeSearch:', activeSearch);
+    console.log('searchResultId:', activeSearch?.searchResultId);
     setLoading(true);
     setError(null);
     setSelectedResult(null);
     try {
       if (activeSearch?.searchResultId) {
-        const detail = await fetchSearchResultDetail(activeSearch.searchResultId);
-        setResults([detail]);
+        const detail = await fetchSearchResultDetail(
+          activeSearch.searchResultId,
+        );
+        console.log('검색 상세 응답:', detail);
+        console.log('video_results:', detail.video_results);
+        console.log(
+          '첫 번째 썸네일 경로:',
+          detail.video_results?.[0]?.thumbnail_url,
+        );
+
+        console.log(
+          '첫 번째 영상 경로:',
+          detail.video_results?.[0]?.video_path,
+        );
+        const videoCards = (detail.video_results || []).map((video) => ({
+          ...video,
+          id: video.video_id,
+          search_id: detail.id,
+          person_name: detail.person_name,
+          person_age: detail.person_age,
+          region: detail.region,
+          sms_info: detail.sms_info,
+          created_at: detail.created_at,
+          description: detail.description,
+        }));
+
+        setResults(videoCards);
+        return;
+      }
+
+      if (!activeSearch && !selectedPerson) {
+        setResults([]);
         return;
       }
 
@@ -112,36 +161,31 @@ export default function SearchResults() {
     } finally {
       setLoading(false);
     }
-  }, [activeSearch?.searchResultId, searchParams]);
+  }, [activeSearch, selectedPerson, searchParams]);
 
   useEffect(() => {
     loadResults();
   }, [loadResults]);
 
   useEffect(() => {
-    if (!results.length) return;
-
-    if (activeSearch?.searchResultId && !selectedResult) {
-      const matched = results.find((r) => r.id === activeSearch.searchResultId);
-      if (matched) {
-        setSelectedResult(matched);
-        setActiveClipIndex(0);
-      }
-    }
-  }, [activeSearch?.searchResultId, results, selectedResult]);
-
-  useEffect(() => {
     setActiveClipIndex(0);
   }, [selectedResult?.id]);
 
   const handleDeleteResult = async (result) => {
-    if (!window.confirm('이 검색 결과를 삭제할까요?')) return;
+    if (
+      !window.confirm(
+        '이 영상만이 아니라 해당 검색 기록과 모든 분석 결과가 삭제됩니다. 계속할까요?',
+      )
+    )
+      return;
 
     setDeletingId(result.id);
     setError(null);
     try {
-      await deleteSearchResult(result.id);
-      setResults((prev) => prev.filter((r) => r.id !== result.id));
+      await deleteSearchResult(result.search_id);
+      setResults((prev) =>
+        prev.filter((r) => r.search_id !== result.search_id),
+      );
       if (selectedResult?.id === result.id) {
         setSelectedResult(null);
       }
@@ -209,10 +253,18 @@ export default function SearchResults() {
         return list.sort((a, b) => b.best_confidence - a.best_confidence);
     }
   }, [results, sortBy]);
+  const confidenceRankMap = useMemo(() => {
+    const ranked = [...results].sort(
+      (a, b) => (b.best_confidence || 0) - (a.best_confidence || 0),
+    );
 
+    return new Map(ranked.map((result, index) => [result.id, index + 1]));
+  }, [results]);
   const resultStats = useMemo(() => {
     if (!results.length) return null;
-    const maxConfidence = Math.max(...results.map((r) => r.best_confidence || 0));
+    const maxConfidence = Math.max(
+      ...results.map((r) => r.best_confidence || 0),
+    );
     const totalClips = results.reduce(
       (sum, r) => sum + (r.clips?.length || 0),
       0,
@@ -336,8 +388,7 @@ export default function SearchResults() {
                 <div className="search-page__empty">
                   <p>아직 검색 결과가 없습니다.</p>
                   <p>
-                    대시보드에서 안내문자를 선택하거나 챗봇·CCTV 분석을
-                    진행해 주세요.
+                    대시보드에서 안내문자를 선택해 실종자 검색을 진행해 주세요.
                   </p>
                 </div>
               ) : (
@@ -347,6 +398,7 @@ export default function SearchResults() {
                       key={r.id}
                       result={{
                         ...r,
+                        rank: confidenceRankMap.get(r.id),
                         thumbnail_url: thumbUrl(r.thumbnail_url),
                       }}
                       onClick={setSelectedResult}
@@ -385,7 +437,7 @@ export default function SearchResults() {
                 </p>
                 <p>
                   {selectedResult.description ||
-                    '영상 클립 결과는 CCTV 분석 연동 후 표시됩니다.'}
+                    '영상 클립 결과는 분석 상세 API 연동 후 표시됩니다.'}
                 </p>
                 <button
                   type="button"
@@ -398,8 +450,6 @@ export default function SearchResults() {
             )}
           </div>
         </main>
-
-        <MissingPersonSidebar person={sidebarPerson} />
       </div>
     </div>
   );
