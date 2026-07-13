@@ -32,6 +32,8 @@ def chat(
     return ChatbotResponse(
         response=result["response"],
         session_id=result["session_id"],
+        search_id=result.get("search_id"),
+        search_inserted=result.get("search_inserted", False)
     )
 
 

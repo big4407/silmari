@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session, selectinload
 
-from backend.db.models import Search, Analysis
+from backend.db.models import Search, Analysis, AnalysisDetail
 from backend.schemas.search_schema import SearchCreate
 from datetime import datetime, date
 from sqlalchemy import desc, asc
@@ -16,6 +16,7 @@ class SearchRepository:
             .options(
                 selectinload(Search.analyses)
                 .selectinload(Analysis.details)
+                .selectinload(AnalysisDetail.video)
             )
             .filter(Search.id == id)
             .first()

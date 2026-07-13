@@ -1,5 +1,4 @@
 /** 검색 결과 카드 — 썸네일·신뢰도·구간 수, 클릭 시 상세·클립 재생 */
-import ConfidenceBar from './ConfidenceBar';
 import './SearchResultCard.css';
 
 function formatTime(sec) {
@@ -14,9 +13,15 @@ export default function SearchResultCard({
   onDelete,
   deleting,
 }) {
-  const confidencePct = Math.round((result.best_confidence || 0) * 100);
   const hasThumb = Boolean(result.thumbnail_url);
-
+  const rankLabel =
+    result.rank === 1
+      ? '1st'
+      : result.rank === 2
+        ? '2nd'
+        : result.rank === 3
+          ? '3rd'
+          : null;
   return (
     <article
       className={`search-card${deleting ? ' search-card--deleting' : ''}`}
@@ -45,6 +50,13 @@ export default function SearchResultCard({
               {result.person_name || '검색'}
             </div>
           )}
+          {rankLabel && (
+            <span
+              className={`search-card__rank search-card__rank--${result.rank}`}
+            >
+              {rankLabel}
+            </span>
+          )}
           <button
             type="button"
             className="search-card__delete"
@@ -61,13 +73,15 @@ export default function SearchResultCard({
         <div className="search-card__body">
           <p className="search-card__meta">
             <span>{result.region}</span>
-            <span>{formatTime(result.best_timestamp_sec)}</span>
-            <span>정확도 {confidencePct}%</span>
+            <span>
+              {result.best_timestamp_sec != null
+                ? formatTime(result.best_timestamp_sec)
+                : '-'}
+            </span>
           </p>
           <p className="search-card__desc">
             {result.description || result.video_filename}
           </p>
-          <ConfidenceBar value={result.best_confidence} label="신뢰도" />
         </div>
       </div>
     </article>

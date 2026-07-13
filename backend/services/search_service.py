@@ -53,7 +53,19 @@ class SearchService:
         analysis_results = []
 
         for analysis in search.analyses:
-            analysis_results.extend(analysis.details)
+            for detail in analysis.details:
+                analysis_results.append(
+                    {
+                        "id": detail.id,
+                        "video_id": detail.video_id,
+                        "video_path": detail.video.file_path if detail.video else None,
+                        "video_timestamp": detail.video_timestamp,
+                        "crop_id": detail.crop_id,
+                        "position": detail.position,
+                        "crop_img_path": detail.crop_img_path,
+                        "matching_rate": detail.matching_rate,
+                    }
+                )
 
         search_detail = SearchDetail.model_validate(search)
 

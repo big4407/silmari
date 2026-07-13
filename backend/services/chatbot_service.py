@@ -111,6 +111,8 @@ class ChatbotService:
         return {
             "response": response,
             "session_id": session_id,
+            "search_id": result.get("search_id") if result else None,
+            "search_inserted": result.get("search_inserted", False) if result else False,
         }
 
     def get_or_create_session(self, session_id: str, user_id: str) -> ChatbotSession:

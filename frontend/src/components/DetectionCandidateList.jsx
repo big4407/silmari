@@ -8,13 +8,6 @@ function formatTime(sec) {
   return min > 0 ? `${min}분 ${s}초` : `${s}초`;
 }
 
-function confidenceClass(value) {
-  const pct = (value ?? 0) * 100;
-  if (pct >= 80) return 'candidate-list__badge--high';
-  if (pct >= 60) return 'candidate-list__badge--mid';
-  return 'candidate-list__badge--low';
-}
-
 export default function DetectionCandidateList({
   candidates,
   activeIndex = 0,
@@ -45,8 +38,6 @@ export default function DetectionCandidateList({
       )}
       <ul className="candidate-list__items">
         {candidates.map((candidate, index) => {
-          const confidence = candidate.confidence ?? 0;
-          const confidencePct = Math.round(confidence * 100);
           const isActive = index === activeIndex;
 
           return (
@@ -71,15 +62,10 @@ export default function DetectionCandidateList({
                       후보 {candidate.candidate_index ?? index + 1}
                     </div>
                   )}
-                  <span
-                    className={`candidate-list__badge ${confidenceClass(confidence)}`}
-                  >
-                    {confidencePct}%
-                  </span>
                 </div>
                 <div className="candidate-list__body">
                   <span className="candidate-list__label">
-                    후보 {candidate.candidate_index ?? index + 1}
+                    {candidate.candidate_index ?? index + 1}위
                   </span>
                   <span className="candidate-list__time">
                     {formatTime(candidate.start_sec)}

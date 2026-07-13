@@ -63,6 +63,7 @@ class SearchCreate(BaseModel):
 class SearchResultClip(BaseModel):
     id: int
     video_id: int
+    video_path: str | None = None
     video_timestamp: int
     crop_id: int
     position: str
