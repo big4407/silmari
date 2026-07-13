@@ -144,7 +144,7 @@ class VideoService:
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         total_frame = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-        print(fps, width, height, total_frame)
+        # print(fps, width, height, total_frame)
 
         positions = [
             i * int(fps) for i in range(int(total_frame / fps)) if i % every_nth == 0
@@ -171,7 +171,7 @@ class VideoService:
                     print(f"저장 실패: {save_path}")
 
         cap.release()
-        print(f"저장된 프레임 수: {saved_count}")
+        # print(f"저장된 프레임 수: {saved_count}")
         return saved_paths
 
     def person_detect(self, image_paths: list[str]):
@@ -200,7 +200,7 @@ class VideoService:
         results = _get_yolo_model().predict(
             source=image_paths, conf=0.4, save=False, classes=0
         )
-        print(results[0])
+        # print(results[0])
 
         for image_path, r in zip(image_paths, results):
             frame = cv2.imread(str(image_path))
