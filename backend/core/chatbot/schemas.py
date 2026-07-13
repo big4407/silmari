@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field
+from typing import Literal
 
 
 class ExtractedSearchSlots(BaseModel):
@@ -13,6 +14,8 @@ class ExtractedSearchSlots(BaseModel):
     end_date: str | None = Field(None, description="검색 종료일")
     appearance: str | None = Field(None, description="인상착의")
 
-    missing_name: str | None = None
-    gender: str | None = None
-    age: int | None = None
+    missing_name: str | None = Field(None, description="실종자 이름")
+    gender: Literal["M", "F"] | None = Field(
+        None, description="성별. 남성은 M, 여성은 F, 알 수 없으면 null"
+    )
+    age: int | None = Field(None, description="실종자의 나이")
