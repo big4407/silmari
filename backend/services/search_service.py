@@ -61,8 +61,15 @@ class SearchService:
             update={"analysis_results": analysis_results}
         )
 
-    def get_search_list(self, page: int, size: int) -> SearchListResponse:
-        items, total = self.repository.find_all(page=page, per_page=size)
+    def get_search_list(
+        self,
+        page: int,
+        size: int,
+        user_id: str | None,
+    ) -> SearchListResponse:
+        items, total = self.repository.find_all(
+            page=page, per_page=size, user_id=user_id
+        )
 
         page_info = PagingInfo(
             total=total,

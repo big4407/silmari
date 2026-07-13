@@ -35,9 +35,14 @@ class SearchRepository:
         page: int,
         per_page: int,
         # search_word: str|None=None, # 검색 기능은 이후 구현, 어떤 검색이 필요할지 나중에 판단
+        user_id: str | None = None,
         order_by: str = "latest",
     ) -> tuple[list[Search], int]:
         query = self.db.query(Search)
+
+        # user_id가 있으면 해당 사용자의 검색 내역만 조회
+        if user_id:
+            query = query.filter(Search.user_id == user_id)
 
         # 검색 기능은 이후 구현
 
