@@ -92,5 +92,6 @@ data/**/*.mp4
 data/**/*.jpg
 data/**/*.npy
 data/**/*.bin
+data/**/*.json
 
 *.sqlite3
