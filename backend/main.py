@@ -7,10 +7,10 @@ FastAPI 애플리케이션 진입점.
   3. bootstrap_admin() — .env 기반 최초 관리자 계정 생성
 
 """
-
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
+from fastapi.staticfiles import StaticFiles
 # ── 도메인 라우터 (기능별 API 엔드포인트) ──────────────────────────────────
 from backend.routers import (
     llm_call,
@@ -101,7 +101,13 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Silmari API", version="1.1.0", lifespan=lifespan)
-
+BASE_DIR = Path(__file__).resolve().parent.parent
+DATA_DIR = BASE_DIR / "data"
+app.mount(
+    "/media",
+    StaticFiles(directory=DATA_DIR),
+    name="media",
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
