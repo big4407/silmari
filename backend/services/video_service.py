@@ -82,10 +82,13 @@ class VideoService:
         """영상 목록을 처리해 Video/VideoDetail 및 Chroma 에 저장.
 
         같은 file_path 가 이미 처리되어 있으면 건너뛴다(중복 방지).
-        반환: {"processed": 처리 건수, "skipped": 중복 건수}
+        영상 하나가 실패해도(깨진 파일, 너무 짧은 영상 등) 나머지는 계속
+        처리한다 — 한 영상 때문에 배치 전체가 멈추지 않게.
+        반환: {"processed": 처리 건수, "skipped": 중복 건수, "failed": 실패 건수}
         """
         processed = 0
         skipped = 0
+        failed = 0
         for video_path in video_paths:
             path = Path(video_path)
             file_path = str(path)
@@ -95,20 +98,25 @@ class VideoService:
                 skipped += 1
                 continue
 
-            video = VideoCreate(
-                region_code=path.parts[-4],
-                cctv_serial_no=path.parts[-2],
-                recorded_at=datetime.strptime(path.parts[-3], "%Y%m%d").date(),
-                file_path=file_path,
-            )
-            save_video = self.repository.create(Video(**video.model_dump()))
-            frames = self.frame_extract(video_path)
-            details, crop_paths = self.person_detect(frames)
-            self.save_embeddings_to_chroma(save_video.id, crop_paths, details)
-            self.process_video_detail(save_video.id, details)
-            processed += 1
+            try:
+                video = VideoCreate(
+                    region_code=path.parts[-4],
+                    cctv_serial_no=path.parts[-2],
+                    recorded_at=datetime.strptime(path.parts[-3], "%Y%m%d").date(),
+                    file_path=file_path,
+                )
+                save_video = self.repository.create(Video(**video.model_dump()))
+                frames = self.frame_extract(video_path)
+                details, crop_paths = self.person_detect(frames)
+                self.save_embeddings_to_chroma(save_video.id, crop_paths, details)
+                self.process_video_detail(save_video.id, details)
+                processed += 1
+            except Exception as exc:
+                failed += 1
+                print(f"[영상 처리 실패] {video_path}: {exc}")
+                continue
 
-        return {"processed": processed, "skipped": skipped}
+        return {"processed": processed, "skipped": skipped, "failed": failed}
 
     def process_video_detail(self, video_id: int, details: list[dict]):
         for detail in details:
@@ -172,6 +180,14 @@ class VideoService:
         details = []
         crop_paths = []
         image_paths = [Path(image_path) for image_path in image_paths]
+
+        if not image_paths:
+            # 영상이 너무 짧거나(예: 5초 미만) 깨져서 frame_extract가 프레임을
+            # 하나도 못 뽑은 경우 — YOLO에 빈 리스트를 넘기면 predict()가 빈
+            # 결과를 돌려주고 results[0]에서 IndexError가 난다. 조용히 건너뛴다.
+            print("[person_detect] 추출된 프레임이 없어 건너뜁니다.")
+            return details, crop_paths
+
         save_dir = Path("data/results/detected")
 
         save_dir.mkdir(parents=True, exist_ok=True)
