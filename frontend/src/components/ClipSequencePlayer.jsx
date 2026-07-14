@@ -5,6 +5,7 @@ import './ClipSequencePlayer.css';
 export default function ClipSequencePlayer({
   clips,
   currentIndex = 0,
+  selectCount = 0,
   onClipChange,
   onBack,
 }) {
@@ -20,12 +21,13 @@ export default function ClipSequencePlayer({
     if (!video || !clips?.length) return;
 
     const current = clips[currentIndex];
+    if (!current) return;
 
     setPlayError(null);
     video.load();
 
     const handleLoadedMetadata = () => {
-      video.currentTime = current.start_sec || 0;
+      video.currentTime = Number(current.start_sec) || 0;
 
       video.play().catch(() => {
         setPlayError('자동 재생이 차단되었습니다. 재생 버튼을 눌러주세요.');
@@ -37,7 +39,7 @@ export default function ClipSequencePlayer({
     return () => {
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
     };
-  }, [currentIndex, clips]);
+  }, [currentIndex, clips, selectCount]);
 
   const handleEnded = () => {
     if (currentIndex < clips.length - 1) {
@@ -58,6 +60,14 @@ export default function ClipSequencePlayer({
   }
 
   const current = clips[currentIndex];
+
+  if (!current) {
+    return (
+      <div className="clip-player clip-player--empty">
+        선택한 클립을 찾을 수 없습니다.
+      </div>
+    );
+  }
 
   return (
     <div className="clip-player">
