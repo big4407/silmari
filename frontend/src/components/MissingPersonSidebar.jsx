@@ -7,7 +7,7 @@ export default function MissingPersonSidebar({ person }) {
       <aside className="missing-sidebar">
         <h3>실종 신고 관련 내용</h3>
         <p className="missing-sidebar__empty">
-          CCTV 분석을 실행하면 입력한 안내문자 정보가 여기에 표시됩니다.
+          실종자 검색을 실행하면 선택한 안내문자 정보가 여기에 표시됩니다.
         </p>
       </aside>
     );

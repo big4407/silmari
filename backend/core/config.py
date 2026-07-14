@@ -55,6 +55,12 @@ class Settings(BaseSettings):
     yolo_model_path: Path = PROJECT_ROOT / "data" / "yolo" / "yolov8n.pt"
     cctv_data_dir: Path = PROJECT_ROOT / "data" / "CCTV"
     results_dir: Path = PROJECT_ROOT / "data" / "results"
+    image_save_dir: Path = PROJECT_ROOT / "data" / "results" / "unique_persons"
+    frame_dir: Path = PROJECT_ROOT / "data" / "results" / "frames"
+    detected_dir: Path = PROJECT_ROOT / "data" / "results" / "detected"
+    administrative_dong_csv: Path = (
+        PROJECT_ROOT / "data" / "raw" / "administrative_dong.csv"
+    )
 
     # --- JWT / 인증 (MemberSettings에서 흡수) ---
     jwt_secret_key: str = Field(
@@ -93,7 +99,14 @@ class Settings(BaseSettings):
 
     @property
     def disaster_api_url(self) -> str:
-        return f"{self.DISASTER_API_BASE_URL}{self.DISASTER_API_PATH}"
+        if self.DISASTER_API_BASE_URL and self.DISASTER_API_PATH:
+            return f"{self.DISASTER_API_BASE_URL.rstrip('/')}{self.DISASTER_API_PATH}"
+        return self.SAFETYDATA_API_URL
+
+    @property
+    def disaster_service_key(self) -> str:
+        """재난안전데이터 API serviceKey — SAFETYDATA_* 우선, DISASTER_API_* 폴백."""
+        return (self.SAFETYDATA_SERVICE_KEY or self.DISASTER_API_SERVICE_KEY or "").strip()
 
     @field_validator("SAFETYDATA_API_URL")
     @classmethod

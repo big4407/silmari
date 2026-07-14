@@ -14,7 +14,7 @@ export default function AdminLayout() {
   const [collapsed, setCollapsed] = useState(() =>
     Object.fromEntries(NAV.map((node, i) => [node.group || node.id, i > 3])),
   );
-  const { doLogout } = useLogout();
+  const { doLogout, loading } = useLogout();
   const [pendingCount, setPendingCount] = useState(0);
 
   // 가입 승인 대기 건수 — 사이드바 배지용
@@ -29,8 +29,9 @@ export default function AdminLayout() {
           if (alive) setPendingCount(0);
         });
     };
-    refresh();
+    refresh(); // 최초 로드
 
+    // 승인/반려로 대기 목록이 바뀌면 배지 갱신
     const onChanged = (e) => {
       const c = e?.detail?.count;
       if (typeof c === 'number') setPendingCount(c);
@@ -58,18 +59,14 @@ export default function AdminLayout() {
           <span className="admin-sub">관리자 콘솔</span>
         </div>
         <div className="admin-right">
-          <span className="admin-role">시스템 관리자</span>
-          <span className="admin-divider" />
-          <a href="#help">도움</a>
-          <a
-            href="#logout"
-            onClick={(e) => {
-              e.preventDefault();
-              doLogout();
-            }}
+          <button
+            type="button"
+            className="admin-logout-btn"
+            onClick={doLogout}
+            disabled={loading}
           >
             로그아웃
-          </a>
+          </button>
         </div>
       </header>
 

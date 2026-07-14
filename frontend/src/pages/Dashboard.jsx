@@ -2,14 +2,19 @@
  * 메인 대시보드 — 지도 + 실종 안내문자 목록.
  *
  * [지도] MapDrilldown — 시·도/구·군 드릴다운, 지역별 문자 필터
- * [데이터] fetchDisasterAlerts(missing_only) + sessionStorage 캐시
- * [액션] 문자 선택 → alertText 저장 → /cctv 또는 /search-results 이동
+ * [데이터] fetchMessages(/message) + sessionStorage 캐시
+ * [액션] 문자 선택 → 실종자 검색(POST /search) → /search-results 이동
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MapDrilldown from '../components/MapDrilldown';
 import AlertMessageCard from '../components/AlertMessageCard';
-import { fetchDisasterAlerts } from '../api/client';
+import {
+  collectMessages,
+  createSearch,
+  fetchMessages,
+  getUserId,
+} from '../api/client';
 import { useDetectionStore } from '../store/useDetectionStore';
 import {
   filterAlertsByRegion,
@@ -18,9 +23,40 @@ import {
 import { findRegionByName } from '../utils/regionSearch';
 import './Dashboard.css';
 
-function toYmd(dateStr) {
-  if (!dateStr) return undefined;
-  return dateStr.replace(/-/g, '');
+function resolveDateRange(startDate, endDate) {
+  let start = startDate || undefined;
+  let end = endDate || undefined;
+  let swapped = false;
+
+  if (start && end && start > end) {
+    [start, end] = [end, start];
+    swapped = true;
+  }
+
+  if (start || end) {
+    return {
+      start_date: start,
+      end_date: end,
+      hasUserRange: true,
+      swapped,
+    };
+  }
+
+  return {
+    start_date: undefined,
+    end_date: undefined,
+    hasUserRange: false,
+    swapped: false,
+  };
+}
+
+function mapMessageToAlert(message) {
+  const crtDt = message.crt_dt;
+  let crt_dt = crtDt;
+  if (crtDt && String(crtDt).includes('T')) {
+    crt_dt = String(crtDt).slice(0, 10).replace(/-/g, '');
+  }
+  return { ...message, id: message.sn, crt_dt };
 }
 
 const ALERTS_STORAGE_KEY = 'silmari_alerts_cache';
@@ -52,6 +88,17 @@ function regionFilterLabel(mapFilter) {
   return mapFilter.label;
 }
 
+/** 안내문자 본문에서 인상착의 후보 텍스트 추출 (최대 100자) */
+function extractClothingFromAlert(text) {
+  if (!text) return null;
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  const wearMatch = normalized.match(
+    /[^.。\n]{0,80}(?:착용|입고|입은|차림)[^.。\n]{0,40}/,
+  );
+  if (wearMatch) return wearMatch[0].slice(0, 100);
+  return normalized.slice(0, 100);
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const {
@@ -68,9 +115,14 @@ export default function Dashboard() {
     setEndDate,
     setAlertText,
     setActiveSearch,
+    selectedRegion,
   } = useDetectionStore();
 
   const [apiError, setApiError] = useState(null);
+  const [searchError, setSearchError] = useState(null);
+  const [searchRunning, setSearchRunning] = useState(false);
+  const [dateWarning, setDateWarning] = useState(null);
+  const [emptyHint, setEmptyHint] = useState(null);
   const [mapFilter, setMapFilter] = useState({ level: 'nation' });
   const [mapFocus, setMapFocus] = useState(null);
   const [regionQuery, setRegionQuery] = useState('');
@@ -87,34 +139,61 @@ export default function Dashboard() {
   const loadList = async ({ refresh = false, cacheOnly = false } = {}) => {
     setLoading(true);
     setApiError(null);
+    setDateWarning(null);
+    setEmptyHint(null);
     try {
-      const params = {
-        num_of_rows: 100,
-        missing_only: true,
-      };
-      if (refresh) params.force_refresh = true;
-      if (cacheOnly) params.cache_only = true;
-      const crtDt = toYmd(startDate);
-      const endDt = toYmd(endDate);
-      if (crtDt) params.crt_dt = crtDt;
-      if (endDt) params.end_dt = endDt;
+      const range = resolveDateRange(startDate, endDate);
+      const { start_date, end_date, hasUserRange, swapped } = range;
 
-      const data = await fetchDisasterAlerts(params);
-      if (data.error) {
-        setApiError(data.error);
+      if (swapped) {
+        setDateWarning('시작일이 종료일보다 늦어 순서를 바꿔 조회했습니다.');
+      }
+
+      if (refresh) {
+        try {
+          await collectMessages({
+            page_no: 1,
+            num_of_rows: 100,
+            ...(hasUserRange && start_date
+              ? { crt_dt: start_date.replace(/-/g, '') }
+              : {}),
+          });
+        } catch (collectError) {
+          const detail = collectError.response?.data?.detail;
+          setApiError(
+            typeof detail === 'string'
+              ? detail
+              : '재난문자 수집에 실패했습니다. 저장된 목록을 조회합니다.',
+          );
+        }
+      }
+
+      const data = await fetchMessages({
+        page: 1,
+        per_page: 100,
+        ...(hasUserRange ? { start_date, end_date } : {}),
+        order_by: 'latest',
+      });
+
+      const items = (data.items || []).map(mapMessageToAlert);
+      if (cacheOnly && items.length === 0) {
         setAlertList([]);
         return;
       }
-      if (data.hint && (!data.items || data.items.length === 0)) {
-        setAlertList([]);
-        return;
-      }
-      const items = data.items || [];
+
       setAlertList(items);
       if (items.length > 0) saveAlertsToSession(items);
+      else if (hasUserRange) {
+        setEmptyHint('선택한 기간에 해당하는 실종 안내문자가 없습니다.');
+      } else if (refresh) {
+        setEmptyHint(
+          '저장된 실종 안내문자가 없습니다. API 키·기간을 확인한 뒤 다시 조회해 보세요.',
+        );
+      }
     } catch (e) {
       console.error('안내문자 목록 불러오기 실패', e);
       setAlertList([]);
+      setApiError('안내문자 목록을 불러오지 못했습니다.');
     } finally {
       setLoading(false);
     }
@@ -154,6 +233,7 @@ export default function Dashboard() {
     setSelectedAlert(alert);
     setAlertText(alert.msg_cn);
     setSelectedRegion(alert.rcptn_rgn_nm || '전국');
+    setSearchError(null);
     setActiveSearch({
       alertText: alert.msg_cn,
       smsInfo: {},
@@ -162,6 +242,64 @@ export default function Dashboard() {
     const focus = resolveAlertMapFocus(alert.rcptn_rgn_nm);
     if (focus) {
       setMapFocus({ ...focus, key: Date.now() });
+    }
+  };
+
+  const handleRunMissingPersonSearch = async () => {
+    if (!selectedAlert || searchRunning) return;
+
+    const userId = getUserId();
+    if (!userId) {
+      setSearchError('로그인이 필요합니다.');
+      navigate('/login');
+      return;
+    }
+
+    setSearchRunning(true);
+    setSearchError(null);
+
+    try {
+      const range = resolveDateRange(startDate, endDate);
+      const region =
+        (selectedRegion && selectedRegion !== '전국' ? selectedRegion : null) ||
+        selectedAlert.rcptn_rgn_nm ||
+        null;
+
+      const payload = {
+        user_id: userId,
+        message_sn: selectedAlert.sn || selectedAlert.id,
+        clothing: extractClothingFromAlert(selectedAlert.msg_cn),
+        missing_location: region ? region.slice(0, 20) : null,
+        search_type: '1',
+        ...(range.hasUserRange && range.start_date && range.end_date
+          ? { start_date: range.start_date, end_date: range.end_date }
+          : {}),
+      };
+
+      const result = await createSearch(payload);
+
+      setActiveSearch({
+        alertText: selectedAlert.msg_cn,
+        smsInfo: {
+          name: result.missing_name,
+          age: result.age,
+          gender: result.gender,
+          clothes: result.clothing,
+        },
+        region: result.missing_location || region,
+        searchResultId: result.id,
+      });
+      navigate('/search-results');
+    } catch (e) {
+      console.error('실종자 검색 요청 실패', e);
+      const detail = e.response?.data?.detail;
+      setSearchError(
+        typeof detail === 'string'
+          ? detail
+          : '실종자 검색 요청에 실패했습니다.',
+      );
+    } finally {
+      setSearchRunning(false);
     }
   };
 
@@ -229,8 +367,21 @@ export default function Dashboard() {
             <button
               type="button"
               className="filter-panel__btn filter-panel__btn--primary"
+              onClick={handleRunMissingPersonSearch}
+              disabled={!selectedAlert || searchRunning || loading}
+              title={
+                selectedAlert
+                  ? '선택한 안내문자로 CCTV 검색을 실행합니다'
+                  : '실종 안내문자를 먼저 선택하세요'
+              }
+            >
+              {searchRunning ? '검색 중…' : '실종자 검색'}
+            </button>
+            <button
+              type="button"
+              className="filter-panel__btn filter-panel__btn--secondary"
               onClick={handleSearch}
-              disabled={loading}
+              disabled={loading || searchRunning}
             >
               {loading ? '조회 중…' : '안내문자 조회'}
             </button>
@@ -243,12 +394,18 @@ export default function Dashboard() {
           {loading
             ? '안내문자를 불러오는 중입니다.'
             : alertList.length === 0
-              ? '기간·지역을 설정한 뒤 안내문자 조회를 실행하세요. 저장된 목록이 없으면 최근 90일 기준으로 조회합니다.'
+              ? '기간을 비우고 안내문자 조회를 누르면 저장된 목록을 불러옵니다. 기간을 지정하면 해당 범위만 표시합니다.'
               : `총 ${alertList.length}건 · 지도에서 지역을 클릭하거나 검색해 필터할 수 있습니다.`}
         </p>
 
         {regionSearchError && (
           <p className="filter-panel__error">{regionSearchError}</p>
+        )}
+        {searchError && (
+          <p className="filter-panel__error">{searchError}</p>
+        )}
+        {dateWarning && (
+          <p className="filter-panel__error">{dateWarning}</p>
         )}
       </section>
 
@@ -269,25 +426,6 @@ export default function Dashboard() {
             )}
           </div>
 
-          {selectedAlert && (
-            <div className="sidebar__actions">
-              <button
-                type="button"
-                className="sidebar__action-btn sidebar__action-btn--primary"
-                onClick={() => navigate('/cctv')}
-              >
-                CCTV 분석
-              </button>
-              <button
-                type="button"
-                className="sidebar__action-btn"
-                onClick={() => navigate('/search-results')}
-              >
-                검색결과 보기
-              </button>
-            </div>
-          )}
-
           {!loading && filteredAlerts.length > 0 && isDefaultQuery && (
             <p className="sidebar-hint">
               기본 조회 (최근 90일)
@@ -301,6 +439,9 @@ export default function Dashboard() {
               <p className="sidebar-hint">지역 필터 · {regionLabel}</p>
             )}
           {apiError && <p className="sidebar-error">{apiError}</p>}
+          {emptyHint && !apiError && (
+            <p className="sidebar-hint sidebar-hint--warn">{emptyHint}</p>
+          )}
 
           <div className="sidebar__list">
             {!loading && filteredAlerts.length === 0 && (

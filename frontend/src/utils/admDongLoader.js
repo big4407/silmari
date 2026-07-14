@@ -6,6 +6,10 @@ import * as adk from 'admdongkor';
 import { REGION_DATA, findGuInSido, findSidoIdForGu } from '../data/regionData';
 
 const ADM_VERSION = '20250401';
+const ADM_PARQUET_BASE_URLS = [
+  'https://cdn.jsdelivr.net/gh/vuski/admdongkor@master/parquet',
+  'https://raw.githubusercontent.com/vuski/admdongkor/master/parquet',
+];
 
 /** REGION_DATA 시도 id → admdongkor sidocd */
 export const ADM_SIDO_CODE_MAP = {
@@ -50,18 +54,29 @@ export function isGuKey(key) {
   return findSidoIdForGu(key) != null;
 }
 
+async function loadAdmFeatures(level) {
+  let lastError = null;
+  for (const baseUrl of ADM_PARQUET_BASE_URLS) {
+    try {
+      const data = await adk.get(ADM_VERSION, level, { detail: false, baseUrl });
+      return data.features;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error(`failed to load admdongkor ${level}`);
+}
+
 async function loadSggFeatures() {
   if (!sggFeaturesCache) {
-    const data = await adk.get(ADM_VERSION, 'sgg', { detail: false });
-    sggFeaturesCache = data.features;
+    sggFeaturesCache = await loadAdmFeatures('sgg');
   }
   return sggFeaturesCache;
 }
 
 async function loadEmdFeatures() {
   if (!emdFeaturesCache) {
-    const data = await adk.get(ADM_VERSION, 'emd', { detail: false });
-    emdFeaturesCache = data.features;
+    emdFeaturesCache = await loadAdmFeatures('emd');
   }
   return emdFeaturesCache;
 }
@@ -131,16 +146,22 @@ export async function loadDongGeoJson(guKey, options = {}) {
   }
 
   const allEmd = await loadEmdFeatures();
-  const features = allEmd.filter((f) => f.properties.sggcd === sggcd);
+  const sggcdKey = String(sggcd);
+  const features = allEmd.filter(
+    (f) => String(f.properties.sggcd) === sggcdKey,
+  );
   const geojson = normalizeEmdGeoJson(features);
   dongGeoCache.set(cacheKey, geojson);
   return geojson;
 }
 
-export function getGuLabelFromPath(path, selectedRegion) {
+export function getGuLabelFromPath(path) {
   if (!path || path.length < 3) return null;
   const sidoId = path[1];
   const guKey = path[2];
   const gu = REGION_DATA[sidoId]?.regions?.find((r) => r.id === guKey);
-  return gu?.label || selectedRegion || null;
+  if (gu?.label) return gu.label;
+
+  const ctx = findSidoIdForGu(guKey);
+  return ctx?.gu?.label || null;
 }
