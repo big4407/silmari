@@ -20,8 +20,14 @@ export function MembersPendingView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selected, setSelected] = useState(() => new Set());
+  const [selectedRoles, setSelectedRoles] = useState({});
   const [keyword, setKeyword] = useState('');
   const [busy, setBusy] = useState(false);
+
+  const roleFor = useCallback(
+    (u) => selectedRoles[u.id] ?? u.requested_role,
+    [selectedRoles],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -30,6 +36,7 @@ export function MembersPendingView() {
       const data = await fetchUsers('0'); // 0 = 대기
       setRows(data);
       setSelected(new Set());
+      setSelectedRoles({});
       // 사이드바 배지 갱신 알림 (대기 건수 변경)
       window.dispatchEvent(
         new CustomEvent('members-pending-changed', {
@@ -202,10 +209,15 @@ export function MembersPendingView() {
                   <td>{u.organization}</td>
                   <td>
                     <select
-                      defaultValue={u.requested_role}
-                      onChange={(e) => approveOneWithRole(u.id, e.target.value)}
+                      value={roleFor(u)}
+                      onChange={(e) =>
+                        setSelectedRoles((prev) => ({
+                          ...prev,
+                          [u.id]: e.target.value,
+                        }))
+                      }
                       disabled={busy}
-                      title="역할을 선택하면 해당 역할로 즉시 승인됩니다"
+                      title="승인 시 적용할 역할을 선택하세요 (승인 버튼을 눌러야 처리됩니다)"
                     >
                       {Object.entries(ROLE_LABELS).map(([code, label]) => (
                         <option key={code} value={code}>
@@ -219,7 +231,7 @@ export function MembersPendingView() {
                     <button
                       type="button"
                       className="admin-btn admin-btn--primary"
-                      onClick={() => approveOneWithRole(u.id, u.requested_role)}
+                      onClick={() => approveOneWithRole(u.id, roleFor(u))}
                       disabled={busy}
                     >
                       승인
