@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MapDrilldown from '../components/MapDrilldown';
 import AlertMessageCard from '../components/AlertMessageCard';
+import SearchProgressBar from '../components/SearchProgressBar';
 import {
   collectMessages,
   createSearch,
@@ -56,7 +57,11 @@ function mapMessageToAlert(message) {
   if (crtDt && String(crtDt).includes('T')) {
     crt_dt = String(crtDt).slice(0, 10).replace(/-/g, '');
   }
-  return { ...message, id: message.sn, crt_dt };
+  return {
+    ...message,
+    id: message.sn != null ? String(message.sn) : message.id,
+    crt_dt,
+  };
 }
 
 const ALERTS_STORAGE_KEY = 'silmari_alerts_cache';
@@ -97,6 +102,13 @@ function extractClothingFromAlert(text) {
   );
   if (wearMatch) return wearMatch[0].slice(0, 100);
   return normalized.slice(0, 100);
+}
+
+/** 안내문자 식별키 — sn/id 타입 혼재(숫자·문자)여도 동일하게 비교 */
+function alertKey(alert) {
+  if (!alert) return '';
+  const key = alert.sn ?? alert.id;
+  return key == null ? '' : String(key);
 }
 
 export default function Dashboard() {
@@ -230,16 +242,20 @@ export default function Dashboard() {
   };
 
   const handleSelectAlert = (alert) => {
-    setSelectedAlert(alert);
-    setAlertText(alert.msg_cn);
-    setSelectedRegion(alert.rcptn_rgn_nm || '전국');
+    const normalized = {
+      ...alert,
+      id: alert.sn != null ? String(alert.sn) : alert.id,
+    };
+    setSelectedAlert(normalized);
+    setAlertText(normalized.msg_cn);
+    setSelectedRegion(normalized.rcptn_rgn_nm || '전국');
     setSearchError(null);
     setActiveSearch({
-      alertText: alert.msg_cn,
+      alertText: normalized.msg_cn,
       smsInfo: {},
-      region: alert.rcptn_rgn_nm || null,
+      region: normalized.rcptn_rgn_nm || null,
     });
-    const focus = resolveAlertMapFocus(alert.rcptn_rgn_nm);
+    const focus = resolveAlertMapFocus(normalized.rcptn_rgn_nm);
     if (focus) {
       setMapFocus({ ...focus, key: Date.now() });
     }
@@ -407,6 +423,13 @@ export default function Dashboard() {
         {dateWarning && (
           <p className="filter-panel__error">{dateWarning}</p>
         )}
+
+        <div className="filter-panel__progress">
+          <SearchProgressBar
+            visible={searchRunning}
+            label="검색 중… CCTV 영상을 분석하고 있습니다."
+          />
+        </div>
       </section>
 
       <div className="main-area">
@@ -465,10 +488,13 @@ export default function Dashboard() {
             )}
             {filteredAlerts.map((alert, i) => (
               <AlertMessageCard
-                key={alert.id || i}
+                key={alertKey(alert) || i}
                 alert={alert}
                 index={i}
-                selected={selectedAlert?.id === alert.id}
+                selected={
+                  Boolean(alertKey(alert)) &&
+                  alertKey(selectedAlert) === alertKey(alert)
+                }
                 onClick={handleSelectAlert}
               />
             ))}
