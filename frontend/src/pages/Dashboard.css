@@ -151,6 +151,7 @@
 .filter-panel__actions {
   display: flex;
   align-items: center;
+  gap: var(--space-sm);
   flex-shrink: 0;
   margin-left: auto;
 }
@@ -327,6 +328,12 @@
   line-height: 1.55;
   flex-shrink: 0;
   overflow-wrap: anywhere;
+}
+
+.sidebar-hint--warn {
+  border-left-color: #d97706;
+  color: #92400e;
+  background: #fffbeb;
 }
 
 .sidebar-error {

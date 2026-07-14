@@ -4,9 +4,9 @@
 [흐름] DisasterMessageClient → is_missing_person_message 필터 → MessageRepository
 [호출] routes/messages.py, Dashboard 재난문자 연동
 """
+
 from sqlalchemy.orm import Session
 
-from backend.services.disaster_message_client import DisasterMessageClient
 from backend.db.models import Message
 from backend.repositories.message_repository import MessageRepository
 from backend.schemas.message_schema import (
@@ -19,12 +19,14 @@ from backend.utils.message_filter import is_missing_person_message
 
 from fastapi import HTTPException
 from datetime import date
+import httpx
+from backend.core.config import settings
 
 
 class MessageService:
     def __init__(self, db: Session):
         self.db = db
-        self.client = DisasterMessageClient()
+        # self.client = DisasterMessageClient()
         self.repository = MessageRepository(db)
 
     def _get_or_404(self, sn: str):
@@ -44,7 +46,7 @@ class MessageService:
         crt_dt: str | None = None,
         rgn_nm: str | None = None,
     ) -> dict:
-        items = await self.client.fetch_messages(
+        items = await self.fetch_messages(
             page_no=page_no,
             num_of_rows=num_of_rows,
             crt_dt=crt_dt,
@@ -158,3 +160,62 @@ class MessageService:
         """
         message = self._get_or_404(sn)
         self.repository.delete(message)
+
+    async def fetch_messages(
+        self,
+        page_no: int = 1,
+        num_of_rows: int = 10,
+        crt_dt: str | None = None,
+        rgn_nm: str | None = None,
+    ) -> list[dict]:
+        service_key = settings.disaster_service_key
+        if not service_key:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "재난문자 API 키가 설정되지 않았습니다. "
+                    "프로젝트 루트 .env 에 SAFETYDATA_SERVICE_KEY 를 채운 뒤 "
+                    "백엔드를 재시작하세요."
+                ),
+            )
+
+        params = {
+            "serviceKey": service_key,
+            "pageNo": page_no,
+            "numOfRows": num_of_rows,
+            "returnType": "json",
+        }
+
+        if crt_dt:
+            params["crtDt"] = crt_dt
+
+        if rgn_nm:
+            params["rgnNm"] = rgn_nm
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            try:
+                response = await client.get(
+                    settings.disaster_api_url,
+                    params=params,
+                )
+                response.raise_for_status()
+            except httpx.HTTPError as exc:
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"재난안전데이터 API 호출에 실패했습니다: {exc}",
+                ) from exc
+
+        data = response.json()
+
+        body = data.get("body")
+
+        if isinstance(body, list):
+            return body
+
+        if isinstance(body, dict):
+            items = body.get("items") or body.get("item") or []
+            if isinstance(items, list):
+                return items
+            return [items]
+
+        return []

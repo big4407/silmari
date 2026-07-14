@@ -30,6 +30,12 @@ export function MembersPendingView() {
       const data = await fetchUsers('0'); // 0 = 대기
       setRows(data);
       setSelected(new Set());
+      // 사이드바 배지 갱신 알림 (대기 건수 변경)
+      window.dispatchEvent(
+        new CustomEvent('members-pending-changed', {
+          detail: { count: Array.isArray(data) ? data.length : 0 },
+        }),
+      );
     } catch (err) {
       setError(
         err?.response?.status === 403

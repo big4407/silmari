@@ -25,7 +25,7 @@ export const INTEGRITY_STATUS_OPTIONS = [
 ];
 
 const TARGET_LINKS = {
-  region: { viewId: 'data-codes', label: '기준 코드 관리' },
+  region: { viewId: 'data-codes', label: '행정구역 관리' },
   video: { viewId: 'cctv-source', label: 'CCTV 영상 수집' },
   auth: { viewId: 'members-all', label: '전체 회원' },
   search: { viewId: 'search-requests', label: '검색 요청 이력' },

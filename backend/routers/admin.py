@@ -24,45 +24,36 @@ from backend.db.models import (
     LoginHistory,
     Region,
     RetentionPolicy,
-    SysCodeGroup,
-    SysCodeItem,
     User,
     UserRole,
     Video,
 )
-from backend.schemas.auth import UserResponse
-from backend.schemas.user import ApprovalRequest
+from backend.schemas.auth_schema import UserResponse
+from backend.schemas.user_schema import ApprovalRequest
 from backend.schemas.login_history_schema import (
     LoginHistoryItem,
     LoginHistoryListResponse,
 )
 from backend.utils.timeutils import kst_now
-from backend.services.audit_service import record_admin_action
+from backend.services.audit_service import AuditService
 from backend.schemas.admin_history_schema import (
     AdminHistoryItem,
     AdminHistoryListResponse,
 )
-from backend.services.region_integrity import find_integrity_check, run_integrity_suite
-from backend.services.integrity_audit import (
-    get_integrity_run_by_id,
-    get_previous_integrity_total,
-    latest_integrity_run,
-    record_integrity_run,
-)
-from backend.services.region_csv import (
-    administrative_dong_to_csv,
-    import_regions_from_csv,
-    regions_to_csv,
-)
-from backend.services.administrative_dong_import import clear_all_region_data
 from backend.schemas.data_integrity_schema import (
     IntegrityCheckIssuesResponse,
     IntegrityRunResponse,
-    RegionClearResult,
-    RegionImportResult,
 )
-from backend.services.code_group_service import build_code_group_list
-from backend.services.retention_service import dry_run_retention, list_retention_policies
+from backend.schemas.region_schema import (
+    RegionClearResult,
+    RegionCreate,
+    RegionImportResult,
+    RegionItem,
+    RegionListResponse,
+    RegionOption,
+    RegionOptionsResponse,
+    RegionUpdate,
+)
 from backend.schemas.retention_schema import (
     RetentionDryRunRequest,
     RetentionDryRunResponse,
@@ -70,19 +61,9 @@ from backend.schemas.retention_schema import (
     RetentionPolicyItem,
     RetentionPolicyListResponse,
 )
-from backend.schemas.region_schema import (
-    CodeGroupEntry,
-    CodeGroupItem,
-    CodeGroupListResponse,
-    CodeGroupUpdate,
-    CodeItemUpdate,
-    RegionCreate,
-    RegionItem,
-    RegionListResponse,
-    RegionOption,
-    RegionOptionsResponse,
-    RegionUpdate,
-)
+from backend.services.integrity_service import IntegrityService
+from backend.services.retention_service import RetentionService
+from backend.services.region_admin_service import RegionAdminService
 
 router = APIRouter(prefix="/admin")
 
@@ -175,8 +156,7 @@ def update_approval(
     db.add(target)
 
     # 감사 로그 기록 (같은 트랜잭션에 묶어 커밋)
-    record_admin_action(
-        db,
+    AuditService(db).record_admin_action(
         actor_id=admin.id,
         action_type=action,
         target_type="user",
@@ -272,7 +252,9 @@ def list_admin_history(
     action_type: AdminAction | None = Query(default=None, description="행동 유형 필터"),
     approval_only: bool = Query(default=False, description="승인·권한 변경만(1~4)"),
     actor: str | None = Query(default=None, description="행위자 이름·아이디 부분 검색"),
-    target_type: str | None = Query(default=None, description="대상 유형 필터 (user, region 등)"),
+    target_type: str | None = Query(
+        default=None, description="대상 유형 필터 (user, region 등)"
+    ),
     start_date: date | None = Query(default=None),
     end_date: date | None = Query(default=None),
     page: int = Query(default=1, ge=1),
@@ -480,18 +462,18 @@ def export_regions_csv(
     db: Session = Depends(get_db),
 ) -> Response:
     """행정구역 CSV보내기."""
+    region_svc = RegionAdminService(db)
     if format == "administrative_dong":
-        csv_text = administrative_dong_to_csv(db)
+        csv_text = region_svc.administrative_dong_to_csv()
         filename = "administrative_dong.csv"
         export_format = "administrative_dong"
     else:
-        csv_text = regions_to_csv(db)
+        csv_text = region_svc.regions_to_csv()
         filename = "regions.csv"
         export_format = "region"
 
     row_count = max(csv_text.count("\n") - 1, 0)
-    record_admin_action(
-        db,
+    AuditService(db).record_admin_action(
         actor_id=admin.id,
         action_type=AdminAction.UPDATE,
         target_type="region",
@@ -519,9 +501,8 @@ def clear_regions_all(
     db: Session = Depends(get_db),
 ) -> RegionClearResult:
     """행정구역·법정동 매핑 전체 삭제 (video.region_code 는 연결 해제)."""
-    result = clear_all_region_data(db)
-    record_admin_action(
-        db,
+    result = RegionAdminService(db).clear_all()
+    AuditService(db).record_admin_action(
         actor_id=admin.id,
         action_type=AdminAction.DELETE,
         target_type="region",
@@ -550,13 +531,12 @@ async def import_regions_csv(
     if not file.filename or not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="CSV 파일만 업로드할 수 있습니다.")
 
-    result = import_regions_from_csv(db, file.file, dry_run=dry_run)
+    result = RegionAdminService(db).import_from_csv(file.file, dry_run=dry_run)
     if result.errors:
         return result
 
     if not dry_run:
-        record_admin_action(
-            db,
+        AuditService(db).record_admin_action(
             actor_id=admin.id,
             action_type=AdminAction.UPDATE,
             target_type="region",
@@ -619,7 +599,9 @@ def _validate_parent(
     if parent_code is None or parent_code == "":
         return
     if region_code and parent_code == region_code:
-        raise HTTPException(status_code=422, detail="자기 자신을 상위 지역으로 지정할 수 없습니다.")
+        raise HTTPException(
+            status_code=422, detail="자기 자신을 상위 지역으로 지정할 수 없습니다."
+        )
     parent = db.get(Region, parent_code)
     if parent is None:
         raise HTTPException(status_code=404, detail="상위 행정구역을 찾을 수 없습니다.")
@@ -658,8 +640,7 @@ def create_region(
         parent_code=parent,
     )
     db.add(region)
-    record_admin_action(
-        db,
+    AuditService(db).record_admin_action(
         actor_id=admin.id,
         action_type=AdminAction.UPDATE,
         target_type="region",
@@ -703,8 +684,7 @@ def update_region(
             data["specific_name"].strip() if data["specific_name"] else None
         )
 
-    record_admin_action(
-        db,
+    AuditService(db).record_admin_action(
         actor_id=admin.id,
         action_type=AdminAction.UPDATE,
         target_type="region",
@@ -754,8 +734,7 @@ def delete_region(
         "parent_code": region.parent_code,
     }
     db.delete(region)
-    record_admin_action(
-        db,
+    AuditService(db).record_admin_action(
         actor_id=admin.id,
         action_type=AdminAction.DELETE,
         target_type="region",
@@ -766,106 +745,15 @@ def delete_region(
     db.commit()
 
 
-@router.get("/code-groups", response_model=CodeGroupListResponse)
-def list_code_groups(
-    _: User = Depends(require_roles(UserRole.ADMIN)),
-    db: Session = Depends(get_db),
-) -> CodeGroupListResponse:
-    """시스템 코드 그룹 — DB 메타 + 참조 수."""
-    return build_code_group_list(db)
-
-
-@router.patch("/code-groups/{group_key}", response_model=CodeGroupItem)
-def update_code_group(
-    group_key: str,
-    payload: CodeGroupUpdate,
-    request: Request,
-    admin: User = Depends(require_roles(UserRole.ADMIN)),
-    db: Session = Depends(get_db),
-) -> CodeGroupItem:
-    group = db.get(SysCodeGroup, group_key)
-    if group is None:
-        raise HTTPException(status_code=404, detail="코드 그룹을 찾을 수 없습니다.")
-    before = {"group_label": group.group_label, "description": group.description}
-    data = payload.model_dump(exclude_unset=True)
-    if "group_label" in data and data["group_label"]:
-        group.group_label = data["group_label"].strip()
-    if "description" in data:
-        group.description = data["description"].strip() if data["description"] else None
-    record_admin_action(
-        db,
-        actor_id=admin.id,
-        action_type=AdminAction.UPDATE,
-        target_type="code_group",
-        target_id=group_key,
-        detail={"before": before, "after": data},
-        ip_address=request.client.host if request.client else None,
-    )
-    db.commit()
-    refreshed = build_code_group_list(db)
-    for g in refreshed.groups:
-        if g.group == group_key:
-            return g
-    raise HTTPException(status_code=500, detail="갱신된 그룹을 찾지 못했습니다.")
-
-
-@router.patch(
-    "/code-groups/{group_key}/items/{code}",
-    response_model=CodeGroupEntry,
-)
-def update_code_item(
-    group_key: str,
-    code: str,
-    payload: CodeItemUpdate,
-    request: Request,
-    admin: User = Depends(require_roles(UserRole.ADMIN)),
-    db: Session = Depends(get_db),
-) -> CodeGroupEntry:
-    item = db.scalar(
-        select(SysCodeItem).where(
-            SysCodeItem.group_key == group_key,
-            SysCodeItem.code == code,
-        )
-    )
-    if item is None:
-        raise HTTPException(status_code=404, detail="코드 항목을 찾을 수 없습니다.")
-    before = {
-        "label": item.label,
-        "description": item.description,
-        "is_active": item.is_active,
-    }
-    data = payload.model_dump(exclude_unset=True)
-    if "label" in data and data["label"]:
-        item.label = data["label"].strip()
-    if "description" in data:
-        item.description = data["description"].strip() if data["description"] else None
-    if "is_active" in data and data["is_active"] is not None:
-        item.is_active = data["is_active"]
-    record_admin_action(
-        db,
-        actor_id=admin.id,
-        action_type=AdminAction.UPDATE,
-        target_type="code_item",
-        target_id=f"{group_key}:{code}",
-        detail={"before": before, "after": data},
-        ip_address=request.client.host if request.client else None,
-    )
-    db.commit()
-    group_list = build_code_group_list(db)
-    for g in group_list.groups:
-        if g.group == group_key:
-            for entry in g.items:
-                if entry.code == code:
-                    return entry
-    raise HTTPException(status_code=500, detail="갱신된 항목을 찾지 못했습니다.")
-
-
 @router.get("/retention-policies", response_model=RetentionPolicyListResponse)
 def get_retention_policies(
     _: User = Depends(require_roles(UserRole.ADMIN)),
     db: Session = Depends(get_db),
 ) -> RetentionPolicyListResponse:
-    items = [RetentionPolicyItem.model_validate(row) for row in list_retention_policies(db)]
+    retention_svc = RetentionService(db)
+    items = [
+        RetentionPolicyItem.model_validate(row) for row in retention_svc.list_policies()
+    ]
     return RetentionPolicyListResponse(items=items)
 
 
@@ -882,7 +770,7 @@ def retention_policies_dry_run(
     overrides = None
     if payload and payload.policies:
         overrides = [p.model_dump(exclude_unset=True) for p in payload.policies]
-    items = dry_run_retention(db, policy_id=policy_id, overrides=overrides)
+    items = RetentionService(db).dry_run(policy_id=policy_id, overrides=overrides)
     if policy_id is not None and not items:
         raise HTTPException(status_code=404, detail="보존 정책을 찾을 수 없습니다.")
     total = sum(i.expired_count for i in items if i.is_active)
@@ -916,7 +804,9 @@ def update_retention_policies(
             policy.retention_days = data["retention_days"]
         if "expiry_action" in data and data["expiry_action"]:
             if data["expiry_action"] not in ("delete", "archive", "anonymize"):
-                raise HTTPException(status_code=422, detail="만료 처리 값이 올바르지 않습니다.")
+                raise HTTPException(
+                    status_code=422, detail="만료 처리 값이 올바르지 않습니다."
+                )
             policy.expiry_action = data["expiry_action"]
         if "is_active" in data and data["is_active"] is not None:
             policy.is_active = data["is_active"]
@@ -924,8 +814,7 @@ def update_retention_policies(
             policy.notes = data["notes"].strip() if data["notes"] else None
         changes.append({"id": patch.id, "before": before, "after": data})
 
-    record_admin_action(
-        db,
+    AuditService(db).record_admin_action(
         actor_id=admin.id,
         action_type=AdminAction.UPDATE,
         target_type="retention_policy",
@@ -934,7 +823,10 @@ def update_retention_policies(
         ip_address=request.client.host if request.client else None,
     )
     db.commit()
-    items = [RetentionPolicyItem.model_validate(row) for row in list_retention_policies(db)]
+    retention_svc = RetentionService(db)
+    items = [
+        RetentionPolicyItem.model_validate(row) for row in retention_svc.list_policies()
+    ]
     return RetentionPolicyListResponse(items=items)
 
 
@@ -945,13 +837,11 @@ def run_data_integrity(
     db: Session = Depends(get_db),
 ) -> IntegrityRunResponse:
     """행정구역·영상·인증·검색 체인 정합성 검사 실행."""
-    previous_total = get_previous_integrity_total(db)
-    checks, total_issues = run_integrity_suite(db)
-    delta_issues = (
-        total_issues - previous_total if previous_total is not None else None
-    )
-    run_id = record_integrity_run(
-        db,
+    integrity_svc = IntegrityService(db)
+    previous_total = integrity_svc.get_previous_total()
+    checks, total_issues = integrity_svc.run_suite()
+    delta_issues = total_issues - previous_total if previous_total is not None else None
+    run_id = integrity_svc.record_run(
         actor_id=admin.id,
         checks=checks,
         total_issues=total_issues,
@@ -974,7 +864,7 @@ def get_last_data_integrity(
     db: Session = Depends(get_db),
 ) -> IntegrityRunResponse:
     """가장 최근 정합성 검사 결과 (감사 로그에서 복원)."""
-    result = latest_integrity_run(db)
+    result = IntegrityService(db).latest_run()
     if result is None:
         raise HTTPException(status_code=404, detail="저장된 검사 이력이 없습니다.")
     return result
@@ -987,7 +877,7 @@ def get_data_integrity_run(
     db: Session = Depends(get_db),
 ) -> IntegrityRunResponse:
     """감사 로그 ID로 정합성 검사 결과 복원."""
-    result = get_integrity_run_by_id(db, run_id)
+    result = IntegrityService(db).get_run_by_id(run_id)
     if result is None:
         raise HTTPException(status_code=404, detail="검사 이력을 찾을 수 없습니다.")
     return result
@@ -1003,7 +893,7 @@ def get_data_integrity_check_issues(
     db: Session = Depends(get_db),
 ) -> IntegrityCheckIssuesResponse:
     """검사 항목별 전체 이슈 목록 (샘플 제한 없음)."""
-    check = find_integrity_check(db, check_id, sample_limit=None)
+    check = IntegrityService(db).find_check(check_id, sample_limit=None)
     if check is None:
         raise HTTPException(status_code=404, detail="검사 항목을 찾을 수 없습니다.")
     return IntegrityCheckIssuesResponse(
@@ -1026,10 +916,10 @@ def download_integrity_report_csv(
 ) -> Response:
     """정합성 검사 결과 CSV보내기."""
     if source == "fresh":
-        checks, _ = run_integrity_suite(db)
+        checks, _total = IntegrityService(db).run_suite()
         filename = "integrity_report_fresh.csv"
     else:
-        last = latest_integrity_run(db)
+        last = IntegrityService(db).latest_run()
         if last is None:
             raise HTTPException(status_code=404, detail="저장된 검사 결과가 없습니다.")
         checks = last.checks
@@ -1037,7 +927,15 @@ def download_integrity_report_csv(
     buf = io.StringIO()
     writer = csv.writer(buf, lineterminator="\n")
     writer.writerow(
-        ["check_id", "label", "target", "status", "issue_count", "description", "samples"]
+        [
+            "check_id",
+            "label",
+            "target",
+            "status",
+            "issue_count",
+            "description",
+            "samples",
+        ]
     )
     for c in checks:
         writer.writerow(

@@ -7,9 +7,8 @@
 """
 
 import hmac
-from datetime import timedelta, timezone
+from datetime import timedelta
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from backend.core.config import get_settings
@@ -28,125 +27,172 @@ from backend.db.models import (
     LoginFailStatus,
     LoginHistory,
     User,
+    UserRole,
 )
+from backend.repositories.auth_repository import AuthRepository
+from backend.schemas.auth_schema import SignUpRequest
 from backend.utils.timeutils import as_utc
 
 settings = get_settings()
 
 
-def record_login_attempt(
-    db: Session,
-    *,
-    username: str,
-    success: bool,
-    user_id: str | None = None,
-    fail_reason: LoginFailStatus | None = None,
-    ip_address: str | None = None,
-    user_agent: str | None = None,
-) -> None:
-    """로그인 시도를 감사 로그(login_history)에 기록.
+class AdminRoleRequestNotAllowedError(ValueError):
+    """회원가입 시 관리자 역할을 직접 신청한 경우."""
 
-    기록 실패가 로그인 자체를 막지 않도록 예외를 삼킨다(감사 로그는 부가 기능).
-    """
-    try:
-        db.add(
-            LoginHistory(
-                user_id=user_id,
-                username=(username or "")[:50],
-                success=success,
-                fail_reason=fail_reason,
-                ip_address=ip_address,
-                user_agent=(user_agent or "")[:255] or None,
+
+class DuplicateAccountError(ValueError):
+    """아이디 또는 이메일이 이미 사용 중인 경우."""
+
+
+class AuthService:
+    def __init__(self, db: Session):
+        self.db = db
+        self.repository = AuthRepository(db)
+
+    def signup(self, payload: SignUpRequest) -> User:
+        if payload.requested_role == UserRole.ADMIN:
+            raise AdminRoleRequestNotAllowedError(
+                "관리자 역할은 직접 신청할 수 없습니다."
             )
+
+        duplicate = self.repository.find_by_username_or_email(
+            payload.username, str(payload.email)
         )
-        db.commit()
-    except Exception:
-        db.rollback()
+        if duplicate:
+            raise DuplicateAccountError("이미 사용 중인 아이디 또는 이메일입니다.")
 
+        user = User(
+            username=payload.username,
+            email=str(payload.email),
+            password_hash=hash_password(payload.password),
+            full_name=payload.full_name,
+            organization=payload.organization,
+            department=payload.department,
+            position=payload.position,
+            phone=payload.phone,
+            requested_role=payload.requested_role,
+            approval_status=ApprovalStatus.PENDING,
+            role=None,
+        )
+        return self.repository.add_user(user)
 
-def authenticate_user(db: Session, username: str, password: str) -> User | None:
-    user = db.scalar(select(User).where(User.username == username))
-    if user is None or not verify_password(password, user.password_hash):
-        return None
-    return user
+    def get_bootstrap_admin(self) -> User | None:
+        """개발용 bootstrap 로그인 대상 관리자 계정(.env 설정과 일치하는)을 찾는다."""
+        return self.repository.find_approved_admin(
+            settings.bootstrap_admin_username, settings.bootstrap_admin_email
+        )
 
+    def record_login_attempt(
+        self,
+        *,
+        username: str,
+        success: bool,
+        user_id: str | None = None,
+        fail_reason: LoginFailStatus | None = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+    ) -> None:
+        """로그인 시도를 감사 로그(login_history)에 기록.
 
-def create_session_and_tokens(
-    db: Session,
-    *,
-    user: User,
-    ip_address: str | None,
-    user_agent: str | None,
-) -> dict:
-    session = AuthSession(
-        user_id=user.id,
-        refresh_token_hash="pending",
-        expires_at=utc_now() + timedelta(days=settings.refresh_token_expire_days),
-        ip_address=ip_address,
-        user_agent=(user_agent or "")[:255] or None,
-    )
-    db.add(session)
-    db.flush()
+        기록 실패가 로그인 자체를 막지 않도록 예외를 삼킨다(감사 로그는 부가 기능).
+        """
+        try:
+            self.repository.add_login_history(
+                LoginHistory(
+                    user_id=user_id,
+                    username=(username or "")[:50],
+                    success=success,
+                    fail_reason=fail_reason,
+                    ip_address=ip_address,
+                    user_agent=(user_agent or "")[:255] or None,
+                )
+            )
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
 
-    refresh_token = create_refresh_token(user_id=user.id, session_id=session.id)
-    session.refresh_token_hash = sha256(refresh_token)
-    access_token = create_access_token(
-        user_id=user.id, session_id=session.id, role=user.role.value
-    )
-    db.commit()
+    def authenticate_user(self, username: str, password: str) -> User | None:
+        user = self.repository.find_user_by_username(username)
+        if user is None or not verify_password(password, user.password_hash):
+            return None
+        return user
 
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer",
-        "access_expires_in_seconds": settings.access_token_expire_minutes * 60,
-    }
+    def create_session_and_tokens(
+        self,
+        *,
+        user: User,
+        ip_address: str | None,
+        user_agent: str | None,
+    ) -> dict:
+        session = AuthSession(
+            user_id=user.id,
+            refresh_token_hash="pending",
+            expires_at=utc_now() + timedelta(days=settings.refresh_token_expire_days),
+            ip_address=ip_address,
+            user_agent=(user_agent or "")[:255] or None,
+        )
+        self.repository.add_session(session)
 
+        refresh_token = create_refresh_token(user_id=user.id, session_id=session.id)
+        session.refresh_token_hash = sha256(refresh_token)
+        access_token = create_access_token(
+            user_id=user.id, session_id=session.id, role=user.role.value
+        )
+        self.db.commit()
 
-def rotate_refresh_token(db: Session, refresh_token: str) -> dict:
-    payload = decode_token(refresh_token, expected_type="refresh")
-    session = db.get(AuthSession, payload["sid"])
-    if session is None:
-        raise ValueError("로그인 세션을 찾을 수 없습니다.")
-    if session.revoked_at is not None or as_utc(session.expires_at) <= utc_now():
-        raise ValueError("만료되었거나 로그아웃된 세션입니다.")
-    if not hmac.compare_digest(session.refresh_token_hash, sha256(refresh_token)):
-        raise ValueError("이미 사용되었거나 유효하지 않은 refresh token입니다.")
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+            "access_expires_in_seconds": settings.access_token_expire_minutes * 60,
+        }
 
-    user = db.get(User, payload["sub"])
-    if (
-        user is None
-        or user.approval_status != ApprovalStatus.APPROVED
-        or user.role is None
-    ):
-        raise ValueError("현재 계정은 로그인 권한이 없습니다.")
+    def rotate_refresh_token(self, refresh_token: str) -> dict:
+        payload = decode_token(refresh_token, expected_type="refresh")
+        session = self.repository.get_session(payload["sid"])
+        if session is None:
+            raise ValueError("로그인 세션을 찾을 수 없습니다.")
+        if session.revoked_at is not None or as_utc(session.expires_at) <= utc_now():
+            raise ValueError("만료되었거나 로그아웃된 세션입니다.")
+        if not hmac.compare_digest(session.refresh_token_hash, sha256(refresh_token)):
+            raise ValueError("이미 사용되었거나 유효하지 않은 refresh token입니다.")
 
-    new_refresh_token = create_refresh_token(user_id=user.id, session_id=session.id)
-    session.refresh_token_hash = sha256(new_refresh_token)
-    session.expires_at = utc_now() + timedelta(days=settings.refresh_token_expire_days)
-    access_token = create_access_token(
-        user_id=user.id, session_id=session.id, role=user.role.value
-    )
-    db.commit()
+        user = self.repository.get_user(payload["sub"])
+        if (
+            user is None
+            or user.approval_status != ApprovalStatus.APPROVED
+            or user.role is None
+        ):
+            raise ValueError("현재 계정은 로그인 권한이 없습니다.")
 
-    return {
-        "access_token": access_token,
-        "refresh_token": new_refresh_token,
-        "token_type": "bearer",
-        "access_expires_in_seconds": settings.access_token_expire_minutes * 60,
-    }
+        new_refresh_token = create_refresh_token(user_id=user.id, session_id=session.id)
+        session.refresh_token_hash = sha256(new_refresh_token)
+        session.expires_at = utc_now() + timedelta(
+            days=settings.refresh_token_expire_days
+        )
+        access_token = create_access_token(
+            user_id=user.id, session_id=session.id, role=user.role.value
+        )
+        self.db.commit()
 
+        return {
+            "access_token": access_token,
+            "refresh_token": new_refresh_token,
+            "token_type": "bearer",
+            "access_expires_in_seconds": settings.access_token_expire_minutes * 60,
+        }
 
-def revoke_session(db: Session, session_id: str) -> None:
-    session = db.get(AuthSession, session_id)
-    if session is not None and session.revoked_at is None:
-        session.revoked_at = utc_now()
-        db.commit()
+    def revoke_session(self, session_id: str) -> None:
+        session = self.repository.get_session(session_id)
+        if session is not None and session.revoked_at is None:
+            session.revoked_at = utc_now()
+            self.db.commit()
 
-
-def change_password(user: User, *, current_password: str, new_password: str) -> None:
-    if not verify_password(current_password, user.password_hash):
-        raise ValueError("현재 비밀번호가 올바르지 않습니다.")
-    if current_password == new_password:
-        raise ValueError("새 비밀번호는 현재 비밀번호와 달라야 합니다.")
-    user.password_hash = hash_password(new_password)
+    def change_password(
+        self, user: User, *, current_password: str, new_password: str
+    ) -> None:
+        if not verify_password(current_password, user.password_hash):
+            raise ValueError("현재 비밀번호가 올바르지 않습니다.")
+        if current_password == new_password:
+            raise ValueError("새 비밀번호는 현재 비밀번호와 달라야 합니다.")
+        user.password_hash = hash_password(new_password)

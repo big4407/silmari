@@ -101,9 +101,8 @@ export function getRegionStyle({ isActive, alertCount = 0 }) {
   if (isActive) {
     return {
       fillColor: '#0066cc',
-      fillOpacity: 0.9,
-      color: '#003876',
-      weight: 2.5,
+      fillOpacity: 0.92,
+      stroke: false,
     };
   }
 

@@ -93,6 +93,10 @@
   border-bottom: 1px solid var(--color-border);
 }
 
+.landing-header__nav-wrap--hidden {
+  display: none;
+}
+
 .landing-header__nav {
   display: flex;
   align-items: stretch;

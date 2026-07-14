@@ -8,7 +8,6 @@ import {
   fetchAdminHistory,
   ADMIN_ACTION_LABELS,
 } from '../../../api/client';
-import AdminFeaturePending from '../components/AdminFeaturePending';
 
 export function AuditAdminView() {
   return (
@@ -24,7 +23,9 @@ export function AuditAdminView() {
         </select>
         <input type="date" disabled />
         <div className="admin-spacer" />
-        <AdminFeaturePending label="로그보내기" />
+        <button type="button" className="admin-btn" disabled>
+          로그보내기
+        </button>
       </div>
       <div className="admin-card admin-table-wrap">
         <table>

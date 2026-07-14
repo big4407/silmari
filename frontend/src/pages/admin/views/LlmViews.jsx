@@ -1,7 +1,6 @@
 /** LLM 운영 뷰 — 사용량·비용·성능·로그 (목 UI) */
 import PageHead from '../components/PageHead';
 import EmptyState, { StatValue, TableEmptyRow } from '../components/EmptyState';
-import AdminFeaturePending from '../components/AdminFeaturePending';
 
 export function LlmUsageView() {
   return (
@@ -177,7 +176,9 @@ export function LlmLogsView() {
           <option>전체 상태</option>
         </select>
         <div className="admin-spacer" />
-        <AdminFeaturePending />
+        <button type="button" className="admin-btn" disabled>
+          CSV보내기
+        </button>
       </div>
       <div className="admin-card admin-table-wrap">
         <table>

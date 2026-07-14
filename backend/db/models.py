@@ -1,14 +1,12 @@
 """
 ORM 모델 정의 — MySQL 테이블과 1:1 매핑.
 
-[탐지] DetectionRecord(레거시), SearchResult(CCTV 분석 결과·클립 메타)
 [인증] User, AuthSession — 승인 기반 RBAC + JWT 세션 철회
 [외부] Message — 재난안전데이터 API 수집 재난문자
 """
 
 # db/models.py
 from sqlalchemy import (
-    Column,
     Date,
     Integer,
     Boolean,
@@ -18,9 +16,8 @@ from sqlalchemy import (
     Float,
     Enum,
     ForeignKey,
-    func,
-    CHAR,
     JSON,
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import date, datetime, timedelta
@@ -39,34 +36,6 @@ def _default_start_date() -> date:
 def _default_end_date() -> date:
     """검색 기본 종료일 — 오늘(KST)."""
     return kst_now().date()
-
-
-class DetectionRecord(Base):
-    __tablename__ = "detection_records"
-
-    id = Column(Integer, primary_key=True, index=True)
-    alert_text = Column(Text)
-    video_filename = Column(String(255))
-    result_json = Column(Text)
-    created_at = Column(DateTime, default=kst_now)
-
-
-class SearchResult(Base):
-    __tablename__ = "search_results"
-
-    id = Column(Integer, primary_key=True, index=True)
-    alert_text = Column(Text)
-    person_name = Column(String(100), index=True)
-    person_age = Column(Integer, nullable=True)
-    region = Column(String(100), nullable=True)
-    video_filename = Column(String(255))
-    thumbnail_filename = Column(String(255))
-    best_confidence = Column(Float)
-    best_timestamp_sec = Column(Float)
-    clips_json = Column(Text)
-    sms_info_json = Column(Text)
-    description = Column(String(500), nullable=True)
-    created_at = Column(DateTime, default=kst_now)
 
 
 class UserRole(str, enum.Enum):
@@ -335,9 +304,9 @@ class Message(Base):
 class ChatbotSession(Base):
     __tablename__ = "chatbot_session"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-
-    session_id: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    session_id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, nullable=False
+    )
 
     user_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
 
@@ -391,7 +360,7 @@ class Region(Base):
         remote_side=[region_code], foreign_keys=[parent_code]
     )
     legal_dongs: Mapped[list["RegionLegalDong"]] = relationship(
-        back_populates="admin_region", cascade="all, delete-orphan"
+        back_populates="admin_region"
     )
 
 
@@ -427,13 +396,13 @@ class RegionLegalDong(Base):
 
 
 class Video(Base):
-    """전체 영상에 대한 정보. embedding_id 로 Chroma 벡터와 매핑."""
+    """전체 영상에 대한 정보. Chroma 벡터는 video.id 로 매핑."""
 
     __tablename__ = "video"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     cctv_serial_no: Mapped[str | None] = mapped_column(
-        String(50), nullable=True, comment="CCTV 일련번호"
+        String(50), nullable=True, comment="CCTV 일련번호(Chroma DB 내 매핑할 ID)"
     )
     file_path: Mapped[str] = mapped_column(
         String(260), nullable=False, comment="영상 파일의 경로"
@@ -441,16 +410,11 @@ class Video(Base):
     region_code: Mapped[str | None] = mapped_column(
         ForeignKey("region.region_code"), nullable=True, comment="지역코드(region의 PK)"
     )
-    recorded_at: Mapped[datetime | None] = mapped_column(
-        DateTime, nullable=True, comment="영상이 녹화된 일시"
+    recorded_at: Mapped[date | None] = mapped_column(
+        Date, nullable=True, comment="영상이 녹화된 날짜(파일명에 시각 없음)"
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=kst_now, nullable=False, comment="입력일시"
-    )
-    embedding_id: Mapped[str | None] = mapped_column(
-        String(50),
-        nullable=True,
-        comment="Chroma DB 내 매핑할 ID (embedding, metadata 세트)",
     )
 
     region: Mapped["Region | None"] = relationship()
@@ -609,45 +573,15 @@ class AnalysisDetail(Base):
     position: Mapped[str] = mapped_column(
         String(100), nullable=False, comment="bbox (x,y,width,height)"
     )
+    crop_img_path: Mapped[str | None] = mapped_column(
+        String(260), nullable=True, comment="매칭된 인물 crop 이미지 경로(썸네일)"
+    )
     matching_rate: Mapped[float] = mapped_column(
         Float, nullable=False, default=0, comment="매칭 정확도"
     )
 
     analysis: Mapped["Analysis"] = relationship(back_populates="details")
     video: Mapped["Video"] = relationship()
-
-
-class SysCodeGroup(Base):
-    """시스템 enum 코드 그룹 메타 (라벨·설명). code 값은 Python enum 과 동기."""
-
-    __tablename__ = "sys_code_group"
-
-    group_key: Mapped[str] = mapped_column(String(50), primary_key=True)
-    group_label: Mapped[str] = mapped_column(String(100), nullable=False)
-    description: Mapped[str | None] = mapped_column(String(300), nullable=True)
-    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-
-    items: Mapped[list["SysCodeItem"]] = relationship(
-        back_populates="group", cascade="all, delete-orphan"
-    )
-
-
-class SysCodeItem(Base):
-    """그룹별 코드 항목 — 표시 라벨·활성 여부만 관리 (코드값 자체는 변경 불가)."""
-
-    __tablename__ = "sys_code_item"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    group_key: Mapped[str] = mapped_column(
-        ForeignKey("sys_code_group.group_key"), nullable=False, index=True
-    )
-    code: Mapped[str] = mapped_column(String(20), nullable=False)
-    label: Mapped[str] = mapped_column(String(100), nullable=False)
-    description: Mapped[str | None] = mapped_column(String(300), nullable=True)
-    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-
-    group: Mapped["SysCodeGroup"] = relationship(back_populates="items")
 
 
 class RetentionPolicy(Base):
@@ -667,4 +601,102 @@ class RetentionPolicy(Base):
     notes: Mapped[str | None] = mapped_column(String(300), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=kst_now, onupdate=kst_now, nullable=False
+    )
+
+
+class LlmCall(Base):
+    __tablename__ = "llm_call"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True,
+        comment="자동 증분 ID",
+    )
+
+    call_type: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        comment="호출 유형 (1: 인상착의 한영변환, 2: 챗봇)",
+    )
+
+    search_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("search.id"),
+        nullable=True,
+        comment="연계된 검색 요청 (search의 PK), 없으면 NULL",
+    )
+
+    user_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("user.id"),
+        nullable=True,
+        comment="요청자 (users의 PK), 챗봇 등 비로그인은 NULL",
+    )
+
+    chatbot_s_id: Mapped[str | None] = mapped_column(
+        String(36),
+        nullable=True,
+        comment="챗봇 대화 단위 묶음 ID (LangGraph 멀티 호출 대비)",
+    )
+
+    model_name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        comment="사용 모델",
+    )
+
+    prompt: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="입력 프롬프트",
+    )
+
+    response: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="응답 원문 (실패 시 NULL)",
+    )
+
+    input_tokens: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="입력 토큰 수",
+    )
+
+    output_tokens: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="출력 토큰 수",
+    )
+
+    latency_ms: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="응답 소요 시간(ms)",
+    )
+
+    cost: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+        comment="환산 비용 (모델 단가 * 토큰)",
+    )
+
+    status: Mapped[str] = mapped_column(
+        String(10),
+        nullable=False,
+        comment="호출 상태 (0: 실패, 1: 성공)",
+    )
+
+    error_msg: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        comment="실패 사유 (status=0일 때)",
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        server_default=func.current_timestamp(),
+        comment="호출 일시",
     )

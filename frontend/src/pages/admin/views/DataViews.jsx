@@ -9,7 +9,6 @@ import {
   clearAllRegions,
   exportRegionsCsv,
   fetchAdminHistory,
-  fetchCodeGroups,
   fetchRegionDetail,
   fetchRegions,
   importRegionsCsv,
@@ -24,7 +23,6 @@ import {
   fetchIntegrityRun,
 } from '../../../api/client';
 import RegionFormModal from '../components/RegionFormModal';
-import CodeGroupEditModal from '../components/CodeGroupEditModal';
 import AdminCsvFeedback from '../components/AdminCsvFeedback';
 import IntegrityCheckDetailModal from '../components/IntegrityCheckDetailModal';
 import RetentionDryRunModal from '../components/RetentionDryRunModal';
@@ -45,14 +43,6 @@ function regionErrorMessage(err) {
   if (status === 401) return '로그인이 만료되었습니다. 다시 로그인해 주세요.';
   if (!err?.response) return '네트워크 오류로 불러오지 못했습니다.';
   return '행정구역을 불러오지 못했습니다.';
-}
-
-function codeGroupErrorMessage(err) {
-  const status = err?.response?.status;
-  if (status === 403) return '관리자 권한이 필요합니다.';
-  if (status === 401) return '로그인이 만료되었습니다.';
-  if (!err?.response) return '네트워크 오류로 불러오지 못했습니다.';
-  return '코드 그룹을 불러오지 못했습니다.';
 }
 
 const REGION_ACTION_LABELS = {
@@ -231,10 +221,6 @@ export function DataCodesView() {
   const [loadingParents, setLoadingParents] = useState(() => new Set());
   const [selected, setSelected] = useState(null);
 
-  const [codeGroups, setCodeGroups] = useState([]);
-  const [groupsLoading, setGroupsLoading] = useState(true);
-  const [groupsError, setGroupsError] = useState('');
-
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('create');
   const [modalInitial, setModalInitial] = useState(null);
@@ -246,7 +232,6 @@ export function DataCodesView() {
   const [clearBusy, setClearBusy] = useState(false);
   const [exportFormat, setExportFormat] = useState('region');
   const [regionHistory, setRegionHistory] = useState([]);
-  const [codeEditItem, setCodeEditItem] = useState(null);
 
   const isSearchMode = keyword.trim().length > 0;
 
@@ -284,20 +269,6 @@ export function DataCodesView() {
     }
   }, [keyword, searchPage]);
 
-  const loadCodeGroups = useCallback(async () => {
-    setGroupsLoading(true);
-    setGroupsError('');
-    try {
-      const data = await fetchCodeGroups();
-      setCodeGroups(data.groups ?? []);
-    } catch (err) {
-      setGroupsError(codeGroupErrorMessage(err));
-      setCodeGroups([]);
-    } finally {
-      setGroupsLoading(false);
-    }
-  }, []);
-
   const loadRegionHistory = useCallback(async () => {
     try {
       const data = await fetchAdminHistory({
@@ -312,9 +283,8 @@ export function DataCodesView() {
 
   useEffect(() => {
     loadRoots();
-    loadCodeGroups();
     loadRegionHistory();
-  }, [loadRoots, loadCodeGroups, loadRegionHistory]);
+  }, [loadRoots, loadRegionHistory]);
 
   useEffect(() => {
     if (!isSearchMode) return;
@@ -601,31 +571,13 @@ export function DataCodesView() {
     }
   };
 
-  const flatCodeRows = useMemo(() => {
-    const rows = [];
-    for (const group of codeGroups) {
-      for (const item of group.items ?? []) {
-        rows.push({
-          groupKey: group.group,
-          groupLabel: group.group_label,
-          code: item.code,
-          label: item.label,
-          ref: item.ref_count,
-          description: item.description,
-          is_active: item.is_active !== false,
-        });
-      }
-    }
-    return rows;
-  }, [codeGroups]);
-
   const searchPages = Math.max(1, Math.ceil(searchTotal / 30));
 
   return (
     <>
       <PageHead
         viewId="data-codes"
-        desc="지역(행정구역)·역할·검색유형 등 시스템 기준 코드를 관리합니다. 왼쪽은 CCTV·검색이 참조하는 행정구역 계층, 오른쪽은 앱 전역 enum 코드입니다."
+        desc="CCTV·검색이 참조하는 행정구역(region) 계층을 관리합니다. CSV 가져오기·보내기, 등록·수정·삭제를 지원합니다."
       />
 
       {csvBusy && csvBusyMode === 'import' && (
@@ -726,15 +678,7 @@ export function DataCodesView() {
         onSaved={handleSaved}
       />
 
-      <CodeGroupEditModal
-        open={!!codeEditItem}
-        item={codeEditItem}
-        onClose={() => setCodeEditItem(null)}
-        onSaved={() => loadCodeGroups()}
-      />
-
-      <div className="admin-cols">
-        <div className="admin-card">
+      <div className="admin-card admin-card--region-full">
           <div className="admin-card-h">
             <div>
               행정구역 (region)
@@ -751,7 +695,8 @@ export function DataCodesView() {
               </button>
             )}
           </div>
-          <div className="admin-card-b">
+          <div className="admin-card-b admin-region-layout">
+            <div className="admin-region-layout__tree">
             {regionLoading && (
               <p className="admin-inline-status">행정구역 불러오는 중…</p>
             )}
@@ -777,8 +722,8 @@ export function DataCodesView() {
               <div className="admin-empty admin-empty--cta">
                 <p>등록된 행정구역이 없습니다.</p>
                 <p className="admin-empty__sub">
-                  서버 기동 시 기본 시·도 데이터가 자동 시드됩니다. 백엔드를 재시작해
-                  보세요.
+                  서버 기동 시 administrative_dong.csv 가 있으면 자동 적재됩니다.
+                  없으면 CSV 가져오기로 등록하세요.
                 </p>
                 <button
                   type="button"
@@ -859,9 +804,11 @@ export function DataCodesView() {
                 )}
               </div>
             )}
+            </div>
 
-            {selected && (
-              <div className="admin-region-detail">
+            <aside className="admin-region-layout__side">
+            {selected ? (
+              <div className="admin-region-detail admin-region-detail--panel">
                 <div className="admin-region-detail__head">
                   <div className="admin-region-detail__title">선택 항목</div>
                   <div className="admin-region-detail__actions">
@@ -923,6 +870,12 @@ export function DataCodesView() {
                   </div>
                 </dl>
               </div>
+            ) : (
+              <div className="admin-region-detail admin-region-detail--panel admin-region-detail--empty">
+                <p className="admin-region-detail__placeholder">
+                  왼쪽 목록에서 행정구역을 선택하면 상세 정보와 작업 버튼이 표시됩니다.
+                </p>
+              </div>
             )}
 
             <p className="admin-footnote">
@@ -945,88 +898,8 @@ export function DataCodesView() {
                 </ul>
               </div>
             )}
+            </aside>
           </div>
-        </div>
-
-        <div className="admin-card">
-          <div className="admin-card-h">
-            코드 그룹
-            <span className="admin-card-hint">앱 전역 enum · DB에 저장된 참조 수</span>
-          </div>
-          <div
-            className="admin-card-b admin-table-wrap"
-            style={{ paddingTop: 6 }}
-          >
-            {groupsLoading && (
-              <p className="admin-inline-status" style={{ padding: '12px 14px' }}>
-                코드 그룹 불러오는 중…
-              </p>
-            )}
-
-            {!groupsLoading && groupsError && (
-              <div className="admin-inline-error" style={{ padding: '12px 14px' }}>
-                <p>{groupsError}</p>
-                <button
-                  type="button"
-                  className="admin-btn admin-btn--sm"
-                  onClick={loadCodeGroups}
-                >
-                  다시 시도
-                </button>
-              </div>
-            )}
-
-            {!groupsLoading && !groupsError && (
-              <table>
-                <thead>
-                  <tr>
-                    <th>그룹</th>
-                    <th>코드값</th>
-                    <th>라벨</th>
-                    <th>상태</th>
-                    <th style={{ textAlign: 'right' }}>참조</th>
-                    <th style={{ textAlign: 'right' }} />
-                  </tr>
-                </thead>
-                <tbody>
-                  {flatCodeRows.length === 0 ? (
-                    <TableEmptyRow colSpan={6} message="등록된 코드 그룹이 없습니다." />
-                  ) : (
-                    flatCodeRows.map((row, idx) => (
-                      <tr
-                        key={`${row.groupKey}-${row.code}-${idx}`}
-                        className={!row.is_active ? 'admin-row--muted' : undefined}
-                      >
-                        <td>{row.groupLabel}</td>
-                        <td>
-                          <code>{row.code}</code>
-                        </td>
-                        <td>{row.label}</td>
-                        <td>
-                          {row.is_active ? (
-                            <span className="admin-pill admin-pill--ok">활성</span>
-                          ) : (
-                            <span className="admin-pill admin-pill--muted">비활성</span>
-                          )}
-                        </td>
-                        <td style={{ textAlign: 'right' }}>{row.ref}</td>
-                        <td style={{ textAlign: 'right' }}>
-                          <button
-                            type="button"
-                            className="admin-btn admin-btn--sm"
-                            onClick={() => setCodeEditItem(row)}
-                          >
-                            수정
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
       </div>
     </>
   );
@@ -1247,7 +1120,7 @@ export function DataValidateView() {
           onClick={downloadFreshReport}
           disabled={reportBusy || loading}
         >
-          {reportBusy ? '검사·저장 중…' : '새 검사 후 CSV'}
+          {reportBusy ? '검사·보내기 중…' : '새 검사 후 CSV'}
         </button>
       </div>
 
@@ -1407,6 +1280,69 @@ export function DataValidateView() {
         check={detailCheck}
         onClose={() => setDetailCheck(null)}
       />
+    </>
+  );
+}
+
+export function DataExportView() {
+  return (
+    <>
+      <PageHead
+        viewId="data-export"
+        desc="조회·검색·통계 데이터를 표준 형식으로 일괄보냅니다.보내기 이력은 감사 로그에 기록됩니다."
+      />
+      <div className="admin-card admin-mb">
+        <div className="admin-card-h">새보내기</div>
+        <div className="admin-card-b">
+          <div className="admin-form-row">
+            <div className="admin-fld">
+              <label>데이터 종류</label>
+              <select disabled>
+                <option>데이터 종류를 선택하세요</option>
+              </select>
+            </div>
+            <div className="admin-fld">
+              <label>기간</label>
+              <input type="date" disabled />
+            </div>
+            <div className="admin-fld">
+              <label>형식</label>
+              <select disabled>
+                <option>CSV</option>
+              </select>
+            </div>
+            <div className="admin-fld" style={{ flex: '0 0 auto' }}>
+              <label>&nbsp;</label>
+              <button
+                type="button"
+                className="admin-btn admin-btn--primary"
+                disabled
+              >
+                보내기
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="admin-card admin-table-wrap">
+        <div className="admin-card-h">최근보내기</div>
+        <table>
+          <thead>
+            <tr>
+              <th>일시</th>
+              <th>데이터</th>
+              <th>기간</th>
+              <th>형식</th>
+              <th>행 수</th>
+              <th>요청자</th>
+              <th style={{ textAlign: 'right' }} />
+            </tr>
+          </thead>
+          <tbody>
+            <TableEmptyRow colSpan={7} />
+          </tbody>
+        </table>
+      </div>
     </>
   );
 }
@@ -1678,8 +1614,9 @@ export function DataRetentionView() {
       </div>
 
       <p className="admin-footnote">
-        ※ 드라이런은 화면에 입력한 보존 기간·상태를 반영해 미리보기합니다. 실제 삭제는
-        실행되지 않습니다. 영상 삭제 시 Chroma 임베딩도 함께 삭제돼야 정합성이 유지됩니다.
+        ※ 드라이런은 화면에 입력한 보존 기간·상태를 반영한 미리보기입니다. 실제
+        삭제는 실행하지 않습니다. 영상 삭제 시 Chroma 임베딩도 함께 삭제해야
+        정합성이 유지됩니다.
       </p>
 
       <RetentionDryRunModal

@@ -1,4 +1,4 @@
-"""행정구역·기준 코드 그룹 API 스키마."""
+"""행정구역 API 스키마."""
 
 from datetime import datetime
 
@@ -48,32 +48,27 @@ class RegionOptionsResponse(BaseModel):
     items: list[RegionOption]
 
 
-class CodeGroupEntry(BaseModel):
-    id: int | None = None
-    code: str
-    label: str
-    ref_count: int = 0
-    description: str | None = None
-    is_active: bool = True
+class RegionImportResult(BaseModel):
+    created: int = 0
+    updated: int = 0
+    skipped: int = 0
+    errors: list[str] = Field(default_factory=list)
+    format: str = Field(default="region", description="region | administrative_dong")
+    legal_dong_created: int = 0
+    legal_dong_updated: int = 0
+    csv_rows: int = 0
 
 
-class CodeItemUpdate(BaseModel):
-    label: str | None = Field(default=None, max_length=100)
-    description: str | None = Field(default=None, max_length=300)
-    is_active: bool | None = None
+class RegionClearResult(BaseModel):
+    region_deleted: int = 0
+    legal_dong_deleted: int = 0
+    video_unlinked: int = 0
 
 
-class CodeGroupUpdate(BaseModel):
-    group_label: str | None = Field(default=None, max_length=100)
-    description: str | None = Field(default=None, max_length=300)
-
-
-class CodeGroupItem(BaseModel):
-    group: str
-    group_label: str
-    description: str | None = None
-    items: list[CodeGroupEntry] = Field(default_factory=list)
-
-
-class CodeGroupListResponse(BaseModel):
-    groups: list[CodeGroupItem]
+class AdministrativeDongImportResult(BaseModel):
+    sido_count: int = 0
+    sigungu_count: int = 0
+    admin_dong_count: int = 0
+    legal_dong_count: int = 0
+    csv_rows: int = 0
+    errors: list[str] = Field(default_factory=list)

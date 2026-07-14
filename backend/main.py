@@ -6,40 +6,41 @@ FastAPI 애플리케이션 진입점.
   2. Base.metadata.create_all() — ORM 테이블 자동 생성
   3. bootstrap_admin() — .env 기반 최초 관리자 계정 생성
 
-[라우터]
-  /api/v1/*  — 인증·사용자·관리자·운영
-  /api/alert, /api/cctv, /api/result, /api/alerts — 탐지·결과·재난문자
-  /api/sms, /api/video, /api/missing — 레거시 경로 (하위 호환)
 """
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
-from backend.routers import alert, cctv, result, disaster_alerts
-from backend.services.storage import ensure_dirs
+from fastapi.staticfiles import StaticFiles
+# ── 도메인 라우터 (기능별 API 엔드포인트) ──────────────────────────────────
+from backend.routers import (
+    llm_call,
+    messages,
+    admin,
+    auth,
+    operations,
+    users,
+    search,
+    chatbot,
+    video,
+)
 
 from backend.db.database import Base, SessionLocal, engine, get_db
-from backend.routers import messages
-
 from contextlib import asynccontextmanager
 from secrets import token_urlsafe
-
 from sqlalchemy import or_, select
-
-from backend.routers import admin, auth, operations, users, search, chatbot
 from backend.core.config import get_settings
 from backend.core.security import hash_password
 from backend.core.runtime import ensure_supported_python
 from backend.db.models import ApprovalStatus, User, UserRole
-
-from backend.services.code_group_seed import seed_code_groups_if_empty
-from backend.services.retention_policy_seed import seed_retention_policies_if_empty
 from backend.core.scheduler import start_scheduler
+
 # scheduler의 logging을 위한 import
 # 아래에서 모듈 사용하지 않는다고 지우면 동작하지 않음
 import backend.core.scheduler_logging
 
 ensure_supported_python()
 settings = get_settings()
+
 
 def bootstrap_admin() -> None:
     """Create the first administrator once.
@@ -49,11 +50,15 @@ def bootstrap_admin() -> None:
     administrator with an unknown random password; the local-only development
     endpoint then issues a test token without an administrator password.
     """
-    has_admin_identity = bool(settings.bootstrap_admin_username and settings.bootstrap_admin_email)
+    has_admin_identity = bool(
+        settings.bootstrap_admin_username and settings.bootstrap_admin_email
+    )
     has_password_bootstrap = bool(settings.bootstrap_admin_password)
     has_dev_no_password_bootstrap = settings.bootstrap_admin_no_password
 
-    if not has_admin_identity or not (has_password_bootstrap or has_dev_no_password_bootstrap):
+    if not has_admin_identity or not (
+        has_password_bootstrap or has_dev_no_password_bootstrap
+    ):
         return
 
     with SessionLocal() as db:
@@ -89,22 +94,20 @@ def bootstrap_admin() -> None:
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     ensure_supported_python()
-    ensure_dirs()                              # startup에 있던 것 이동
-    Base.metadata.create_all(bind=engine)      # ← 단 1회
+    Base.metadata.create_all(bind=engine)  # ← 단 1회
     bootstrap_admin()
-    with SessionLocal() as db:
-        seed_code_groups_if_empty(db)
-        seed_retention_policies_if_empty(db)
-    start_scheduler() # 메시지 수집 스케줄러 시작
+    start_scheduler()  # 메시지 수집 스케줄러 시작
     yield
 
 
-app = FastAPI(
-    title="Silmari API", 
-    version="1.1.0", 
-    lifespan=lifespan
+app = FastAPI(title="Silmari API", version="1.1.0", lifespan=lifespan)
+BASE_DIR = Path(__file__).resolve().parent.parent
+DATA_DIR = BASE_DIR / "data"
+app.mount(
+    "/media",
+    StaticFiles(directory=DATA_DIR),
+    name="media",
 )
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -122,20 +125,16 @@ app.include_router(messages.router, prefix="/message", tags=["message"])
 app.include_router(chatbot.router, prefix="/chatbot", tags=["chatbot"])
 
 app.include_router(search.router, prefix="/search", tags=["search"])
+app.include_router(llm_call.router, prefix="/llm_call", tags=["llm_call"])
 
-# 태윤이 숙제
-# app.include_router(video.router, prefix="/video", tags=["video"])
 
-# legacy 미사용 라우터 추후 확인 및 처리
-app.include_router(disaster_alerts.router, prefix="/api/alerts", tags=["legacy"])
-app.include_router(alert.router, prefix="/api/sms", tags=["legacy"])
-app.include_router(cctv.router, prefix="/api/video", tags=["legacy"])
-app.include_router(result.router, prefix="/api/missing", tags=["legacy"])
+app.include_router(video.router, prefix="/video", tags=["video"])
 
 
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+
 
 @app.get("/")
 def root():
