@@ -1,3 +1,21 @@
+# Python
+backend/.venv/
+backend/__pycache__/
+backend/*.db
+backend/.env
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Data & uploads
+data/uploads/
+data/CCTV/**/*.mp4
+data/chroma/**
+
+# Models
+# models/yolo/*.pt
+
 # =========================
 # Python 기본
 # =========================
@@ -11,6 +29,9 @@ __pycache__/
 venv/
 .env/
 .venv/
+.venv-*/
+.venv-root-install-test/
+**/.venv-install-test/
 .env
 
 # =========================
@@ -62,12 +83,14 @@ Thumbs.db
 !**/migrations/__init__.py
 db.sqlite3
 
+# data/ 밑 학습·수집 데이터·모델 산출물만 무시 — 프론트엔드 public/ 등 다른 곳의
+# 작은 json/이미지 에셋까지 걸리지 않도록 경로를 좁힘(전에는 *.json 등으로
+# 저장소 전체에 적용돼서 frontend/public/geodata/*.topo.json이 커밋 자체가
+# 안 되고 있었음).
+data/**/*.mp3
+data/**/*.mp4
+data/**/*.jpg
+data/**/*.npy
+data/**/*.bin
 
-
-
-
-
-
-
-
-
+*.sqlite3
