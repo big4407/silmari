@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, update, exists
 from sqlalchemy.orm import Session
 
 from backend.db.models import Video, VideoDetail
@@ -101,3 +101,24 @@ class VideoRepository:
             return []
 
         return [row[0] for row in query.all()]
+
+    def exists_by_region_and_period(
+        self,
+        *,
+        region_code: str,
+        start_at: datetime,
+        end_at: datetime,
+    ) -> bool:
+        """
+        해당 지역과 촬영 기간에 영상이 하나 이상 존재하는지 확인한다.
+        """
+
+        stmt = select(
+            exists().where(
+                Video.region_code == region_code,
+                Video.recorded_at >= start_at,
+                Video.recorded_at < end_at,
+            )
+        )
+
+        return bool(self.db.scalar(stmt))
