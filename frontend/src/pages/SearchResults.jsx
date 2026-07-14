@@ -356,9 +356,6 @@ export default function SearchResults() {
                 {resultStats.totalClips > 0 && (
                   <>
                     <span className="search-page__stat">
-                      최고 신뢰도 <strong>{resultStats.maxConfidence}%</strong>
-                    </span>
-                    <span className="search-page__stat">
                       클립 <strong>{resultStats.totalClips}</strong>개
                     </span>
                   </>
