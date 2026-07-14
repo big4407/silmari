@@ -1,0 +1,172 @@
+.landing-header {
+  flex-shrink: 0;
+  font-family: var(--font-family);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.landing-header__container {
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 var(--space-xl);
+}
+
+.landing-header__brand-bar {
+  background: var(--color-primary);
+}
+
+.landing-header__brand-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  height: var(--header-height);
+}
+
+.landing-header__brand {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.landing-header__logo {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--color-text-inverse);
+  text-decoration: none;
+  letter-spacing: -0.02em;
+  flex-shrink: 0;
+}
+
+.landing-header__logo:hover {
+  color: #fff;
+  opacity: 0.9;
+}
+
+.landing-header__subtitle {
+  font-size: var(--font-size-sm);
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.8);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.landing-header__util {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+}
+
+.landing-header__util-link {
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.landing-header__util-link:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.landing-header__util-link--active {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.landing-header__util-link--temp {
+  border: 1px dashed rgba(255, 255, 255, 0.45);
+}
+
+.landing-header__nav-wrap {
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.landing-header__nav {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+}
+
+.landing-header__tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--nav-height);
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
+  white-space: nowrap;
+}
+
+.landing-header__tab:hover {
+  color: var(--color-primary);
+  background: var(--color-surface-muted);
+}
+
+.landing-header__tab--active {
+  color: var(--color-primary);
+  font-weight: 700;
+  border-bottom-color: var(--color-primary);
+  background: #f0f6fc;
+}
+
+@media (max-width: 768px) {
+  .landing-header__container {
+    padding: 0 var(--space-md);
+  }
+
+  .landing-header__brand-row {
+    height: auto;
+    padding: var(--space-sm) 0;
+    flex-wrap: wrap;
+  }
+
+  .landing-header__brand {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  .landing-header__subtitle {
+    white-space: normal;
+    font-size: var(--font-size-xs);
+  }
+
+  .landing-header__nav {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .landing-header__tab {
+    flex: 0 0 auto;
+    padding: 0 var(--space-md);
+    font-size: var(--font-size-sm);
+  }
+}
+
+/* 로그아웃 버튼 — util-link 스타일을 button에도 동일 적용 (기본 UA 스타일 리셋) */
+button.landing-header__util-link {
+  background: none;
+  border: none;
+  cursor: pointer;
+}

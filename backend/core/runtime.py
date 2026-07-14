@@ -1,4 +1,4 @@
-"""Runtime compatibility checks for Silmari Auth API."""
+"""Python 3.10+ 런타임 호환성 검사 — main.py 시작 시 1회 호출."""
 from __future__ import annotations
 
 import sys

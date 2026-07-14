@@ -3,6 +3,7 @@
 Run from the project root:
     pytest -q app/tests/test_auth_flow.py
 """
+
 from __future__ import annotations
 
 import os
@@ -16,7 +17,7 @@ if TEST_DB.exists():
     TEST_DB.unlink()
 
 os.environ["ENVIRONMENT"] = "test"
-os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB.as_posix()}"
+os.environ["DATABASE_URL_OVERRIDE"] = f"sqlite:///{TEST_DB.as_posix()}"
 os.environ["JWT_SECRET_KEY"] = "test-only-jwt-secret-key-at-least-thirty-two-characters"
 os.environ["BOOTSTRAP_ADMIN_USERNAME"] = "bootstrap_admin"
 os.environ["BOOTSTRAP_ADMIN_EMAIL"] = "bootstrap_admin@silmari.local"
@@ -26,6 +27,7 @@ os.environ["BOOTSTRAP_ADMIN_NO_PASSWORD"] = "true"
 from fastapi.testclient import TestClient  # noqa: E402
 
 from backend.main import app  # noqa: E402
+from backend.db.models import ApprovalStatus, UserRole  # noqa: E402
 
 
 INVESTIGATOR_PAYLOAD = {
@@ -37,7 +39,7 @@ INVESTIGATOR_PAYLOAD = {
     "department": "실종대응팀",
     "position": "주무관",
     "phone": "010-1234-5678",
-    "requested_role": "investigator",
+    "requested_role": UserRole.INVESTIGATOR.value,
 }
 
 
@@ -56,13 +58,16 @@ def test_required_authentication_flow() -> None:
         response = client.post("/api/v1/auth/signup", json=INVESTIGATOR_PAYLOAD)
         assert response.status_code == 201, response.text
         created_user = response.json()["user"]
-        assert created_user["approval_status"] == "pending"
+        assert created_user["approval_status"] == ApprovalStatus.PENDING.value
         user_id = created_user["id"]
 
         # 3. A pending user cannot log in.
         response = client.post(
             "/api/v1/auth/login",
-            json={"username": INVESTIGATOR_PAYLOAD["username"], "password": INVESTIGATOR_PAYLOAD["password"]},
+            json={
+                "username": INVESTIGATOR_PAYLOAD["username"],
+                "password": INVESTIGATOR_PAYLOAD["password"],
+            },
         )
         assert response.status_code == 403
 
@@ -83,16 +88,22 @@ def test_required_authentication_flow() -> None:
         response = client.patch(
             f"/api/v1/admin/users/{user_id}/approval",
             headers=bearer(admin_access_token),
-            json={"status": "approved", "role": "investigator"},
+            json={
+                "status": ApprovalStatus.APPROVED.value,
+                "role": UserRole.INVESTIGATOR.value,
+            },
         )
         assert response.status_code == 200, response.text
-        assert response.json()["approval_status"] == "approved"
-        assert response.json()["role"] == "investigator"
+        assert response.json()["approval_status"] == ApprovalStatus.APPROVED.value
+        assert response.json()["role"] == UserRole.INVESTIGATOR.value
 
         # 7. Approved investigator can log in with their own password.
         response = client.post(
             "/api/v1/auth/login",
-            json={"username": INVESTIGATOR_PAYLOAD["username"], "password": INVESTIGATOR_PAYLOAD["password"]},
+            json={
+                "username": INVESTIGATOR_PAYLOAD["username"],
+                "password": INVESTIGATOR_PAYLOAD["password"],
+            },
         )
         assert response.status_code == 200, response.text
         investigator_access_token = response.json()["access_token"]
@@ -103,7 +114,7 @@ def test_required_authentication_flow() -> None:
             headers=bearer(investigator_access_token),
         )
         assert response.status_code == 200, response.text
-        assert response.json()["role"] == "investigator"
+        assert response.json()["role"] == UserRole.INVESTIGATOR.value
 
         # 9. Logout revokes the active session.
         response = client.post(

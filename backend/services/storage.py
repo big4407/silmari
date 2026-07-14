@@ -1,0 +1,39 @@
+"""
+업로드·결과 파일 저장 유틸.
+
+[경로] core/config.py — upload_dir, cctv_data_dir, results_dir
+[사용] routes/cctv.py(영상 업로드), clip_generator(클립·썸네일)
+"""
+import os
+import shutil
+import uuid
+from pathlib import Path
+
+from backend.core.config import settings
+
+
+def ensure_dirs():
+    for d in [settings.upload_dir, settings.cctv_data_dir, settings.results_dir]:
+        os.makedirs(d, exist_ok=True)
+
+
+def save_upload(file_obj, filename: str) -> tuple[str, str]:
+    ensure_dirs()
+    file_id = str(uuid.uuid4())
+    dest = os.path.join(settings.upload_dir, f"{file_id}_{filename}")
+    with open(dest, "wb") as f:
+        shutil.copyfileobj(file_obj, f)
+    return file_id, dest
+
+
+def remove_file(path: str):
+    if path and os.path.exists(path):
+        os.remove(path)
+
+
+def scan_cctv_by_region(region_code: str) -> list[Path]:
+    """행정동코드별 CCTV 영상 파일 스캔"""
+    base = Path(settings.cctv_data_dir) / region_code
+    if not base.exists():
+        return []
+    return sorted(base.rglob("*.mp4"))

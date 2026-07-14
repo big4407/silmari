@@ -1,30 +1,36 @@
 services:
   db:
-    image: mariadb:11.4
-    container_name: silmari-mariadb
-    restart: unless-stopped
+    image: mysql:8.0
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     environment:
-      MARIADB_DATABASE: silmari
-      MARIADB_USER: silmari
-      MARIADB_PASSWORD: silmari_password
-      MARIADB_ROOT_PASSWORD: root_password_change_me
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
     ports:
-      - "3306:3306"
+      - "3306:3306" # 호스트에서 직접 붙어볼 때만 필요
     volumes:
-      - mariadb_data:/var/lib/mysql
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
-  api:
-    build: .
-    container_name: silmari-auth-api
-    restart: unless-stopped
-    depends_on:
-      - db
-    env_file:
-      - .env
+  backend:
+    build: { context: ., dockerfile: backend/Dockerfile }
+    ports: ["8000:8000"]
     environment:
-      DATABASE_URL: mysql+pymysql://silmari:silmari_password@db:3306/silmari
-    ports:
-      - "8000:8000"
+      DB_HOST: db
+    volumes:
+      - ./data:/app/data
+    env_file: [.env]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: { context: ./frontend, dockerfile: Dockerfile }
+    ports: ["5173:5173"]
+    depends_on: [backend]
 
 volumes:
-  mariadb_data:
+  mysql_data:

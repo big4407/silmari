@@ -1,0 +1,10 @@
+**/__pycache__/
+.venv/
+venv/
+frontend/node_modules/
+frontend/dist/
+.git/
+data/CCTV/**
+data/uploads/**
+data/chroma/**
+*.mp4

@@ -1,0 +1,99 @@
+.search-card {
+  border: 2px solid #333;
+  border-radius: 4px;
+  background: #fff;
+  overflow: hidden;
+  transition:
+    box-shadow 0.15s,
+    border-color 0.15s;
+}
+
+.search-card:hover {
+  border-color: #2563eb;
+  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.15);
+}
+
+.search-card--deleting {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.search-card__main {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+}
+
+.search-card__main:focus-visible {
+  box-shadow: inset 0 0 0 2px #2563eb;
+}
+
+.search-card__img-wrap {
+  position: relative;
+}
+
+.search-card__img {
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+  background: #e5e7eb;
+  display: block;
+}
+
+.search-card__delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.search-card__delete:hover {
+  background: #dc2626;
+}
+
+.search-card__body {
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.search-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: #555;
+}
+
+.search-card__meta span {
+  background: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.search-card__desc {
+  font-size: 0.8rem;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

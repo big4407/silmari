@@ -1,3 +1,4 @@
+"""사용자 프로필·관리자 승인 요청 Pydantic 스키마."""
 from pydantic import BaseModel, Field
 
 from backend.db.models import ApprovalStatus, UserRole

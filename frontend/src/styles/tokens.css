@@ -1,0 +1,80 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+}
+
+:root {
+  /* Brand — public sector navy */
+  --color-primary: #003876;
+  --color-primary-light: #004ea2;
+  --color-primary-dark: #002a57;
+  --color-accent: #0066cc;
+  --color-accent-hover: #0052a3;
+
+  /* Surfaces */
+  --color-bg: #f4f6f8;
+  --color-surface: #ffffff;
+  --color-surface-muted: #eef1f5;
+  --color-border: #dde1e6;
+  --color-border-strong: #b0b8c1;
+
+  /* Text */
+  --color-text: #1a1a1a;
+  --color-text-secondary: #5c6670;
+  --color-text-muted: #8a939c;
+  --color-text-inverse: #ffffff;
+
+  /* Status */
+  --color-warning: #b45309;
+  --color-warning-bg: #fffbeb;
+  --color-warning-border: #fcd34d;
+  --color-error: #c41e3a;
+  --color-error-bg: #fef2f2;
+  --color-error-border: #fecaca;
+  --color-success: #047857;
+  --color-warm-bg: #f7f5f2;
+  --color-warm-border: #e8e4de;
+
+  /* Map */
+  --color-map-active: #0066cc;
+  --color-map-active-fill: #4d9de0;
+  --color-map-stroke: #5a7088;
+  --color-map-stroke-light: #8a9db0;
+
+  /* Typography */
+  --font-family:
+    'Pretendard', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-size-xs: 0.6875rem;
+  --font-size-sm: 0.8125rem;
+  --font-size-base: 0.875rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.125rem;
+
+  /* Spacing & shape */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+
+  /* Layout */
+  --header-height: 56px;
+  --nav-height: 44px;
+  --footer-height: 36px;
+  --sidebar-width: 380px;
+  --control-height: 36px;
+}

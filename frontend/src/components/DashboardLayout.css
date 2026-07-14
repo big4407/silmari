@@ -1,0 +1,207 @@
+.dashboard-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  font-family: var(--font-family);
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.dashboard-layout__header {
+  flex-shrink: 0;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.dashboard-layout__container {
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 var(--space-xl);
+}
+
+/* ── Brand bar ── */
+.dashboard-layout__brand-bar {
+  background: var(--color-primary);
+}
+
+.dashboard-layout__brand-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  height: var(--header-height);
+}
+
+.dashboard-layout__brand {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.dashboard-layout__logo {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--color-text-inverse);
+  text-decoration: none;
+  letter-spacing: -0.02em;
+  flex-shrink: 0;
+}
+
+.dashboard-layout__logo:hover {
+  color: #fff;
+  opacity: 0.9;
+}
+
+.dashboard-layout__subtitle {
+  font-size: var(--font-size-sm);
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.8);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dashboard-layout__util {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-shrink: 0;
+}
+
+.dashboard-layout__util-link {
+  background: none;
+  border: none;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.dashboard-layout__util-link:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.dashboard-layout__util-link--temp {
+  border: 1px dashed rgba(255, 255, 255, 0.45);
+}
+
+.dashboard-layout__util-divider {
+  width: 1px;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* ── Tab navigation (full-width spread) ── */
+.dashboard-layout__nav-wrap {
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.dashboard-layout__nav {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+}
+
+.dashboard-layout__tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--nav-height);
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
+  white-space: nowrap;
+}
+
+.dashboard-layout__tab:hover {
+  color: var(--color-primary);
+  background: var(--color-surface-muted);
+}
+
+.dashboard-layout__tab--active {
+  color: var(--color-primary);
+  font-weight: 700;
+  border-bottom-color: var(--color-primary);
+  background: #f0f6fc;
+}
+
+.dashboard-layout__content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.dashboard-layout__footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--footer-height);
+  padding: 0 var(--space-xl);
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 768px) {
+  .dashboard-layout__container {
+    padding: 0 var(--space-md);
+  }
+
+  .dashboard-layout__brand-row {
+    height: auto;
+    padding: var(--space-sm) 0;
+    flex-wrap: wrap;
+  }
+
+  .dashboard-layout__brand {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  .dashboard-layout__subtitle {
+    white-space: normal;
+  }
+
+  .dashboard-layout__nav {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .dashboard-layout__tab {
+    flex: 0 0 auto;
+    padding: 0 var(--space-md);
+    font-size: var(--font-size-sm);
+  }
+}
+
+/* 로그아웃 버튼 — util-link 스타일을 button에도 동일 적용 (기본 UA 스타일 리셋) */
+button.dashboard-layout__util-link {
+  background: none;
+  border: none;
+  cursor: pointer;
+}

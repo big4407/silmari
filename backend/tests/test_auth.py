@@ -13,5 +13,5 @@ SIGNUP_PAYLOAD = {
     "department": "실종대응팀",
     "position": "주무관",
     "phone": "010-1234-5678",
-    "requested_role": "investigator",
+    "requested_role": "2",  # UserRole: 1=admin, 2=investigator, 3=public_official
 }
