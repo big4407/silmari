@@ -2,15 +2,14 @@
 import { useState, useEffect } from 'react';
 import './ChatbotPage.css';
 import { sendChatMessage, getChatSession } from '../api/chatbot_api';
-
+import { useDetectionStore } from '../store/useDetectionStore';
 export default function ChatbotPage() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([]);
   const [sessionId, setSessionId] = useState(() =>
     localStorage.getItem('chatbot_session_id'),
   );
-
-
+  const setActiveSearch = useDetectionStore((state) => state.setActiveSearch);
   const updateSessionId = (newSessionId) => {
     if (newSessionId) {
       localStorage.setItem('chatbot_session_id', newSessionId);
@@ -33,9 +32,13 @@ export default function ChatbotPage() {
         sessionId: sessionId,
         message: userMsg,
       });
-
+      console.log('챗봇 응답:', data);
       updateSessionId(data.session_id);
-
+      if (data.search_inserted && data.search_id) {
+        setActiveSearch({
+          searchResultId: data.search_id,
+        });
+      }
       setMessages((prev) => [...prev, { role: 'bot', text: data.response }]);
     } catch (error) {
       console.error(error);

@@ -173,6 +173,9 @@ const decodeAccessToken = () => {
   }
 };
 
+/** 현재 로그인 사용자 ID (JWT sub) 또는 null */
+export const getUserId = () => decodeAccessToken()?.sub ?? null;
+
 /** 현재 로그인 사용자의 역할 코드('1'관리자/'2'수사관/'3'공무원) 또는 null */
 export const getRole = () => decodeAccessToken()?.role ?? null;
 
@@ -427,6 +430,10 @@ export const collectMessages = (params = {}) =>
 export const fetchSearchList = (params = {}) =>
   client.get('/search', { params }).then((r) => r.data);
 
+/** 검색 요청 생성 + 분석 실행 — POST /search */
+export const createSearch = (payload) =>
+  client.post('/search', payload).then((r) => r.data);
+
 export const fetchSearchDetail = (id) =>
   client.get(`/search/${id}`).then((r) => r.data);
 
@@ -448,18 +455,74 @@ function mapSearchItemToHistory(item) {
 }
 
 function mapSearchItemToResult(item) {
+  const results = item.analysis_results || [];
+  const groupedByVideo = results.reduce((groups, result) => {
+    const videoId = result.video_id;
+
+    if (!groups[videoId]) {
+      groups[videoId] = [];
+    }
+
+    groups[videoId].push(result);
+    return groups;
+  }, {});
+  const bestResult =
+    results.length > 0
+      ? results.reduce((best, current) =>
+          current.matching_rate > best.matching_rate ? current : best,
+        )
+      : null;
+
   return {
     id: item.id,
     person_name: item.missing_name || '미상',
     person_age: item.age,
     region: item.missing_location || '-',
-    alert_text: '',
-    video_filename: '',
-    thumbnail_url: '',
-    best_confidence: 0,
-    best_timestamp_sec: null,
-    clips: [],
-    sms_info: { gender: item.gender, clothes: item.clothing },
+
+    video_results: Object.entries(groupedByVideo).map(
+      ([videoId, videoResults]) => {
+        const bestVideoResult = videoResults.reduce((best, current) =>
+          current.matching_rate > best.matching_rate ? current : best,
+        );
+
+        return {
+          video_id: Number(videoId),
+          video_path: bestVideoResult.video_path || '',
+          thumbnail_url: bestVideoResult.crop_img_path || '',
+          best_confidence: bestVideoResult.matching_rate || 0,
+          best_timestamp_sec: bestVideoResult.video_timestamp,
+          clips: videoResults.map((result) => ({
+            id: result.id,
+            video_id: result.video_id,
+            url: result.video_path || '',
+            start_sec: result.video_timestamp,
+            end_sec: result.video_timestamp + 5,
+            thumbnail_url: result.crop_img_path || '',
+            confidence: result.matching_rate,
+            position: result.position,
+          })),
+        };
+      },
+    ),
+
+    thumbnail_url: bestResult?.crop_img_path || '',
+    best_confidence: bestResult?.matching_rate || 0,
+    best_timestamp_sec: bestResult?.video_timestamp ?? null,
+    clips: results.map((result) => ({
+      id: result.id,
+      video_id: result.video_id,
+      url: result.video_path || '',
+      start_sec: result.video_timestamp,
+      end_sec: result.video_timestamp + 5,
+      thumbnail_url: result.crop_img_path || '',
+      confidence: result.matching_rate,
+      position: result.position,
+    })),
+
+    sms_info: {
+      gender: item.gender,
+      clothes: item.clothing,
+    },
     created_at: item.searched_at,
     description: item.clothing || '',
   };
@@ -501,16 +564,5 @@ export const deleteAllSearchResults = async () => {
   await Promise.all(items.map((item) => deleteSearch(item.id)));
   return { ok: true, deleted_count: items.length };
 };
-
-// ══════════════════════════════════════════════════════════
-// CCTV — /video/* (백엔드 분석 엔드포인트 연동 시 사용)
-// ══════════════════════════════════════════════════════════
-
-export const analyzeVideo = (formData) =>
-  client
-    .post('/video/analyze', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
-    .then((r) => r.data);
 
 export default client;

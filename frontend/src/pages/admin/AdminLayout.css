@@ -388,6 +388,7 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  table-layout: fixed;
 }
 
 .admin-console th {
@@ -398,12 +399,21 @@
   color: var(--admin-ink-2);
   border-bottom: 1px solid var(--admin-line);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-console th:empty {
+  width: 60px;
 }
 
 .admin-console td {
   padding: 11px 14px;
   border-bottom: 1px solid var(--admin-line-soft);
   color: var(--admin-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-console tr:last-child td {
