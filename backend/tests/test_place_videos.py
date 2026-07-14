@@ -6,11 +6,13 @@ CCTV 파이프라인 통합 테스트(test_video_pipeline_integration.py)용 테
 
 1) 범위 지정 모드 (기존) — --start-date/--end-date로 넓은 기간·전체 지역에
    무작위로 영상을 채운다.
-2) Message 기반 모드 (신규, --from-messages) — Message 테이블에 있는 실제
-   문자(수신지역명 rcptn_rgn_nm, 생성일시 crt_dt) 기준으로, 실제 검색이 실행될
-   법한 (지역, 날짜) 조합에만 정확히 영상을 채운다. 무작위 범위보다 훨씬
-   적은 폴더만 만들지만, 실제 파이프라인 테스트(문자 선택 → 검색 → 매칭 확인)가
-   "매칭 대상이 아예 없어서 실패"하는 일 없이 실제로 매칭까지 확인된다.
+2) Message 기반 모드 (신규, --from-messages) — Message 테이블 중 SN이 "T"로
+   시작하는(test_Message.py로 넣은 테스트) 문자의 지역·생성일시 기준으로,
+   실제 검색이 실행될 법한 (지역, 날짜) 조합에만 정확히 영상을 채운다. 실제
+   API로 수집된 문자는 안 건드리고 안 본다(전체 스캔 안 해서 실데이터가 많아도
+   느려지지 않음). 무작위 범위보다 훨씬 적은 폴더만 만들지만, 실제 파이프라인
+   테스트(문자 선택 → 검색 → 매칭 확인)가 "매칭 대상이 아예 없어서 실패"하는
+   일 없이 실제로 매칭까지 확인된다.
 
 운영 코드가 아니라 테스트 픽스처 생성 스크립트라 tests/ 아래에 둔다. 파일명이
 test_로 시작하지만 pytest가 자동 수집해서 실행할 test_* 함수는 없다 —
@@ -83,6 +85,7 @@ def _distribute_videos(
     placed = 0
     empty_folders = 0
     skipped_existing = 0
+    placed_paths: list[str] = []
 
     for folder in folders:
         if _has_existing_video(folder):
@@ -98,14 +101,17 @@ def _distribute_videos(
             source = rng.choice(sample_videos)
             # 같은 폴더에 같은 원본이 여러 번 뽑혀도 안 겹치도록 고유 접미사를 붙인다.
             dest_name = f"{source.stem}_{uuid.uuid4().hex[:8]}{source.suffix}"
-            shutil.copy2(source, folder / dest_name)
+            dest_path = folder / dest_name
+            shutil.copy2(source, dest_path)
             placed += 1
+            placed_paths.append(str(dest_path))
 
     return {
         "folders": len(folders),
         "placed": placed,
         "empty_folders": empty_folders,
         "skipped_existing": skipped_existing,
+        "placed_paths": placed_paths,
     }
 
 
@@ -117,15 +123,22 @@ def place_test_videos(
 ) -> dict:
     """base_dir 밑의 모든 CCTV 리프 폴더에 샘플 영상을 무작위로 배치한다(범위 지정 모드용).
 
-    반환값: {"folders", "placed", "empty_folders", "skipped_existing"}
+    반환값: {"folders", "placed", "empty_folders", "skipped_existing", "placed_paths"}
     """
     rng = random.Random(seed)
     base_dir = base_dir or Path(settings.cctv_data_dir)
+    empty_result = {
+        "folders": 0,
+        "placed": 0,
+        "empty_folders": 0,
+        "skipped_existing": 0,
+        "placed_paths": [],
+    }
 
     sample_videos = find_sample_videos(source_dir)
     if not sample_videos:
         print(f"[테스트 영상 배치] 샘플 영상이 없습니다: {source_dir}")
-        return {"folders": 0, "placed": 0, "empty_folders": 0, "skipped_existing": 0}
+        return empty_result
 
     leaf_folders = find_leaf_folders(base_dir)
     if not leaf_folders:
@@ -133,7 +146,7 @@ def place_test_videos(
             f"[테스트 영상 배치] 대상 폴더가 없습니다: {base_dir} "
             "— CCTV 폴더 생성이 먼저 되어야 합니다."
         )
-        return {"folders": 0, "placed": 0, "empty_folders": 0, "skipped_existing": 0}
+        return empty_result
 
     result = _distribute_videos(leaf_folders, sample_videos, max_per_folder, rng)
     print(
@@ -149,6 +162,10 @@ def place_test_videos(
 def resolve_message_region_date_pairs(db) -> list[tuple[str, date]]:
     """Message 테이블의 각 문자를 (region_code, 날짜) 조합으로 변환한다.
 
+    SN이 "T"로 시작하는(=test_Message.py로 넣은 테스트) 문자만 본다 — 실제 API로
+    수집된 문자가 쌓이면 그 전체를 스캔하는 게 느려질뿐더러, 테스트 환경 세팅에
+    실데이터가 섞여 들어가는 것도 맞지 않다.
+
     rcptn_rgn_nm(자유 텍스트 지역명)은 RegionRepository.find_codes_by_keyword로
     region_code 후보를 찾는다 — analysis_service.py의 지역 매칭과 동일한 로직을
     재사용해서, "실제 검색 때 걸릴 지역"과 "테스트 영상이 들어가는 지역"이
@@ -163,7 +180,7 @@ def resolve_message_region_date_pairs(db) -> list[tuple[str, date]]:
     pairs: set[tuple[str, date]] = set()
     skipped_no_region = 0
 
-    messages = db.query(Message).all()
+    messages = db.query(Message).filter(Message.sn.like("T%")).all()
     for message in messages:
         if not message.rcptn_rgn_nm or not message.crt_dt:
             continue
@@ -199,6 +216,7 @@ def setup_test_video_data_from_messages(
     cctv_count: int = 3,
     max_per_folder: int = 3,
     seed: int | None = None,
+    max_pairs: int | None = 20,
 ) -> dict:
     """Message 테이블에 있는 실제 문자(지역·생성일시) 기준으로만 CCTV 폴더를
     만들고 샘플 영상을 배치한다.
@@ -206,6 +224,12 @@ def setup_test_video_data_from_messages(
     범위 지정 모드처럼 넓게 무작위로 뿌리지 않고, 실제 검색 조건과 정확히
     맞아떨어지는 (지역, 날짜)에만 데이터를 넣는다 — 파이프라인을 끝까지
     돌려봤을 때 "애초에 매칭 대상이 없어서" 실패하는 걸 방지한다.
+
+    max_pairs: (지역, 날짜) 조합 개수 상한(기본 20). find_codes_by_keyword가
+    지역명을 LIKE '%키워드%'로 넓게 매칭해서, 문자의 수신지역명이 짧거나
+    흔한 이름이면 그 안의 동(洞)이 수십 개씩 걸릴 수 있다 — 메시지 몇 건만
+    넣었는데도 폴더 생성 대상이 예상보다 훨씬 많아지는 걸 막는 안전장치.
+    None으로 주면 상한 없이 전부 처리한다.
     """
     with SessionLocal() as db:
         pairs = resolve_message_region_date_pairs(db)
@@ -215,12 +239,26 @@ def setup_test_video_data_from_messages(
             "[Message 기반 테스트 데이터] 대상이 없습니다 — Message 테이블이 "
             "비어있거나, rcptn_rgn_nm이 Region 테이블과 안 걸립니다."
         )
-        return {"message_pairs": 0, "folders": 0, "placed": 0}
+        return {"message_pairs": 0, "folders": 0, "placed": 0, "placed_paths": []}
+
+    total_pairs_found = len(pairs)
+    if max_pairs is not None and total_pairs_found > max_pairs:
+        pairs = pairs[:max_pairs]
+        print(
+            f"[Message 기반] 지역명 매칭으로 (지역,날짜) 조합이 {total_pairs_found}개나 "
+            f"나와서 --max-pairs={max_pairs}개로 제한합니다 (수신지역명이 넓게 "
+            "매칭됐을 수 있음 — 필요하면 --max-pairs로 조정)."
+        )
 
     sample_videos = find_sample_videos(source_dir)
     if not sample_videos:
         print(f"[테스트 영상 배치] 샘플 영상이 없습니다: {source_dir}")
-        return {"message_pairs": len(pairs), "folders": 0, "placed": 0}
+        return {
+            "message_pairs": len(pairs),
+            "folders": 0,
+            "placed": 0,
+            "placed_paths": [],
+        }
 
     base_dir = Path(settings.cctv_data_dir)
     target_folders: list[Path] = []
@@ -240,7 +278,8 @@ def setup_test_video_data_from_messages(
     result["message_pairs"] = len(pairs)
 
     print(
-        f"[Message 기반 완료] 문자에서 뽑은 (지역,날짜) 조합 {len(pairs)}개 → "
+        f"[Message 기반 완료] 문자에서 뽑은 (지역,날짜) 조합 {len(pairs)}개 "
+        f"(전체 매칭 {total_pairs_found}개 중) → "
         f"대상 폴더 {result['folders']}개 중 {result['skipped_existing']}개는 "
         f"이미 영상 있어 건너뜀, {result['empty_folders']}개는 무작위로 빈 상태 "
         f"유지 | 총 {result['placed']}개 영상 배치"
@@ -315,6 +354,14 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="폴더 하나당 최대 배치 개수 (0~이 값 사이에서 무작위, 기본 3)",
     )
     parser.add_argument(
+        "--max-pairs",
+        type=int,
+        default=20,
+        help="--from-messages 전용 — (지역,날짜) 조합 개수 상한(기본 20). "
+        "지역명이 넓게 매칭되면 폴더 생성 대상이 예상보다 많아질 수 있어 "
+        "제한한다. 0 이하를 주면 상한 없이 전부 처리",
+    )
+    parser.add_argument(
         "--seed", type=int, default=None, help="재현 가능한 결과가 필요하면 지정"
     )
     return parser
@@ -330,6 +377,7 @@ if __name__ == "__main__":
             cctv_count=args.cctv_count,
             max_per_folder=args.max_per_folder,
             seed=args.seed,
+            max_pairs=args.max_pairs if args.max_pairs > 0 else None,
         )
     else:
         if not args.start_date or not args.end_date:
