@@ -82,6 +82,7 @@ export default function SearchResults() {
   const [clearingAll, setClearingAll] = useState(false);
   const [sortBy, setSortBy] = useState('confidence-desc');
   const [activeClipIndex, setActiveClipIndex] = useState(0);
+  const [clipSelectKey, setClipSelectKey] = useState(0);
 
   const searchParams = useMemo(() => {
     const params = {};
@@ -170,6 +171,11 @@ export default function SearchResults() {
   useEffect(() => {
     setActiveClipIndex(0);
   }, [selectedResult?.id]);
+
+  const handleClipSelect = (index) => {
+    setActiveClipIndex(index);
+    setClipSelectKey((prev) => prev + 1);
+  };
 
   const handleDeleteResult = async (result) => {
     if (
@@ -414,13 +420,14 @@ export default function SearchResults() {
                 <ClipSequencePlayer
                   clips={clipsWithFullUrl}
                   currentIndex={activeClipIndex}
+                  selectCount={clipSelectKey}
                   onClipChange={setActiveClipIndex}
                   onBack={() => setSelectedResult(null)}
                 />
                 <DetectionCandidateList
                   candidates={clipsWithFullUrl}
                   activeIndex={activeClipIndex}
-                  onSelect={setActiveClipIndex}
+                  onSelect={handleClipSelect}
                   appearance={
                     sidebarPerson?.clothes ||
                     selectedResult?.sms_info?.clothes ||
