@@ -18,3 +18,10 @@ export const getChatSession = async (sessionId) => {
 
   return data;
 };
+
+// 세션 삭제를 위한 함수
+export const deleteChatSession = async () => {
+  const response = await client.delete('/chatbot/session');
+
+  return response.data;
+};

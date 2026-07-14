@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from backend.db.database import get_db
@@ -33,7 +33,7 @@ def chat(
         response=result["response"],
         session_id=result["session_id"],
         search_id=result.get("search_id"),
-        search_inserted=result.get("search_inserted", False)
+        search_inserted=result.get("search_inserted", False),
     )
 
 
@@ -73,3 +73,18 @@ def get_chat_session(
         return create_chat_session(db, current_user)
 
     return service.get_session_messages(user_id=current_user.id, session_id=session_id)
+
+
+@router.delete(
+    "/session",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_chatbot_session(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    현재 로그인한 사용자의 챗봇 세션을 초기화한다.
+    """
+    service = ChatbotService(db)
+    service.delete_user_session(current_user.id)
