@@ -10,35 +10,29 @@ export const NAV = [
   },
   {
     group: '실종 안내문자',
-    items: [
-      { id: 'reports', label: '안내문자 목록' },
-      { id: 'parse-review', label: '인상착의 파싱 검수' },
-    ],
+    items: [{ id: 'reports', label: '안내문자 목록' }],
   },
   {
     group: 'CCTV·검색 운영',
     items: [
       { id: 'cctv-source', label: 'CCTV 영상 수집' },
       { id: 'search-requests', label: '검색 요청 이력' },
-      { id: 'search-jobs', label: '검색 작업 현황' },
-      { id: 'match-review', label: '후보 매칭 결과 검토' },
     ],
   },
   {
     group: 'LLM 운영 관리',
     items: [
       { id: 'llm-usage', label: '모델별 사용량' },
-      { id: 'llm-cost', label: '토큰·비용' },
-      { id: 'llm-perf', label: '응답시간·오류율' },
       { id: 'llm-logs', label: '프롬프트·결과 로그' },
     ],
   },
   {
-    group: '분석 리포트',
+    group: '통계',
     items: [
-      { id: 'rep-time', label: '실종 발생 시점 분석' },
-      { id: 'rep-region', label: '지역·장소 분석' },
-      { id: 'rep-search', label: '검색 성능 분석' },
+      { id: 'stats-cctv', label: 'CCTV 영상 통계' },
+      { id: 'stats-search', label: '검색 통계' },
+      { id: 'stats-demographic', label: '성별·연령·지역별 실종/검색율' },
+      { id: 'stats-export', label: '통계데이터 내보내기' },
     ],
   },
   {
@@ -46,7 +40,6 @@ export const NAV = [
     items: [
       { id: 'data-codes', label: '행정구역 관리' },
       { id: 'data-validate', label: '데이터 정합성 검사' },
-      { id: 'data-export', label: '데이터 내보내기' },
       { id: 'data-retention', label: '삭제·보존 정책' },
     ],
   },
