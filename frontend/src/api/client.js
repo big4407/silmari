@@ -488,6 +488,7 @@ function mapSearchItemToResult(item) {
         return {
           video_id: Number(videoId),
           video_path: bestVideoResult.video_path || '',
+          recorded_at: bestVideoResult.recorded_at,
           thumbnail_url: bestVideoResult.crop_img_path || '',
           best_confidence: bestVideoResult.matching_rate || 0,
           best_timestamp_sec: bestVideoResult.video_timestamp,
