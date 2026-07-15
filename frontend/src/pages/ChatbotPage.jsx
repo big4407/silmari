@@ -96,6 +96,7 @@ export default function ChatbotPage() {
     loadMessages();
   }, []);
 
+  // 검색이 완료되었을 경우 일정 시간 후 search-results로 redirect
   useEffect(() => {
     if (!searched) return;
 
@@ -106,12 +107,14 @@ export default function ChatbotPage() {
     return () => clearTimeout(timer);
   }, [searched, navigate]);
 
+  // 챗봇으로부터 메시지를 받으면 바로 채팅창에 focus하도록
   useEffect(() => {
     if (!sending&&!searched) {
       inputRef.current?.focus();
     }
   }, [sending]);
 
+  // 챗봇 세션 초기화 버튼을 눌렀을 때 실행
   const handleResetSession = async () => {
     try {
       await deleteChatSession();
