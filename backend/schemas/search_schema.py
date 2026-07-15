@@ -69,6 +69,7 @@ class SearchResultClip(BaseModel):
     position: str
     crop_img_path: str | None
     matching_rate: float
+    recorded_at: datetime | None = None
 
     class Config:
         from_attributes = True
