@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Path, Query, status
 from sqlalchemy.orm import Session
 
 from backend.db.database import get_db
+from backend.db.models import LlmCallType
 from backend.schemas.llm_call_schema import (
     CallCreate,
     CallUpdate,
@@ -52,11 +53,9 @@ def create_llm_call(
     response_model=CallListResponse,
 )
 def get_llm_calls(
-    call_type: str | None = Query(
+    call_type: LlmCallType | None = Query(
         default=None,
-        max_length=1,
-        pattern="^[12]$",
-        description="1: 안내문자, 2: 챗봇, 미입력: 전체",
+        description="1: 인상착의 한영변환, 2: 챗봇, 3: 안내문자 파싱, 미입력: 전체",
     ),
     search_id: int | None = Query(default=None),
     user_id: str | None = Query(default=None, max_length=36),
@@ -147,10 +146,9 @@ def delete_llm_call(
     status_code=status.HTTP_200_OK,
 )
 def get_admin_llm_calls(
-    call_type: str | None = Query(
+    call_type: LlmCallType | None = Query(
         default=None,
-        pattern="^[12]$",
-        description="1: 안내문자, 2: 챗봇",
+        description="1: 인상착의 한영변환, 2: 챗봇, 3: 안내문자 파싱",
     ),
     search_id: int | None = Query(default=None),
     user_id: str | None = Query(default=None, max_length=36),
@@ -175,6 +173,8 @@ def get_admin_llm_calls(
 
     - call_type=1: LLM 호출 한 건당 한 행
     - call_type=2: chatbot_s_id 단위로 집계하여 한 행
+    - call_type=3(안내문자 파싱)은 아직 이 그룹 조회에 포함되지 않음(TODO) —
+      call_type을 지정 안 하면 1·2만 합쳐서 보여준다.
     """
     params = LlmCallAdminSearchParams(
         call_type=call_type,

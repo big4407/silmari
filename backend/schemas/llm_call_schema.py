@@ -6,9 +6,11 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from backend.db.models import LlmCallType
+
 
 class CallCreate(BaseModel):
-    call_type: str = Field(max_length=100)
+    call_type: LlmCallType
 
     search_id: int | None = None
     user_id: str | None = Field(default=None, max_length=36)
@@ -29,7 +31,7 @@ class CallCreate(BaseModel):
 
 
 class CallUpdate(BaseModel):
-    call_type: str | None = Field(default=None, max_length=100)
+    call_type: LlmCallType | None = None
 
     search_id: int | None = None
     user_id: str | None = Field(default=None, max_length=36)
@@ -54,7 +56,7 @@ class CallResponse(BaseModel):
 
     id: int
 
-    call_type: str
+    call_type: LlmCallType
 
     search_id: int | None
     user_id: str | None
@@ -77,7 +79,7 @@ class CallResponse(BaseModel):
 
 
 class CallSearchParams(BaseModel):
-    call_type: str | None = Field(default=None, max_length=1)
+    call_type: LlmCallType | None = None
 
     search_id: int | None = None
     user_id: str | None = Field(default=None, max_length=36)
@@ -103,7 +105,7 @@ class CallListResponse(BaseModel):
 
 
 class LlmCallGroupItem(BaseModel):
-    call_type: str
+    call_type: LlmCallType
     row_key:str
     model:str | None = None
 
@@ -159,7 +161,7 @@ class LlmCallGroupListResponse(BaseModel):
 
 
 class LlmCallAdminSearchParams(BaseModel):
-    call_type: str | None = None
+    call_type: LlmCallType | None = None
 
     search_id: int | None = None
     user_id: str | None = None

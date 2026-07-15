@@ -50,10 +50,38 @@ class SearchService:
         if search is None:
             raise ValueError("검색 기록을 찾을 수 없습니다.")
 
-        return SearchDetail.model_validate(search)
+        analysis_results = []
 
-    def get_search_list(self, page: int, size: int) -> SearchListResponse:
-        items, total = self.repository.find_all(page=page, per_page=size)
+        for analysis in search.analyses:
+            for detail in analysis.details:
+                analysis_results.append(
+                    {
+                        "id": detail.id,
+                        "video_id": detail.video_id,
+                        "video_path": detail.video.file_path if detail.video else None,
+                        "video_timestamp": detail.video_timestamp,
+                        "crop_id": detail.crop_id,
+                        "position": detail.position,
+                        "crop_img_path": detail.crop_img_path,
+                        "matching_rate": detail.matching_rate,
+                    }
+                )
+
+        search_detail = SearchDetail.model_validate(search)
+
+        return search_detail.model_copy(
+            update={"analysis_results": analysis_results}
+        )
+
+    def get_search_list(
+        self,
+        page: int,
+        size: int,
+        user_id: str | None,
+    ) -> SearchListResponse:
+        items, total = self.repository.find_all(
+            page=page, per_page=size, user_id=user_id
+        )
 
         page_info = PagingInfo(
             total=total,

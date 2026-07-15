@@ -1,15 +1,22 @@
-/** 챗봇 UI — 현재 로컬 목 응답만 (향후 LLM·비전 API 연동 예정) */
+/** 챗봇 UI — 세션 복원 + 메시지 전송, 검색 삽입 시 스토어 연동 */
 import { useState, useEffect } from 'react';
 import './ChatbotPage.css';
-import { sendChatMessage, getChatSession } from '../api/chatbot_api';
+import {
+  sendChatMessage,
+  getChatSession,
+  deleteChatSession,
+} from '../api/chatbot_api';
+import { useDetectionStore } from '../store/useDetectionStore';
+import SearchProgressBar from '../components/SearchProgressBar';
 
 export default function ChatbotPage() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([]);
+  const [sending, setSending] = useState(false);
   const [sessionId, setSessionId] = useState(() =>
     localStorage.getItem('chatbot_session_id'),
   );
-
+  const setActiveSearch = useDetectionStore((state) => state.setActiveSearch);
 
   const updateSessionId = (newSessionId) => {
     if (newSessionId) {
@@ -20,22 +27,28 @@ export default function ChatbotPage() {
 
     setSessionId(newSessionId);
   };
+
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || sending) return;
 
     const userMsg = input.trim();
 
     setMessages((prev) => [...prev, { role: 'user', text: userMsg }]);
     setInput('');
+    setSending(true);
 
     try {
       const data = await sendChatMessage({
         sessionId: sessionId,
         message: userMsg,
       });
-
+      console.log('챗봇 응답:', data);
       updateSessionId(data.session_id);
-
+      if (data.search_inserted && data.search_id) {
+        setActiveSearch({
+          searchResultId: data.search_id,
+        });
+      }
       setMessages((prev) => [...prev, { role: 'bot', text: data.response }]);
     } catch (error) {
       console.error(error);
@@ -44,6 +57,8 @@ export default function ChatbotPage() {
         ...prev,
         { role: 'bot', text: '챗봇 서버와 연결할 수 없습니다.' },
       ]);
+    } finally {
+      setSending(false);
     }
   };
 
@@ -76,6 +91,25 @@ export default function ChatbotPage() {
     loadMessages();
   }, []);
 
+  const handleResetSession = async () => {
+    try {
+      await deleteChatSession();
+
+      localStorage.removeItem('chatbot_session_id');
+      window.location.reload();
+    } catch (error) {
+      console.error('챗봇 세션 초기화 실패:', error);
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'bot',
+          text: '챗봇 세션을 초기화하지 못했습니다.',
+        },
+      ]);
+    }
+  };
+
   return (
     <div className="chatbot-page">
       <div className="chatbot-page__panel">
@@ -85,7 +119,13 @@ export default function ChatbotPage() {
           <span className="chatbot-page__dot" />
           <span className="chatbot-page__title">챗봇 검색</span>
         </div>
-
+        <button
+          type="button"
+          className="admin-btn"
+          onClick={handleResetSession}
+        >
+          세션 초기화
+        </button>
         <div className="chatbot-page__body">
           <div className="chatbot-page__messages">
             {messages.map((msg, i) => (
@@ -98,6 +138,13 @@ export default function ChatbotPage() {
             ))}
           </div>
 
+          <div className="chatbot-page__progress">
+            <SearchProgressBar
+              visible={sending}
+              label="분석 중… 입력 내용을 처리하고 있습니다."
+            />
+          </div>
+
           <div className="chatbot-page__input-row">
             <input
               className="chatbot-page__input"
@@ -105,13 +152,15 @@ export default function ChatbotPage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+              disabled={sending}
             />
             <button
               type="button"
               className="chatbot-page__send"
               onClick={handleSend}
+              disabled={sending || !input.trim()}
             >
-              전송
+              {sending ? '전송 중…' : '전송'}
             </button>
           </div>
         </div>

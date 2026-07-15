@@ -419,6 +419,10 @@ export const LOGIN_FAIL_LABELS = {
 export const fetchMessages = (params = {}) =>
   client.get('/message', { params }).then((r) => r.data);
 
+/** 안내문자 본문에서 LLM으로 실종자 정보(이름·성별·나이·인상착의) 추출 */
+export const parseAlertMessage = (msgCn) =>
+  client.post('/message/parse', { msg_cn: msgCn }).then((r) => r.data);
+
 /** 외부 API에서 재난문자 수집 후 DB 저장 */
 export const collectMessages = (params = {}) =>
   client.post('/message/collect', null, { params }).then((r) => r.data);
@@ -455,18 +459,74 @@ function mapSearchItemToHistory(item) {
 }
 
 function mapSearchItemToResult(item) {
+  const results = item.analysis_results || [];
+  const groupedByVideo = results.reduce((groups, result) => {
+    const videoId = result.video_id;
+
+    if (!groups[videoId]) {
+      groups[videoId] = [];
+    }
+
+    groups[videoId].push(result);
+    return groups;
+  }, {});
+  const bestResult =
+    results.length > 0
+      ? results.reduce((best, current) =>
+          current.matching_rate > best.matching_rate ? current : best,
+        )
+      : null;
+
   return {
     id: item.id,
     person_name: item.missing_name || '미상',
     person_age: item.age,
     region: item.missing_location || '-',
-    alert_text: '',
-    video_filename: '',
-    thumbnail_url: '',
-    best_confidence: 0,
-    best_timestamp_sec: null,
-    clips: [],
-    sms_info: { gender: item.gender, clothes: item.clothing },
+
+    video_results: Object.entries(groupedByVideo).map(
+      ([videoId, videoResults]) => {
+        const bestVideoResult = videoResults.reduce((best, current) =>
+          current.matching_rate > best.matching_rate ? current : best,
+        );
+
+        return {
+          video_id: Number(videoId),
+          video_path: bestVideoResult.video_path || '',
+          thumbnail_url: bestVideoResult.crop_img_path || '',
+          best_confidence: bestVideoResult.matching_rate || 0,
+          best_timestamp_sec: bestVideoResult.video_timestamp,
+          clips: videoResults.map((result) => ({
+            id: result.id,
+            video_id: result.video_id,
+            url: result.video_path || '',
+            start_sec: result.video_timestamp,
+            end_sec: result.video_timestamp + 5,
+            thumbnail_url: result.crop_img_path || '',
+            confidence: result.matching_rate,
+            position: result.position,
+          })),
+        };
+      },
+    ),
+
+    thumbnail_url: bestResult?.crop_img_path || '',
+    best_confidence: bestResult?.matching_rate || 0,
+    best_timestamp_sec: bestResult?.video_timestamp ?? null,
+    clips: results.map((result) => ({
+      id: result.id,
+      video_id: result.video_id,
+      url: result.video_path || '',
+      start_sec: result.video_timestamp,
+      end_sec: result.video_timestamp + 5,
+      thumbnail_url: result.crop_img_path || '',
+      confidence: result.matching_rate,
+      position: result.position,
+    })),
+
+    sms_info: {
+      gender: item.gender,
+      clothes: item.clothing,
+    },
     created_at: item.searched_at,
     description: item.clothing || '',
   };

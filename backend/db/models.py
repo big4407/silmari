@@ -63,6 +63,15 @@ class SearchType(str, enum.Enum):
     AUTO = "3"  # 자동검색
 
 
+class LlmCallType(str, enum.Enum):
+    """LLM 호출 유형. value 는 기존 CHAR(1) 코드값을 유지(DB 호환)."""
+
+    CLOTHING_TRANSLATE = "1"  # 인상착의 한영변환
+    CHATBOT = "2"  # 챗봇
+    ALERT_PARSE = "3"  # 안내문자 파싱
+
+
+
 class AnalysisStatus(str, enum.Enum):
     """분석(실행) 상태. value 는 기존 CHAR(1) 코드값을 유지(DB 호환)."""
 
@@ -614,10 +623,15 @@ class LlmCall(Base):
         comment="자동 증분 ID",
     )
 
-    call_type: Mapped[str] = mapped_column(
-        String(100),
+    call_type: Mapped[LlmCallType] = mapped_column(
+        Enum(
+            LlmCallType,
+            native_enum=False,
+            length=1,
+            values_callable=lambda e: [m.value for m in e],
+        ),
         nullable=False,
-        comment="호출 유형 (1: 인상착의 한영변환, 2: 챗봇)",
+        comment="호출 유형 (1: 인상착의 한영변환, 2: 챗봇, 3: 안내문자 파싱)",
     )
 
     search_id: Mapped[int | None] = mapped_column(

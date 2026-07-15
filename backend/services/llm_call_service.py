@@ -5,7 +5,7 @@ LLM 사용량 체크를 위한 서비스단
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from backend.db.models import LlmCall
+from backend.db.models import LlmCall, LlmCallType
 from backend.repositories.llm_call_repository import LLmCallRepository
 from backend.schemas.llm_call_schema import (
     CallCreate,
@@ -109,7 +109,7 @@ class LlmCallService:
     def record_call(
         self,
         *,
-        call_type: str,
+        call_type: LlmCallType,
         model_name: str,
         prompt: str,
         response: str | None,
@@ -286,7 +286,7 @@ class LlmCallService:
         """
         call = self._get_or_404(llm_call_id)
 
-        if call.call_type != "1":
+        if call.call_type != LlmCallType.CLOTHING_TRANSLATE:
             raise HTTPException(
                 status_code=404,
                 detail="해당 id의 안내문자 LLM 호출 기록이 없습니다.",

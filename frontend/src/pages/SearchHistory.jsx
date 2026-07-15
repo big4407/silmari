@@ -186,63 +186,65 @@ export default function SearchHistory() {
 
         {error && <p className="search-history__error">{error}</p>}
 
-        {!loading && !error && filteredItems.length === 0 && (
-          <div className="search-history__empty">
-            <p>저장된 검색 이력이 없습니다.</p>
-            <p>대시보드에서 안내문자를 선택하거나 챗봇으로 검색해 보세요.</p>
-            <Link to="/dashboard" className="search-history__cta">
-              실종자 검색
-            </Link>
-          </div>
-        )}
+        <div className="search-history__body">
+          {!loading && !error && filteredItems.length === 0 && (
+            <div className="search-history__empty">
+              <p>저장된 검색 이력이 없습니다.</p>
+              <p>대시보드에서 안내문자를 선택하거나 챗봇으로 검색해 보세요.</p>
+              <Link to="/dashboard" className="search-history__cta">
+                실종자 검색
+              </Link>
+            </div>
+          )}
 
-        {!error && filteredItems.length > 0 && (
-          <div className="search-history__table-wrap">
-            <table className="search-history__table">
-              <thead>
-                <tr>
-                  <th scope="col">검색 일시</th>
-                  <th scope="col">대상자</th>
-                  <th scope="col">지역</th>
-                  <th scope="col">인상착의</th>
-                  <th scope="col" className="search-history__col-action">
-                    결과
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredItems.map((item) => (
-                  <tr
-                    key={item.id}
-                    className="search-history__row"
-                    onClick={() => handleOpenResults(item)}
-                  >
-                    <td>{formatDateTime(item.created_at)}</td>
-                    <td>
-                      <span>{personLabel(item)}</span>
-                    </td>
-                    <td>{item.region || '-'}</td>
-                    <td title={item.description}>
-                      {truncateText(item.description)}
-                    </td>
-                    <td className="search-history__col-action">
-                      <button
-                        type="button"
-                        className="search-history__view-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenResults(item);
-                        }}
-                      >
-                        결과 보기
-                      </button>
-                    </td>
+          {!error && filteredItems.length > 0 && (
+            <div className="search-history__table-wrap">
+              <table className="search-history__table">
+                <thead>
+                  <tr>
+                    <th scope="col">검색 일시</th>
+                    <th scope="col">대상자</th>
+                    <th scope="col">지역</th>
+                    <th scope="col">인상착의</th>
+                    <th scope="col" className="search-history__col-action">
+                      결과
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                </thead>
+                <tbody>
+                  {filteredItems.map((item) => (
+                    <tr
+                      key={item.id}
+                      className="search-history__row"
+                      onClick={() => handleOpenResults(item)}
+                    >
+                      <td>{formatDateTime(item.created_at)}</td>
+                      <td>
+                        <span>{personLabel(item)}</span>
+                      </td>
+                      <td>{item.region || '-'}</td>
+                      <td title={item.description}>
+                        {truncateText(item.description)}
+                      </td>
+                      <td className="search-history__col-action">
+                        <button
+                          type="button"
+                          className="search-history__view-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenResults(item);
+                          }}
+                        >
+                          결과 보기
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

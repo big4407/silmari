@@ -5,15 +5,21 @@
 [호출] routes/messages.py, Dashboard 재난문자 연동
 """
 
+import time
+
+from langchain_community.callbacks import get_openai_callback
 from sqlalchemy.orm import Session
 
-from backend.db.models import Message
+from backend.core.llm.alert_parser import ALERT_PARSE_MODEL, parse_alert_message
+from backend.db.models import LlmCallType, Message
 from backend.repositories.message_repository import MessageRepository
 from backend.schemas.message_schema import (
+    AlertParseResponse,
     MessageCreate,
     MessageResponse,
     MessageListResponse,
 )
+from backend.services.llm_call_service import LlmCallService
 from backend.utils.datetime_parser import parse_date, parse_datetime
 from backend.utils.message_filter import is_missing_person_message
 
@@ -28,6 +34,47 @@ class MessageService:
         self.db = db
         # self.client = DisasterMessageClient()
         self.repository = MessageRepository(db)
+        self.llm_call_service = LlmCallService(db)
+
+    def parse_alert(self, msg_cn: str, *, user_id: str | None = None) -> AlertParseResponse:
+        """안내문자 본문에서 LLM으로 실종자 정보(이름·성별·나이·인상착의)를 뽑는다.
+
+        실제 문자는 라벨 없는 자유 서식이라 정규식으로는 한계가 있어 LLM을 쓴다
+        (core/llm/alert_parser.py). 대시보드의 "실종자 검색" 흐름에서
+        검색 요청(SearchCreate) 필드를 채우는 데 그대로 쓰인다.
+
+        챗봇 호출(chatbot_service.py)과 동일하게 get_openai_callback()으로 감싸서
+        llm_call 테이블에 기록한다(call_type="3" = 안내문자 파싱) — LLM 운영
+        관리 화면(모델별 사용량·프롬프트 로그)에서 같이 집계되도록.
+        """
+        start = time.perf_counter()
+        call_status = "1"
+        error_msg = None
+        result = None
+        callback = None
+
+        try:
+            with get_openai_callback() as cb:
+                callback = cb
+                result = parse_alert_message(msg_cn)
+        except Exception as e:
+            call_status = "0"
+            error_msg = str(e)[:255]
+            raise
+        finally:
+            self.llm_call_service.record_call(
+                call_type=LlmCallType.ALERT_PARSE,
+                model_name=ALERT_PARSE_MODEL,
+                prompt=msg_cn,
+                response=result.model_dump_json() if result else None,
+                start_time=start,
+                callback=callback,
+                status=call_status,
+                error_msg=error_msg,
+                user_id=user_id,
+            )
+
+        return AlertParseResponse(**result.model_dump())
 
     def _get_or_404(self, sn: str):
         """

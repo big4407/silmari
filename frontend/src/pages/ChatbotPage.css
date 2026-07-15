@@ -95,6 +95,12 @@
   color: #fff;
 }
 
+.chatbot-page__progress {
+  flex-shrink: 0;
+  padding: 0 12px 8px;
+  background: #f5f6f8;
+}
+
 .chatbot-page__input-row {
   display: flex;
   gap: 8px;
@@ -128,6 +134,12 @@
   cursor: pointer;
 }
 
-.chatbot-page__send:hover {
+.chatbot-page__send:hover:not(:disabled) {
   background: var(--color-primary-light);
+}
+
+.chatbot-page__send:disabled,
+.chatbot-page__input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }

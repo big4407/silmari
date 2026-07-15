@@ -8,7 +8,11 @@ from fastapi import APIRouter, Depends, Query, Path
 from sqlalchemy.orm import Session
 
 from backend.db.database import get_db
+from backend.db.models import User
+from backend.deps import get_current_user
 from backend.schemas.message_schema import (
+    AlertParseRequest,
+    AlertParseResponse,
     MessageCollectResponse,
     MessageCreate,
     MessageResponse,
@@ -46,6 +50,19 @@ async def collect_messages(
         crt_dt=crt_dt,
         rgn_nm=rgn_nm,
     )
+
+
+@router.post(
+    "/parse",
+    response_model=AlertParseResponse,
+    summary="안내문자 본문에서 실종자 정보(이름·성별·나이·인상착의) LLM 추출",
+)
+def parse_alert(
+    payload: AlertParseRequest,
+    current_user: User = Depends(get_current_user),
+    service: MessageService = Depends(get_message_service),
+):
+    return service.parse_alert(payload.msg_cn, user_id=current_user.id)
 
 
 @router.post(
