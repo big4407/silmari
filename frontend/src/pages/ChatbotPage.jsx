@@ -1,5 +1,5 @@
 /** 챗봇 UI — 세션 복원 + 메시지 전송, 검색 삽입 시 스토어 연동 */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './ChatbotPage.css';
 import {
@@ -20,6 +20,7 @@ export default function ChatbotPage() {
   );
   const setActiveSearch = useDetectionStore((state) => state.setActiveSearch);
   const navigate = useNavigate();
+  const inputRef = useRef(null);
 
   const updateSessionId = (newSessionId) => {
     if (newSessionId) {
@@ -94,6 +95,7 @@ export default function ChatbotPage() {
 
     loadMessages();
   }, []);
+
   useEffect(() => {
     if (!searched) return;
 
@@ -103,6 +105,13 @@ export default function ChatbotPage() {
 
     return () => clearTimeout(timer);
   }, [searched, navigate]);
+
+  useEffect(() => {
+    if (!sending&&!searched) {
+      inputRef.current?.focus();
+    }
+  }, [sending]);
+
   const handleResetSession = async () => {
     try {
       await deleteChatSession();
@@ -159,12 +168,13 @@ export default function ChatbotPage() {
 
           <div className="chatbot-page__input-row">
             <input
+              ref={inputRef}
               className="chatbot-page__input"
-              placeholder="사진 또는 특징을 입력하세요"
+              placeholder="지역, 일자, 인상착의 등의 실종자 정보를 입력하세요"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-              disabled={sending}
+              disabled={sending||searched}
             />
             <button
               type="button"
