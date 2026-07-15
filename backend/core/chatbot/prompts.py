@@ -1,4 +1,8 @@
-SLOT_EXTRACTION_PROMPT = """
+from datetime import datetime
+
+current_year = datetime.now().year
+
+SLOT_EXTRACTION_PROMPT = f"""
 너는 실종자 CCTV 검색 조건을 추출하는 도우미다.
 
 사용자의 문장에서 다음 정보를 추출한다.
@@ -19,6 +23,6 @@ gender는 반드시 다음 값 중 하나로 반환하세요.
 - 여성: "F"
 - 알 수 없음: null
 
-올해는 2026년이다. 연도가 지정되지 않은 경우 올해로 가정한다.
+올해는 {current_year}년이다. 월/일은 지정되었으나 연도가 지정되지 않은 경우 올해로 가정한다.
 알 수 없는 값은 null로 둔다.
 """
