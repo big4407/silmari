@@ -115,143 +115,6 @@ class LLmCallRepository:
 
         return True
 
-    # def get_message_admin_list(
-    #     self,
-    #     params: LlmCallAdminSearchParams,
-    # ) -> tuple[list[LlmCall], int]:
-    #     """
-    #     안내문자 LLM 호출 관리자 목록 조회.
-
-    #     call_type='1'인 LLM 호출 한 건을 목록 한 행으로 반환한다.
-    #     """
-    #     query = self.db.query(LlmCall).filter(
-    #         LlmCall.call_type == "1",
-    #     )
-
-    #     query = self._apply_admin_filters(
-    #         query=query,
-    #         params=params,
-    #     )
-
-    #     total = query.count()
-
-    #     if params.order_by == "oldest":
-    #         query = query.order_by(
-    #             asc(LlmCall.created_at),
-    #             asc(LlmCall.id),
-    #         )
-    #     else:
-    #         query = query.order_by(
-    #             desc(LlmCall.created_at),
-    #             desc(LlmCall.id),
-    #         )
-
-    #     offset = (params.page - 1) * params.size
-
-    #     items = query.offset(offset).limit(params.size).all()
-
-    #     return items, total
-
-    # def get_chatbot_admin_list(
-    #     self,
-    #     params: LlmCallAdminSearchParams,
-    # ) -> tuple[list, int]:
-    #     """
-    #     챗봇 LLM 호출 관리자 목록 조회.
-
-    #     call_type='2'인 호출을 chatbot_s_id 단위로 집계하여
-    #     하나의 세션을 목록 한 행으로 반환한다.
-    #     """
-    #     filtered_query = self.db.query(LlmCall).filter(
-    #         LlmCall.call_type == "2",
-    #         LlmCall.chatbot_s_id.isnot(None),
-    #     )
-
-    #     filtered_query = self._apply_admin_filters(
-    #         query=filtered_query,
-    #         params=params,
-    #     )
-
-    #     # 필터가 적용된 chatbot_s_id 그룹의 전체 개수
-    #     total = filtered_query.with_entities(LlmCall.chatbot_s_id).distinct().count()
-
-    #     query = filtered_query.with_entities(
-    #         LlmCall.chatbot_s_id.label("chatbot_s_id"),
-    #         # 하나의 챗봇 세션은 일반적으로 동일 user_id를 가지므로
-    #         # 집계 함수로 대표값을 가져온다.
-    #         func.max(LlmCall.user_id).label("user_id"),
-    #         func.max(LlmCall.search_id).label("search_id"),
-    #         func.count(LlmCall.id).label("call_count"),
-    #         func.coalesce(
-    #             func.sum(LlmCall.input_tokens),
-    #             0,
-    #         ).label("input_tokens"),
-    #         func.coalesce(
-    #             func.sum(LlmCall.output_tokens),
-    #             0,
-    #         ).label("output_tokens"),
-    #         func.coalesce(
-    #             func.sum(LlmCall.latency_ms),
-    #             0,
-    #         ).label("total_latency_ms"),
-    #         func.coalesce(
-    #             func.avg(LlmCall.latency_ms),
-    #             0,
-    #         ).label("avg_latency_ms"),
-    #         func.min(LlmCall.created_at).label("first_called_at"),
-    #         func.max(LlmCall.created_at).label("last_called_at"),
-    #     ).group_by(
-    #         LlmCall.chatbot_s_id,
-    #     )
-
-    #     if params.order_by == "oldest":
-    #         query = query.order_by(
-    #             asc(func.min(LlmCall.created_at)),
-    #             asc(LlmCall.chatbot_s_id),
-    #         )
-    #     else:
-    #         query = query.order_by(
-    #             desc(func.max(LlmCall.created_at)),
-    #             desc(LlmCall.chatbot_s_id),
-    #         )
-
-    #     offset = (params.page - 1) * params.size
-
-    #     items = query.offset(offset).limit(params.size).all()
-
-    #     return items, total
-
-    def _apply_admin_filters(
-        self,
-        query,
-        params: LlmCallAdminSearchParams,
-    ):
-        """
-        관리자 목록 조회 공통 필터 적용.
-
-        call_type은 각 조회 메서드에서 직접 고정하므로
-        이 메서드에서는 적용하지 않는다.
-        """
-        if params.search_id is not None:
-            query = query.filter(LlmCall.search_id == params.search_id)
-
-        if params.user_id is not None:
-            query = query.filter(LlmCall.user_id == params.user_id)
-
-        if params.model_name is not None:
-            query = query.filter(LlmCall.model_name == params.model_name)
-
-        if params.status is not None:
-            query = query.filter(LlmCall.status == params.status)
-
-        if params.start_date is not None:
-            query = query.filter(LlmCall.created_at >= params.start_date)
-
-        if params.end_date is not None:
-            query = query.filter(LlmCall.created_at <= params.end_date)
-
-        return query
-
     def get_admin_grouped_list(
         self,
         params: LlmCallAdminSearchParams,
@@ -273,6 +136,12 @@ class LLmCallRepository:
         if params.call_type in (None, "2"):
             chatbot_query = self._build_chatbot_admin_query(params)
             queries.append(chatbot_query)
+
+        if not queries:
+            # call_type=3(안내문자 파싱)처럼 이 그룹 조회가 아직 다루지 않는
+            # 값이 들어오면 조합할 쿼리가 하나도 없다 — 그대로 두면 아래
+            # queries[0]에서 IndexError가 난다.
+            return [], 0
 
         if len(queries) == 1:
             grouped_subquery = queries[0].subquery()
