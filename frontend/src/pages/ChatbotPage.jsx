@@ -1,5 +1,6 @@
 /** 챗봇 UI — 세션 복원 + 메시지 전송, 검색 삽입 시 스토어 연동 */
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './ChatbotPage.css';
 import {
   sendChatMessage,
@@ -13,10 +14,12 @@ export default function ChatbotPage() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([]);
   const [sending, setSending] = useState(false);
+  const [searched, setSearched] = useState(false);
   const [sessionId, setSessionId] = useState(() =>
     localStorage.getItem('chatbot_session_id'),
   );
   const setActiveSearch = useDetectionStore((state) => state.setActiveSearch);
+  const navigate = useNavigate();
 
   const updateSessionId = (newSessionId) => {
     if (newSessionId) {
@@ -48,6 +51,7 @@ export default function ChatbotPage() {
         setActiveSearch({
           searchResultId: data.search_id,
         });
+        setSearched(true);
       }
       setMessages((prev) => [...prev, { role: 'bot', text: data.response }]);
     } catch (error) {
@@ -90,7 +94,15 @@ export default function ChatbotPage() {
 
     loadMessages();
   }, []);
+  useEffect(() => {
+    if (!searched) return;
 
+    const timer = setTimeout(() => {
+      navigate('/search-results');
+    }, 1500); // 1.5초 후 이동
+
+    return () => clearTimeout(timer);
+  }, [searched, navigate]);
   const handleResetSession = async () => {
     try {
       await deleteChatSession();
