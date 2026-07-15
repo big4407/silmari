@@ -64,6 +64,7 @@ class SearchService:
                         "position": detail.position,
                         "crop_img_path": detail.crop_img_path,
                         "matching_rate": detail.matching_rate,
+                        "recorded_at": detail.video.recorded_at if detail.video else None,
                     }
                 )
 

@@ -13,7 +13,10 @@ export default function SearchResultCard({
   onDelete,
   deleting,
 }) {
+  console.log('SearchResultCard result:', result);
   const hasThumb = Boolean(result.thumbnail_url);
+  const pathParts = result.video_path?.split(/[\\/]/) || [];
+  const cctvNo = pathParts.at(-2);
   const rankLabel =
     result.rank === 1
       ? '1st'
@@ -57,20 +60,11 @@ export default function SearchResultCard({
               {rankLabel}
             </span>
           )}
-          <button
-            type="button"
-            className="search-card__delete"
-            aria-label="검색 결과 삭제"
-            disabled={deleting}
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete?.(result);
-            }}
-          >
-            ×
-          </button>
         </div>
         <div className="search-card__body">
+          <p className="search-card__video-info">
+            {cctvNo} · {result.recorded_at}
+          </p>
           <p className="search-card__meta">
             <span>{result.region}</span>
             <span>

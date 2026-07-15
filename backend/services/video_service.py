@@ -128,7 +128,7 @@ class VideoService:
             )
             self.repository.create_detail(VideoDetail(**video_detail.model_dump()))
 
-    def frame_extract(self, video_path: str, every_nth: int = 5):
+    def frame_extract(self, video_path: str, every_nth: int = 1):
         cap = cv2.VideoCapture(video_path)
         path = Path(video_path)
         video_name = path.stem

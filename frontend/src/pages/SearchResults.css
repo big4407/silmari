@@ -101,7 +101,9 @@
   display: flex;
   flex: 1;
   min-height: 0;
-  margin: 0 12px 12px;
+  width: calc(100% - 32px);
+  max-width: 1440px;
+  margin: 0 auto 12px;
   background: #fff;
   border: 1px solid #d1d5db;
   border-radius: 2px;
@@ -265,9 +267,8 @@
 
 .search-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 16px;
-  align-items: stretch;
 }
 
 @media (max-width: 960px) {
