@@ -56,7 +56,7 @@ export function LlmUsageView() {
         //   chatbot_calls: summaryData.chatbot_calls ?? 0,
         //   success_rate: summaryData.success_rate ?? 0,
         // });
-        console.log('listData', listData);
+        // console.log('listData', listData);
         if (listData) {
           setItems(listData.items ?? []);
           setTotal(listData.total ?? 0);
