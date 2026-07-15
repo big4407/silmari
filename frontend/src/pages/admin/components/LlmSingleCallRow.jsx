@@ -8,7 +8,6 @@ function formatCost(value) {
 
 export function LlmSingleCallRow({ call }) {
   const totalTokens = (call.input_tokens ?? 0) + (call.output_tokens ?? 0);
-  console.log(call);
   return (
     <tr>
       <td>{formatDateTime(call.first_called_at)}</td>
