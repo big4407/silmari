@@ -1,7 +1,11 @@
 /** 챗봇 UI — 세션 복원 + 메시지 전송, 검색 삽입 시 스토어 연동 */
 import { useState, useEffect } from 'react';
 import './ChatbotPage.css';
-import { sendChatMessage, getChatSession } from '../api/chatbot_api';
+import {
+  sendChatMessage,
+  getChatSession,
+  deleteChatSession,
+} from '../api/chatbot_api';
 import { useDetectionStore } from '../store/useDetectionStore';
 import SearchProgressBar from '../components/SearchProgressBar';
 
@@ -87,6 +91,25 @@ export default function ChatbotPage() {
     loadMessages();
   }, []);
 
+  const handleResetSession = async () => {
+    try {
+      await deleteChatSession();
+
+      localStorage.removeItem('chatbot_session_id');
+      window.location.reload();
+    } catch (error) {
+      console.error('챗봇 세션 초기화 실패:', error);
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'bot',
+          text: '챗봇 세션을 초기화하지 못했습니다.',
+        },
+      ]);
+    }
+  };
+
   return (
     <div className="chatbot-page">
       <div className="chatbot-page__panel">
@@ -96,7 +119,13 @@ export default function ChatbotPage() {
           <span className="chatbot-page__dot" />
           <span className="chatbot-page__title">챗봇 검색</span>
         </div>
-
+        <button
+          type="button"
+          className="admin-btn"
+          onClick={handleResetSession}
+        >
+          세션 초기화
+        </button>
         <div className="chatbot-page__body">
           <div className="chatbot-page__messages">
             {messages.map((msg, i) => (

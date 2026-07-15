@@ -112,7 +112,9 @@ class ChatbotService:
             "response": response,
             "session_id": session_id,
             "search_id": result.get("search_id") if result else None,
-            "search_inserted": result.get("search_inserted", False) if result else False,
+            "search_inserted": result.get("search_inserted", False)
+            if result
+            else False,
         }
 
     def get_or_create_session(self, session_id: str, user_id: str) -> ChatbotSession:
@@ -170,3 +172,12 @@ class ChatbotService:
             "session_id": session_id,
             "messages": state.get("messages", []),
         }
+
+    def delete_user_session(self, user_id: str) -> None:
+        session = self.repository.get_by_user_id(user_id=user_id)
+
+        if session is None:
+            return
+
+        self.repository.delete(session)
+        self.db.commit()
