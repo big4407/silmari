@@ -20,6 +20,45 @@ class VideoRepository:
             or 0
         )
 
+    def count_all(self) -> int:
+        return self.db.scalar(select(func.count()).select_from(Video)) or 0
+
+    def count_distinct_regions(self) -> int:
+        """영상이 1건이라도 있는 지역 수(=수집이 실제로 이뤄진 지역)."""
+        return (
+            self.db.scalar(
+                select(func.count(func.distinct(Video.region_code))).where(
+                    Video.region_code.isnot(None)
+                )
+            )
+            or 0
+        )
+
+    def get_region_coverage(self) -> list[dict]:
+        """region_code별 CCTV 대수·영상 파일 수 집계 — 지역별 현황 화면용.
+
+        용량·시간대 커버리지는 Video 테이블에 그 데이터 자체가 없어서(파일
+        크기 컬럼 없음, 파일명에 시각 정보 없음) 여기서 다루지 않는다.
+        """
+        rows = (
+            self.db.query(
+                Video.region_code,
+                func.count(func.distinct(Video.cctv_serial_no)).label("cctv_count"),
+                func.count(Video.id).label("video_count"),
+            )
+            .filter(Video.region_code.isnot(None))
+            .group_by(Video.region_code)
+            .all()
+        )
+        return [
+            {
+                "region_code": region_code,
+                "cctv_count": cctv_count,
+                "video_count": video_count,
+            }
+            for region_code, cctv_count, video_count in rows
+        ]
+
     def unlink_all_region_codes(self) -> int:
         """모든 video.region_code 를 NULL 처리한다 (region 테이블 전체 삭제 전 정리용).
 

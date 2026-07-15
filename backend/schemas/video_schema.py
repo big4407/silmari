@@ -29,3 +29,29 @@ class VideoDetailCreate(BaseModel):
     video_timestamp: int
     crop_id: int
     position: str = Field(max_length=100)
+
+
+class CctvRegionCoverageItem(BaseModel):
+    """지역 1건의 CCTV 수집 현황 — 관리자 콘솔 지역별 현황 표용."""
+
+    region_code: str
+    region_name: str | None = None
+    cctv_count: int
+    video_count: int
+    status: str  # "수집됨" | "미수집"
+
+
+class CctvSourceSummary(BaseModel):
+    """CCTV 영상 수집 현황 화면 상단 통계 카드용.
+
+    용량은 Video 테이블에 파일 크기 컬럼이 없어서 집계하지 않는다.
+    """
+
+    collected_region_count: int = 0
+    video_file_count: int = 0
+    missing_region_count: int = 0
+
+
+class CctvRegionCoverageResponse(BaseModel):
+    summary: CctvSourceSummary
+    items: list[CctvRegionCoverageItem]

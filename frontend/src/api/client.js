@@ -254,6 +254,14 @@ export const fetchLoginHistory = (params = {}) =>
 export const fetchAdminHistory = (params = {}) =>
   client.get('/member/admin/admin-history', { params }).then((r) => r.data);
 
+/** 검색 요청 이력(관리자용, 전체 사용자 대상) */
+export const fetchAdminSearchRequests = (params = {}) =>
+  client.get('/member/admin/search-requests', { params }).then((r) => r.data);
+
+/** CCTV 영상 수집 현황(관리자용, 지역별 집계) */
+export const fetchCctvCoverage = () =>
+  client.get('/member/admin/cctv-coverage').then((r) => r.data);
+
 /** 행정구역 목록 */
 export const fetchRegions = (params = {}) =>
   client.get('/member/admin/regions', { params }).then((r) => r.data);
@@ -393,6 +401,13 @@ export const ADMIN_ACTION_LABELS = {
   4: '재승인',
   5: '삭제',
   6: '수정',
+};
+
+// 검색 요청 출처 코드 → 한글 라벨 (SearchType enum)
+export const SEARCH_TYPE_LABELS = {
+  1: '안내문자',
+  2: '챗봇',
+  3: '자동검색',
 };
 
 // 로그인 실패 사유 — 화면 표시용 라벨.

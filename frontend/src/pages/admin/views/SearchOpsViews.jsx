@@ -1,28 +1,59 @@
-/** 검색 운영 뷰 — CCTV 소스·검색 요청·작업·매칭 검수 (목 UI) */
-import { useState } from 'react';
+/** 검색 운영 뷰 — CCTV 소스(지역별 현황 연동, 일자별 이력은 아직 목업) · 검색 요청 이력(연동) */
+import { useCallback, useEffect, useState } from 'react';
 import PageHead from '../components/PageHead';
 import { StatValue, TableEmptyRow } from '../components/EmptyState';
+import {
+  fetchAdminSearchRequests,
+  fetchCctvCoverage,
+  SEARCH_TYPE_LABELS,
+} from '../../../api/client';
 
 export function CctvSourceView() {
   const [tab, setTab] = useState('region');
+  const [coverage, setCoverage] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError('');
+    fetchCctvCoverage()
+      .then((data) => {
+        if (!cancelled) setCoverage(data);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(
+          err?.response?.status === 403
+            ? '관리자 권한이 필요합니다.'
+            : 'CCTV 수집 현황을 불러오지 못했습니다.',
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const items = coverage?.items ?? [];
+  const summaryData = coverage?.summary;
 
   const summary = (
     <div className="admin-stat-grid">
       <div className="admin-stat">
         <div className="admin-label">수집 지역</div>
-        <StatValue unit="구" />
+        <StatValue value={summaryData?.collected_region_count} unit="구" />
       </div>
       <div className="admin-stat admin-stat--green">
         <div className="admin-label">영상 파일</div>
-        <StatValue unit="개" />
-      </div>
-      <div className="admin-stat">
-        <div className="admin-label">총 용량</div>
-        <StatValue unit="GB" />
+        <StatValue value={summaryData?.video_file_count} unit="개" />
       </div>
       <div className="admin-stat admin-stat--amber">
         <div className="admin-label">⚠ 수집 실패·누락</div>
-        <StatValue unit="구" />
+        <StatValue value={summaryData?.missing_region_count} unit="구" />
       </div>
     </div>
   );
@@ -36,15 +67,35 @@ export function CctvSourceView() {
             <th>지역</th>
             <th>CCTV 대수</th>
             <th>영상 파일</th>
-            <th>시간대 커버리지</th>
-            <th>용량</th>
             <th>상태</th>
           </tr>
         </thead>
         <tbody>
-          <TableEmptyRow colSpan={6} />
+          {loading ? (
+            <TableEmptyRow colSpan={4} message="불러오는 중…" />
+          ) : error ? (
+            <TableEmptyRow colSpan={4} message={error} />
+          ) : items.length === 0 ? (
+            <TableEmptyRow colSpan={4} message="수집된 영상이 없습니다." />
+          ) : (
+            items.map((item) => (
+              <tr key={item.region_code}>
+                <td>{item.region_name ?? item.region_code}</td>
+                <td>{item.cctv_count}</td>
+                <td>{item.video_count}</td>
+                <td>
+                  <span className="admin-pill admin-pill--ok">
+                    {item.status}
+                  </span>
+                </td>
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
+      <p className="admin-footnote">
+        ※ 용량·시간대 커버리지는 아직 저장하는 데이터가 없어 표시하지 않습니다.
+      </p>
     </div>
   );
 
@@ -69,7 +120,10 @@ export function CctvSourceView() {
           </tr>
         </thead>
         <tbody>
-          <TableEmptyRow colSpan={7} />
+          <TableEmptyRow
+            colSpan={7}
+            message="작업 이력을 기록하는 기능은 아직 없습니다."
+          />
         </tbody>
       </table>
     </div>
@@ -99,16 +153,7 @@ export function CctvSourceView() {
         </button>
       </div>
       {tab === 'region' ? (
-        <>
-          <div className="admin-toolbar">
-            <select disabled>
-              <option>전체 시·도</option>
-            </select>
-            <input type="date" disabled />
-            <div className="admin-spacer" />
-          </div>
-          {regionTable}
-        </>
+        regionTable
       ) : (
         <>
           <div className="admin-toolbar">
@@ -129,6 +174,61 @@ export function CctvSourceView() {
 }
 
 export function SearchRequestsView() {
+  const [rows, setRows] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [keyword, setKeyword] = useState('');
+  const [searchType, setSearchType] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const PER_PAGE = 10;
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const params = { page, per_page: PER_PAGE };
+      if (keyword.trim()) params.keyword = keyword.trim();
+      if (searchType) params.search_type = searchType;
+      if (startDate) params.start_date = startDate;
+      if (endDate) params.end_date = endDate;
+      const data = await fetchAdminSearchRequests(params);
+      setRows(data.items ?? []);
+      setTotal(data.page_info?.total ?? 0);
+      setSummary(data.summary ?? null);
+    } catch (err) {
+      setError(
+        err?.response?.status === 403
+          ? '관리자 권한이 필요합니다.'
+          : '검색 요청 이력을 불러오지 못했습니다.',
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [page, keyword, searchType, startDate, endDate]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
+  const fmt = (s) =>
+    s
+      ? new Date(s).toLocaleString('ko-KR', {
+          dateStyle: 'short',
+          timeStyle: 'short',
+        })
+      : '-';
+
+  const onSearch = () => {
+    setPage(1);
+    load();
+  };
+
   return (
     <>
       <PageHead
@@ -138,33 +238,54 @@ export function SearchRequestsView() {
       <div className="admin-stat-grid">
         <div className="admin-stat">
           <div className="admin-label">오늘 검색 요청</div>
-          <StatValue unit="건" />
+          <StatValue value={summary?.today_total} unit="건" />
         </div>
         <div className="admin-stat">
           <div className="admin-label">안내문자 파싱</div>
-          <StatValue unit="건" />
+          <StatValue value={summary?.today_sms} unit="건" />
         </div>
         <div className="admin-stat">
           <div className="admin-label">챗봇 검색</div>
-          <StatValue unit="건" />
+          <StatValue value={summary?.today_chatbot} unit="건" />
         </div>
         <div className="admin-stat">
           <div className="admin-label">자동 검색</div>
-          <StatValue unit="건" />
+          <StatValue value={summary?.today_auto} unit="건" />
         </div>
       </div>
       <div className="admin-toolbar">
-        <input placeholder="이름·인상착의·지역 검색" disabled />
-        <select disabled>
-          <option>전체 유형</option>
+        <input
+          placeholder="이름·인상착의·지역 검색"
+          value={keyword}
+          onChange={(e) => setKeyword(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && onSearch()}
+        />
+        <select
+          value={searchType}
+          onChange={(e) => setSearchType(e.target.value)}
+        >
+          <option value="">전체 유형</option>
+          {Object.entries(SEARCH_TYPE_LABELS).map(([code, label]) => (
+            <option key={code} value={code}>
+              {label}
+            </option>
+          ))}
         </select>
-        <select disabled>
-          <option>전체 요청자</option>
-        </select>
-        <input type="date" disabled />
+        <input
+          type="date"
+          value={startDate}
+          onChange={(e) => setStartDate(e.target.value)}
+          title="시작일"
+        />
+        <input
+          type="date"
+          value={endDate}
+          onChange={(e) => setEndDate(e.target.value)}
+          title="종료일"
+        />
         <div className="admin-spacer" />
-        <button type="button" className="admin-btn" disabled>
-          CSV보내기
+        <button type="button" className="admin-btn" onClick={onSearch}>
+          검색
         </button>
       </div>
       <div className="admin-card admin-table-wrap">
@@ -179,14 +300,75 @@ export function SearchRequestsView() {
               <th>인상착의</th>
               <th>실종 지역·시각</th>
               <th>검색 일시</th>
-              <th style={{ textAlign: 'right' }} />
             </tr>
           </thead>
           <tbody>
-            <TableEmptyRow colSpan={9} />
+            {loading ? (
+              <TableEmptyRow colSpan={8} message="불러오는 중…" />
+            ) : error ? (
+              <TableEmptyRow colSpan={8} message={error} />
+            ) : rows.length === 0 ? (
+              <TableEmptyRow colSpan={8} message="검색 요청 이력이 없습니다." />
+            ) : (
+              rows.map((r) => (
+                <tr key={r.id}>
+                  <td>{r.id}</td>
+                  <td>
+                    <span className="admin-pill admin-pill--muted">
+                      {SEARCH_TYPE_LABELS[r.search_type] ?? r.search_type}
+                    </span>
+                  </td>
+                  <td>{r.requester_name ?? r.requester_username ?? '-'}</td>
+                  <td>{r.message_preview ?? '-'}</td>
+                  <td>
+                    {r.missing_name ?? '-'}
+                    {r.gender ? ` (${r.gender === 'M' ? '남' : '여'}` : ''}
+                    {r.age
+                      ? `${r.gender ? ', ' : ' ('}${r.age}세)`
+                      : r.gender
+                        ? ')'
+                        : ''}
+                  </td>
+                  <td>{r.clothing ?? '-'}</td>
+                  <td>
+                    {r.missing_location ?? '-'}
+                    {r.missing_time ? ` · ${fmt(r.missing_time)}` : ''}
+                  </td>
+                  <td>{fmt(r.searched_at)}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
+
+      {total > 0 && (
+        <div
+          className="admin-toolbar"
+          style={{ justifyContent: 'center', marginTop: 12 }}
+        >
+          <button
+            type="button"
+            className="admin-btn"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1 || loading}
+          >
+            이전
+          </button>
+          <span className="admin-pill admin-pill--muted">
+            {page} / {totalPages} (총 {total}건)
+          </span>
+          <button
+            type="button"
+            className="admin-btn"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages || loading}
+          >
+            다음
+          </button>
+        </div>
+      )}
+
       <p className="admin-footnote">
         ※ <code>search</code> 테이블의 요청 이력입니다.
       </p>

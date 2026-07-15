@@ -64,6 +64,10 @@ from backend.schemas.retention_schema import (
 from backend.services.integrity_service import IntegrityService
 from backend.services.retention_service import RetentionService
 from backend.services.region_admin_service import RegionAdminService
+from backend.services.search_service import SearchService
+from backend.schemas.search_schema import AdminSearchListResponse
+from backend.services.cctv_coverage_service import CctvCoverageService
+from backend.schemas.video_schema import CctvRegionCoverageResponse
 
 router = APIRouter(prefix="/admin")
 
@@ -323,6 +327,39 @@ def list_admin_history(
         items.append(item)
 
     return AdminHistoryListResponse(items=items, total=total, page=page, size=per_page)
+
+
+@router.get("/search-requests", response_model=AdminSearchListResponse)
+def list_search_requests(
+    keyword: str | None = Query(default=None, description="이름·인상착의·지역 부분 검색"),
+    search_type: str | None = Query(default=None, description="1:안내문자, 2:챗봇, 3:자동"),
+    requester_user_id: str | None = Query(default=None, description="요청자 user.id"),
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=20, ge=1, le=100),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+    db: Session = Depends(get_db),
+) -> AdminSearchListResponse:
+    """검색 요청 이력(관리자용) — 전체 사용자 대상, 최신순, 필터·오늘 요약 포함."""
+    return SearchService(db).list_for_admin(
+        page=page,
+        size=per_page,
+        keyword=keyword,
+        search_type=search_type,
+        requester_user_id=requester_user_id,
+        start_date=start_date,
+        end_date=end_date,
+    )
+
+
+@router.get("/cctv-coverage", response_model=CctvRegionCoverageResponse)
+def get_cctv_coverage(
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+    db: Session = Depends(get_db),
+) -> CctvRegionCoverageResponse:
+    """CCTV 영상 수집 현황(관리자용) — 지역별 CCTV 대수·영상 파일 수."""
+    return CctvCoverageService(db).get_region_coverage()
 
 
 def _region_child_counts(db: Session, codes: list[str]) -> dict[str, int]:
