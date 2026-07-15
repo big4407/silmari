@@ -237,8 +237,30 @@
 
 .search-history__table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 0.85rem;
+}
+
+.search-history__table th:nth-child(1),
+.search-history__table td:nth-child(1) {
+  width: 18%;
+  white-space: nowrap;
+}
+
+.search-history__table th:nth-child(2),
+.search-history__table td:nth-child(2) {
+  width: 14%;
+}
+
+.search-history__table th:nth-child(3),
+.search-history__table td:nth-child(3) {
+  width: 18%;
+}
+
+.search-history__table th:nth-child(5),
+.search-history__table td:nth-child(5) {
+  width: 92px;
 }
 
 .search-history__table thead {
@@ -254,6 +276,12 @@
   border-bottom: 1px solid #e5e7eb;
   text-align: left;
   vertical-align: middle;
+}
+
+.search-history__table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .search-history__table th {
