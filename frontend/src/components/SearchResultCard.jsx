@@ -17,7 +17,6 @@ export default function SearchResultCard({
   const hasThumb = Boolean(result.thumbnail_url);
   const pathParts = result.video_path?.split(/[\\/]/) || [];
   const cctvNo = pathParts.at(-2);
-  const recordedAt = pathParts.at(-1)?.replace('.mp4', '');
   const rankLabel =
     result.rank === 1
       ? '1st'
@@ -63,10 +62,10 @@ export default function SearchResultCard({
           )}
         </div>
         <div className="search-card__body">
+          <p className="search-card__video-info">
+            {cctvNo} · {result.recorded_at}
+          </p>
           <p className="search-card__meta">
-            <p className="search-card__video-info">
-              {cctvNo} · {recordedAt}
-            </p>
             <span>{result.region}</span>
             <span>
               {result.best_timestamp_sec != null
