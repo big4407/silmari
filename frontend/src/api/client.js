@@ -419,6 +419,10 @@ export const LOGIN_FAIL_LABELS = {
 export const fetchMessages = (params = {}) =>
   client.get('/message', { params }).then((r) => r.data);
 
+/** 안내문자 본문에서 LLM으로 실종자 정보(이름·성별·나이·인상착의) 추출 */
+export const parseAlertMessage = (msgCn) =>
+  client.post('/message/parse', { msg_cn: msgCn }).then((r) => r.data);
+
 /** 외부 API에서 재난문자 수집 후 DB 저장 */
 export const collectMessages = (params = {}) =>
   client.post('/message/collect', null, { params }).then((r) => r.data);

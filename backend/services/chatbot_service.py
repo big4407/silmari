@@ -5,7 +5,7 @@ from langchain_community.callbacks import get_openai_callback
 from backend.core.config import settings
 from backend.core.chatbot.graph import build_chatbot_graph
 from backend.core.chatbot.utils import create_initial_state
-from backend.db.models import ChatbotSession
+from backend.db.models import ChatbotSession, LlmCallType
 from backend.repositories.chatbot_repository import ChatbotRepository
 
 from backend.services.llm_call_service import LlmCallService
@@ -75,7 +75,7 @@ class ChatbotService:
             search_id = result.get("search_id") if result else None
 
             self.llm_call_service.record_call(
-                call_type="2",
+                call_type=LlmCallType.CHATBOT,
                 model_name=getattr(self.llm, "model", "unknown"),
                 prompt=message,
                 response=response,

@@ -2,7 +2,10 @@
 검색 요청(Search) 하나를 실제로 실행해 매칭 후보(AnalysisDetail)를 만든다.
 
 흐름:
-  1) clothing(한글) → clothes_en (core/search/clothing_query.build_clothes_en)
+  1) clothing(한글) → clothes_en
+     ① taxonomy 사전 매칭(core/search/clothing_query) — 대부분 여기서 끝남
+     ② ①이 실패하면 LLM 번역(core/llm/clothing_translator)으로 fallback
+     ③ ②도 실패하면 원문을 그대로 감싸서 최소한의 검색이라도 시도(최후 수단)
   2) missing_location(한글) → region_code 후보 (RegionRepository LIKE 매칭)
   3) region_code + start_date~end_date → 대상 video_id 목록 (VideoRepository)
   4) VideoService.search_embeddings_multi() → Chroma 코사인 유사도 검색
@@ -14,14 +17,22 @@
 
 from __future__ import annotations
 
+import time
+
+from langchain_community.callbacks import get_openai_callback
 from sqlalchemy.orm import Session
 
-from backend.core.search.clothing_query import build_clothes_en
-from backend.db.models import Analysis, AnalysisStatus
+from backend.core.llm.clothing_translator import (
+    CLOTHING_TRANSLATE_MODEL,
+    translate_clothing_with_llm,
+)
+from backend.core.search.clothing_query import build_clothes_en_from_taxonomy
+from backend.db.models import Analysis, AnalysisStatus, LlmCallType
 from backend.repositories.analysis_repository import AnalysisRepository
 from backend.repositories.region_repository import RegionRepository
 from backend.repositories.video_repository import VideoRepository
 from backend.schemas.search_schema import SearchDetail
+from backend.services.llm_call_service import LlmCallService
 
 # 코사인 거리 기준 최소 유사도(= 1 - distance). 데이터가 쌓이면 재조정 필요.
 DEFAULT_MIN_SIMILARITY = 0.2
@@ -34,6 +45,7 @@ class AnalysisService:
         self.repository = AnalysisRepository(db)
         self.region_repository = RegionRepository(db)
         self.video_repository = VideoRepository(db)
+        self.llm_call_service = LlmCallService(db)
         self._video_service = None
 
     @property
@@ -64,10 +76,57 @@ class AnalysisService:
             region_codes=region_codes, start_date=start_date, end_date=end_date
         )
 
+    def resolve_clothes_en(self, clothing_ko: str | None, *, user_id: str | None = None) -> str:
+        """한글 인상착의를 FashionCLIP 영문 쿼리로 변환한다.
+
+        taxonomy 사전 매칭이 우선이고(빠르고 비용 없음), 실패할 때만 LLM 번역을
+        쓴다. LLM 호출은 챗봇·안내문자 파싱과 동일하게 get_openai_callback()으로
+        감싸서 llm_call 테이블에 기록한다(call_type="1" = 인상착의 한영변환).
+        """
+        if not clothing_ko or not clothing_ko.strip():
+            return ""
+
+        clothes_en = build_clothes_en_from_taxonomy(clothing_ko)
+        if clothes_en:
+            return clothes_en
+
+        start = time.perf_counter()
+        call_status = "1"
+        error_msg = None
+        translated = None
+        callback = None
+
+        try:
+            with get_openai_callback() as cb:
+                callback = cb
+                translated = translate_clothing_with_llm(clothing_ko)
+        except Exception as e:
+            call_status = "0"
+            error_msg = str(e)[:255]
+        finally:
+            self.llm_call_service.record_call(
+                call_type=LlmCallType.CLOTHING_TRANSLATE,
+                model_name=CLOTHING_TRANSLATE_MODEL,
+                prompt=clothing_ko,
+                response=translated,
+                start_time=start,
+                callback=callback,
+                status=call_status,
+                error_msg=error_msg,
+                user_id=user_id,
+            )
+
+        if translated:
+            return translated
+
+        # taxonomy도, LLM도 실패한 경우의 최후 수단 — 원문을 그대로 감싸서
+        # 최소한의 검색이라도 시도한다.
+        return f"a person wearing {clothing_ko.strip()}"
+
     def run_analysis(self, search: SearchDetail) -> Analysis:
         analysis = self.repository.create(user_id=search.user_id, search_id=search.id)
 
-        clothes_en = build_clothes_en(search.clothing)
+        clothes_en = self.resolve_clothes_en(search.clothing, user_id=search.user_id)
         if not clothes_en:
             # 인상착의 정보가 전혀 없으면 매칭을 시도할 수 없다 — 빈 결과로 완료 처리.
             return self.repository.set_status(analysis, AnalysisStatus.COMPLETED)

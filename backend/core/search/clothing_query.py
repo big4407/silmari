@@ -6,8 +6,10 @@ FashionCLIP은 영어로 학습된 모델이라 한글 텍스트를 그대로 �
 사전 매칭해 "a person wearing a {color} {top_type} and {color} {bottom_type}"
 형태의 영문 문장으로 조립한다.
 
-사전에 안 걸리는 표현은 이후 LLM fallback으로 확장 가능(TODO) — 1차는
-CCTV 초기 권장 범위(taxonomy 11번 섹션) 어휘만으로 규칙 기반 매칭한다.
+taxonomy에 하나도 안 걸리면(신조어·오탈자·복잡한 문장 등) None을 반환한다 —
+호출 측(services/analysis_service.py)이 이 경우 LLM 번역(core/llm/
+clothing_translator.py)으로 넘기고, 그것도 실패하면 최후 수단으로 원문을
+그대로 감싸서 쓴다.
 """
 from __future__ import annotations
 
@@ -66,15 +68,14 @@ def _find_first_match(text: str, table: dict[str, str]) -> str | None:
     return None
 
 
-def build_clothes_en(clothing_ko: str | None) -> str:
-    """한글 인상착의 텍스트를 FashionCLIP 영문 검색 쿼리로 변환한다.
+def build_clothes_en_from_taxonomy(clothing_ko: str | None) -> str | None:
+    """한글 인상착의 텍스트를 taxonomy 사전 매칭만으로 FashionCLIP 영문 쿼리로 변환한다.
 
     taxonomy 사전에 걸리는 색상·상의·하의·액세서리를 조합해 문장을 만든다.
-    아무것도 안 걸리면(신조어·오탈자 등) 원문을 그대로 감싸서 최소한의
-    검색이라도 되게 한다 — 완전히 비어있을 때만 빈 문자열을 반환한다.
+    아무것도 안 걸리면 None을 반환한다 — 호출 측이 LLM 번역으로 넘길 신호.
     """
     if not clothing_ko or not clothing_ko.strip():
-        return ""
+        return None
 
     text = clothing_ko.strip()
 
@@ -99,5 +100,4 @@ def build_clothes_en(clothing_ko: str | None) -> str:
     if parts:
         return " ".join(parts)
 
-    # taxonomy에 하나도 안 걸린 경우 — 원문을 최소한으로나마 활용
-    return f"a person wearing {text}"
+    return None
