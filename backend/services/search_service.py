@@ -65,6 +65,11 @@ class SearchService:
                         "crop_img_path": detail.crop_img_path,
                         "matching_rate": detail.matching_rate,
                         "recorded_at": detail.video.recorded_at if detail.video else None,
+                        "video_region": (
+    detail.video.region.full_name
+    if detail.video and detail.video.region
+    else None
+),
                     }
                 )
 

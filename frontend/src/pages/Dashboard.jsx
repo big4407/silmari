@@ -264,7 +264,7 @@ export default function Dashboard() {
         (selectedRegion && selectedRegion !== '전국' ? selectedRegion : null) ||
         selectedAlert.rcptn_rgn_nm ||
         null;
-
+      console.log('안내문자 원문:', selectedAlert.msg_cn);
       const payload = {
         user_id: userId,
         message_sn: selectedAlert.sn || selectedAlert.id,
@@ -401,12 +401,8 @@ export default function Dashboard() {
         {regionSearchError && (
           <p className="filter-panel__error">{regionSearchError}</p>
         )}
-        {searchError && (
-          <p className="filter-panel__error">{searchError}</p>
-        )}
-        {dateWarning && (
-          <p className="filter-panel__error">{dateWarning}</p>
-        )}
+        {searchError && <p className="filter-panel__error">{searchError}</p>}
+        {dateWarning && <p className="filter-panel__error">{dateWarning}</p>}
       </section>
 
       <div className="main-area">
