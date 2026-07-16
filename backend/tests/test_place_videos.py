@@ -106,12 +106,22 @@ def _distribute_videos(
 ) -> dict:
     """folders 각각에 0~max_per_folder개의 샘플 영상을 무작위로 복사한다.
 
-    이미 영상이 있는 폴더는 건드리지 않고 건너뛴다(중복 배치 방지).
+    이미 영상이 있는 폴더는 건드리지 않고 건너뛴다(중복 배치 방지). 같은 원본
+    영상이 서로 다른 폴더에 겹쳐 들어가지 않는다 — 전체 배치 과정에서 한 번
+    쓰인 영상은 다시 안 쓴다(테스트할 때 같은 영상이 여러 곳에 나오면
+    헷갈리기 때문). 원본 개수보다 필요한 슬롯이 많으면 원본이 소진된 뒤로는
+    그냥 빈 채로 남긴다.
     """
     placed = 0
     empty_folders = 0
     skipped_existing = 0
+    exhausted_folders = 0
     placed_paths: list[str] = []
+
+    # 전체 배치 과정에서 공유하는 "아직 안 쓴 원본" 풀 — 여기서 뽑아 쓰면 그
+    # 원본은 다시 안 뽑히므로, 서로 다른 폴더끼리 같은 영상이 안 겹친다.
+    available = list(sample_videos)
+    rng.shuffle(available)
 
     for folder in folders:
         if _has_existing_video(folder):
@@ -123,20 +133,28 @@ def _distribute_videos(
             empty_folders += 1
             continue
 
+        placed_here = 0
         for _ in range(count):
-            source = rng.choice(sample_videos)
-            # 같은 폴더에 같은 원본이 여러 번 뽑혀도 안 겹치도록 고유 접미사를 붙인다.
+            if not available:
+                break
+            source = available.pop()
             dest_name = f"{source.stem}_{uuid.uuid4().hex[:8]}{source.suffix}"
             dest_path = folder / dest_name
             shutil.copy2(source, dest_path)
             placed += 1
+            placed_here += 1
             placed_paths.append(str(dest_path))
+
+        if placed_here == 0 and count > 0:
+            # 배치하려 했지만 그 시점에 이미 원본이 다 소진된 경우.
+            exhausted_folders += 1
 
     return {
         "folders": len(folders),
         "placed": placed,
         "empty_folders": empty_folders,
         "skipped_existing": skipped_existing,
+        "exhausted_folders": exhausted_folders,
         "placed_paths": placed_paths,
     }
 
@@ -149,7 +167,8 @@ def place_test_videos(
 ) -> dict:
     """base_dir 밑의 모든 CCTV 리프 폴더에 샘플 영상을 무작위로 배치한다(범위 지정 모드용).
 
-    반환값: {"folders", "placed", "empty_folders", "skipped_existing", "placed_paths"}
+    반환값: {"folders", "placed", "empty_folders", "skipped_existing",
+             "exhausted_folders", "placed_paths"}
     """
     rng = random.Random(seed)
     base_dir = base_dir or Path(settings.cctv_data_dir)
@@ -158,6 +177,7 @@ def place_test_videos(
         "placed": 0,
         "empty_folders": 0,
         "skipped_existing": 0,
+        "exhausted_folders": 0,
         "placed_paths": [],
     }
 
@@ -178,9 +198,14 @@ def place_test_videos(
     print(
         f"[테스트 영상 배치 완료] 대상 폴더 {result['folders']}개 중 "
         f"{result['skipped_existing']}개는 이미 영상이 있어 건너뜀, "
-        f"{result['empty_folders']}개는 무작위로 빈 상태 유지 | "
-        f"총 {result['placed']}개 영상 배치 "
-        f"(샘플 원본 {len(sample_videos)}개 중 무작위 선택, base: {base_dir})"
+        f"{result['empty_folders']}개는 무작위로 빈 상태 유지"
+        + (
+            f", {result['exhausted_folders']}개는 원본 소진으로 못 채움"
+            if result["exhausted_folders"]
+            else ""
+        )
+        + f" | 총 {result['placed']}개 영상 배치 "
+        f"(샘플 원본 {len(sample_videos)}개, 폴더당 서로 다른 영상만 사용, base: {base_dir})"
     )
     return result
 
@@ -265,17 +290,25 @@ def setup_test_video_data_from_messages(
             "[Message 기반 테스트 데이터] 대상이 없습니다 — Message 테이블이 "
             "비어있거나, rcptn_rgn_nm이 Region 테이블과 안 걸립니다."
         )
-        return {"message_pairs": 0, "folders": 0, "placed": 0, "placed_paths": []}
+        return {
+            "message_pairs": 0,
+            "folders": 0,
+            "placed": 0,
+            "exhausted_folders": 0,
+            "placed_paths": [],
+        }
 
     total_pairs_found = len(pairs)
     if max_pairs is not None and total_pairs_found > max_pairs:
-        # 앞쪽(서울 등)만 자르면 다른 지역 문자는 영상 없이 검색 → 결과 0건이 된다.
-        # 시군구 prefix(앞 5자리)별로 라운드로빈해서 지역이 골고루 남게 한다.
-        pairs = _limit_pairs_balanced(pairs, max_pairs)
+        # sorted(pairs)가 region_code 오름차순이라, 그냥 앞에서 자르면 지역코드가
+        # 작은 지역들만 남고 나머지는 통째로 버려진다("지역 순서대로만 폴더가
+        # 생기는" 것처럼 보이는 원인). 무작위로 골라서 이 편향을 없앤다.
+        rng_pairs = random.Random(seed)
+        pairs = rng_pairs.sample(pairs, max_pairs)
         print(
             f"[Message 기반] 지역명 매칭으로 (지역,날짜) 조합이 {total_pairs_found}개나 "
-            f"나와서 --max-pairs={max_pairs}개로 제한합니다 "
-            f"(지역 prefix별 라운드로빈, 필요하면 --max-pairs로 조정)."
+            f"나와서 --max-pairs={max_pairs}개로 무작위 축소합니다 (수신지역명이 넓게 "
+            "매칭됐을 수 있음 — 필요하면 --max-pairs로 조정)."
         )
 
     sample_videos = find_sample_videos(source_dir)
@@ -285,6 +318,7 @@ def setup_test_video_data_from_messages(
             "message_pairs": len(pairs),
             "folders": 0,
             "placed": 0,
+            "exhausted_folders": 0,
             "placed_paths": [],
         }
 
@@ -310,7 +344,13 @@ def setup_test_video_data_from_messages(
         f"(전체 매칭 {total_pairs_found}개 중) → "
         f"대상 폴더 {result['folders']}개 중 {result['skipped_existing']}개는 "
         f"이미 영상 있어 건너뜀, {result['empty_folders']}개는 무작위로 빈 상태 "
-        f"유지 | 총 {result['placed']}개 영상 배치"
+        f"유지"
+        + (
+            f", {result['exhausted_folders']}개는 원본 소진으로 못 채움"
+            if result["exhausted_folders"]
+            else ""
+        )
+        + f" | 총 {result['placed']}개 영상 배치(폴더당 서로 다른 영상만 사용)"
     )
     return result
 

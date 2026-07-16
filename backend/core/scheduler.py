@@ -89,7 +89,7 @@ def start_scheduler():
     scheduler.add_job(
         process_videos_job,
         # 매일 새벽, 전날 영상 처리 (문자 수집과 시간 분리)
-        trigger=CronTrigger(second=59),
+        trigger=CronTrigger(hour=20,minute=16,second=30),
         id="process_videos_daily",
         replace_existing=True,
     )
