@@ -9,7 +9,7 @@ from backend.db.database import get_db
 
 @dataclass(frozen=True)
 class StatsActor:
-    user_id: int | None
+    user_id: str | None
     name: str
     role: str | None = None
 
