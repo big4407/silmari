@@ -29,7 +29,7 @@ stats_case_event = Table(
     Column("actor_id", Integer, nullable=True),
     Column("actor_name", String(100), nullable=True),
     Column("actor_role", String(50), nullable=True),
-    Column("recorded_by_id", Integer, nullable=True),
+    Column("recorded_by_id", String(36), nullable=True),
     Column("recorded_by_name", String(100), nullable=False),
     Column("location_text", String(255), nullable=True),
     Column("latitude", Float, nullable=True),
@@ -56,7 +56,7 @@ stats_export_log = Table(
     Column("file_format", String(10), nullable=False, default="CSV"),
     Column("file_name", String(255), nullable=False),
     Column("row_count", Integer, nullable=False, default=0),
-    Column("requested_by_id", Integer, nullable=True),
+    Column("requested_by_id", String(36), nullable=True),
     Column("requested_by_name", String(100), nullable=False),
     Column(
         "created_at",
