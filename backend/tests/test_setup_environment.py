@@ -40,6 +40,39 @@ from backend.tests.test_Message import insert_test_messages
 from backend.tests.test_place_videos import setup_test_video_data_from_messages
 
 
+def _select_videos_balanced(placed_paths: list[str], max_videos: int) -> list[str]:
+    """경로 안의 region_code(시군구 prefix)별로 라운드로빈해 인덱싱 대상을 고른다."""
+    from collections import defaultdict, deque
+
+    if max_videos <= 0 or not placed_paths:
+        return []
+
+    groups: dict[str, deque[str]] = defaultdict(deque)
+    for path in placed_paths:
+        parts = Path(path).parts
+        # .../CCTV/{region_code}/{YYYYMMDD}/{cctv}/file.mp4
+        region_code = next(
+            (p for p in parts if p.isdigit() and len(p) >= 5),
+            "unknown",
+        )
+        groups[region_code[:5]].append(path)
+
+    selected: list[str] = []
+    while len(selected) < max_videos and groups:
+        empty_keys: list[str] = []
+        for key in list(groups.keys()):
+            if len(selected) >= max_videos:
+                break
+            bucket = groups[key]
+            if bucket:
+                selected.append(bucket.popleft())
+            if not bucket:
+                empty_keys.append(key)
+        for key in empty_keys:
+            del groups[key]
+    return selected
+
+
 def setup_test_environment(
     message_count: int = 10,
     regions: list[str] | None = None,
@@ -71,7 +104,9 @@ def setup_test_environment(
     )
 
     placed_paths = placement_result.get("placed_paths", [])
-    videos_to_index = placed_paths[:max_videos]
+    # 앞에서부터 자르면 같은 지역(예: 서울)만 인덱싱되어, 다른 지역 문자는
+    # 검색해도 후보 영상이 0건이 된다. region_code 기준으로 골고루 고른다.
+    videos_to_index = _select_videos_balanced(placed_paths, max_videos)
     skipped_for_time = len(placed_paths) - len(videos_to_index)
 
     print(

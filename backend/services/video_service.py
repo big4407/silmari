@@ -5,8 +5,6 @@ from pathlib import Path
 from ultralytics import YOLO
 from datetime import date, datetime, timedelta
 from backend.core.config import settings
-from torchreid.utils import FeatureExtractor
-import torch.nn.functional as F
 import shutil
 import json
 from fashion_clip.fashion_clip import FashionCLIP
@@ -224,6 +222,9 @@ class VideoService:
         return details, crop_paths
 
     def check_same_person(self, detected_path: str):
+        from torchreid.utils import FeatureExtractor
+        import torch.nn.functional as F
+
         image_dir = Path(detected_path)
         save_dir = Path("data/results/unique_persons")
         save_dir.mkdir(parents=True, exist_ok=True)
