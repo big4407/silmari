@@ -4,4 +4,4 @@ export {
   OutcomeStatsView,
   SearchStatsView,
   StatsExportView,
-} from '../../../features/stats';
+} from './StatsViews';

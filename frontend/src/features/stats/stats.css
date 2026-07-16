@@ -1,0 +1,88 @@
+.stats-error {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+}
+
+.stats-empty {
+  min-height: 140px;
+  display: grid;
+  place-items: center;
+  opacity: 0.7;
+}
+
+.stats-bars {
+  display: grid;
+  gap: 14px;
+}
+
+.stats-bars__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.stats-bars__track {
+  height: 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(127, 127, 127, 0.18);
+}
+
+.stats-bars__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: currentColor;
+  opacity: 0.65;
+}
+
+.stats-chart-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.stats-line-chart {
+  width: 100%;
+  min-width: 420px;
+  height: auto;
+}
+
+.stats-line-chart__axis {
+  stroke: currentColor;
+  opacity: 0.25;
+}
+
+.stats-line-chart__line {
+  stroke: currentColor;
+  stroke-width: 2.5;
+}
+
+.stats-line-chart__point {
+  fill: currentColor;
+}
+
+.stats-event-form {
+  display: grid;
+  gap: 14px;
+}
+
+.stats-form-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.stats-form-grid label,
+.stats-form-wide {
+  display: grid;
+  gap: 6px;
+}
+
+.stats-form-grid input,
+.stats-form-grid select,
+.stats-form-wide textarea {
+  width: 100%;
+}
