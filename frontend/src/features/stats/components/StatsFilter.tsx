@@ -42,9 +42,9 @@ export function StatsFilter({
           onChange={(event) => onSearchTypeChange(event.target.value)}
         >
           <option value="">전체 검색 유형</option>
-          <option value="IMAGE">이미지</option>
-          <option value="TEXT">텍스트</option>
-          <option value="HYBRID">하이브리드</option>
+          <option value="1">안내문자</option>
+          <option value="2">챗봇</option>
+          <option value="3">자동 검색</option>
         </select>
       )}
 
