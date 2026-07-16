@@ -260,7 +260,7 @@
 
 .search-history__table th:nth-child(5),
 .search-history__table td:nth-child(5) {
-  width: 92px;
+  width: 108px;
 }
 
 .search-history__table thead {
@@ -281,6 +281,13 @@
 .search-history__table td {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 결과 보기 버튼 칸은 말줄임(...) 적용하지 않음 — 버튼 옆에 ...가 보이던 원인 */
+.search-history__table td.search-history__col-action {
+  overflow: visible;
+  text-overflow: clip;
   white-space: nowrap;
 }
 

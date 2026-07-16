@@ -56,6 +56,32 @@ def find_leaf_folders(base_dir: Path) -> list[Path]:
     return [p for p in base_dir.glob("*/*/*") if p.is_dir()]
 
 
+def _limit_pairs_balanced(
+    pairs: list[tuple[str, date]], max_pairs: int
+) -> list[tuple[str, date]]:
+    """(region_code, date) 목록을 시군구 prefix별로 라운드로빈해 max_pairs개만 남긴다."""
+    from collections import defaultdict, deque
+
+    groups: dict[str, deque[tuple[str, date]]] = defaultdict(deque)
+    for pair in pairs:
+        groups[pair[0][:5]].append(pair)
+
+    selected: list[tuple[str, date]] = []
+    while len(selected) < max_pairs and groups:
+        empty_keys: list[str] = []
+        for key in list(groups.keys()):
+            if len(selected) >= max_pairs:
+                break
+            bucket = groups[key]
+            if bucket:
+                selected.append(bucket.popleft())
+            if not bucket:
+                empty_keys.append(key)
+        for key in empty_keys:
+            del groups[key]
+    return selected
+
+
 def find_sample_videos(source_dir: Path) -> list[Path]:
     if not source_dir.exists():
         return []
@@ -243,11 +269,13 @@ def setup_test_video_data_from_messages(
 
     total_pairs_found = len(pairs)
     if max_pairs is not None and total_pairs_found > max_pairs:
-        pairs = pairs[:max_pairs]
+        # 앞쪽(서울 등)만 자르면 다른 지역 문자는 영상 없이 검색 → 결과 0건이 된다.
+        # 시군구 prefix(앞 5자리)별로 라운드로빈해서 지역이 골고루 남게 한다.
+        pairs = _limit_pairs_balanced(pairs, max_pairs)
         print(
             f"[Message 기반] 지역명 매칭으로 (지역,날짜) 조합이 {total_pairs_found}개나 "
-            f"나와서 --max-pairs={max_pairs}개로 제한합니다 (수신지역명이 넓게 "
-            "매칭됐을 수 있음 — 필요하면 --max-pairs로 조정)."
+            f"나와서 --max-pairs={max_pairs}개로 제한합니다 "
+            f"(지역 prefix별 라운드로빈, 필요하면 --max-pairs로 조정)."
         )
 
     sample_videos = find_sample_videos(source_dir)
