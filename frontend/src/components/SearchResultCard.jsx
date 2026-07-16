@@ -62,20 +62,35 @@ export default function SearchResultCard({
           )}
         </div>
         <div className="search-card__body">
-          <p className="search-card__video-info">
-            {cctvNo} · {result.recorded_at}
+          <p className="search-card__location">
+            {result.video_region || result.region || '-'}
           </p>
-          <p className="search-card__meta">
-            <span>{result.video_region || result.region}</span>
-            <span>
-              {result.best_timestamp_sec != null
-                ? formatTime(result.best_timestamp_sec)
-                : '-'}
-            </span>
-          </p>
-          <p className="search-card__desc">
-            {result.description || result.video_filename}
-          </p>
+
+          <dl className="search-card__info">
+            <div>
+              <dt>촬영일</dt>
+              <dd>{result.recorded_at || '-'}</dd>
+            </div>
+
+            <div>
+              <dt>CCTV</dt>
+              <dd>{cctvNo || '-'}</dd>
+            </div>
+
+            <div>
+              <dt>영상 시점</dt>
+              <dd>
+                {result.best_timestamp_sec != null
+                  ? formatTime(result.best_timestamp_sec)
+                  : '-'}
+              </dd>
+            </div>
+
+            <div>
+              <dt>인상착의</dt>
+              <dd>{result.description || '-'}</dd>
+            </div>
+          </dl>
         </div>
       </div>
     </article>
