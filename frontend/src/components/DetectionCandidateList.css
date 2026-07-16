@@ -98,7 +98,7 @@
   aspect-ratio: 3 / 4;
   border-radius: 4px;
   overflow: hidden;
-  background: #111;
+  background: #eef3f8;
 }
 
 .candidate-list__thumb {
@@ -106,7 +106,7 @@
   height: 100%;
   object-fit: contain;
   object-position: center;
-  background: #111;
+  background: #eef3f8;
 }
 
 .candidate-list__thumb-placeholder {
