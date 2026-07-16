@@ -15,17 +15,19 @@
 }
 
 .clip-player__back {
-  align-self: flex-start;
-  padding: 6px 12px;
-  border: 1px solid #333;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid #003876;
   border-radius: 4px;
   background: #fff;
+  color: #003876;
+  font-size: 0.82rem;
+  font-weight: 700;
   cursor: pointer;
-  font-size: 0.85rem;
 }
 
 .clip-player__back:hover {
-  background: #f3f4f6;
+  background: #eef4fb;
 }
 
 .clip-player__video {

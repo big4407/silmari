@@ -9,7 +9,13 @@ from backend.schemas.search_schema import (
     SearchDetail,
     SearchStatus,
 )
-from backend.services.search_service import SearchService
+from backend.services.search_service import (
+    SearchService,
+    RegionNotFoundError,
+    RegionAmbiguousError,
+    InvalidVideoPeriodError,
+    VideoNotFoundError,
+)
 
 from backend.deps import get_current_user
 from backend.db.models import User
@@ -36,7 +42,42 @@ def create_search(
     search_data: SearchCreate,
     service: SearchService = Depends(get_search_service),
 ):
-    return service.create_search(search_data)
+    try:
+        return service.create_search(search_data)
+
+    except RegionNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="입력한 지역을 찾을 수 없습니다.",
+        )
+
+    except RegionAmbiguousError as e:
+        candidate_names = ", ".join(e.candidate_names)
+
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "입력한 지역과 일치하는 후보가 여러 개 있습니다. "
+                f"다음 후보를 참고하여 더 구체적으로 입력해 주세요: "
+                f"{candidate_names}"
+            ),
+        )
+
+    except InvalidVideoPeriodError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="시작일은 종료일보다 늦을 수 없습니다.",
+        )
+
+    except VideoNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=(
+                "해당 지역에는 입력한 기간의 CCTV 영상이 없습니다. "
+                "다른 기간을 입력해 주세요."
+            ),
+        )
+
 
 @router.get(
     "",
