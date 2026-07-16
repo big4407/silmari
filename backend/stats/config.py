@@ -16,22 +16,22 @@ def _env_float(name: str, default: float) -> float:
 @dataclass(frozen=True)
 class StatsSourceMap:
     """
-    기존 운영 DB의 테이블·컬럼 이름을 한곳에서 매핑합니다.
+    기존 운영 DB의 테이블·컬럼 이름을 한곳에서 매핑한다.
 
     실제 프로젝트의 이름이 다르면 이 파일 또는 .env의 STATS_* 값만
-    수정하면 repository/service/router 코드는 건드리지 않아도 됩니다.
+    수정하면 repository/service/router 코드는 기존 코드와 동일하게 유지해야 한다.
     """
 
     # CCTV
     video_table: str = _env("STATS_VIDEO_TABLE", "video")
     video_id: str = _env("STATS_VIDEO_ID", "id")
     video_created_at: str = _env("STATS_VIDEO_CREATED_AT", "created_at")
-    video_status: str = _env("STATS_VIDEO_STATUS", "status")
+    video_status: str = _env("STATS_VIDEO_STATUS", "")
     video_completed_value: str = _env(
         "STATS_VIDEO_COMPLETED_VALUE",
-        "COMPLETED",
+        "2",
     )
-    video_region: str = _env("STATS_VIDEO_REGION", "region")
+    video_region: str = _env("STATS_VIDEO_REGION", "region_code")
 
     video_detail_table: str = _env(
         "STATS_VIDEO_DETAIL_TABLE",
@@ -43,7 +43,7 @@ class StatsSourceMap:
     )
     video_detail_track_id: str = _env(
         "STATS_VIDEO_DETAIL_TRACK_ID",
-        "track_id",
+        "",
     )
 
     # 검색
@@ -51,7 +51,7 @@ class StatsSourceMap:
     search_id: str = _env("STATS_SEARCH_ID", "id")
     search_created_at: str = _env(
         "STATS_SEARCH_CREATED_AT",
-        "created_at",
+        "searched_at",
     )
     search_type: str = _env("STATS_SEARCH_TYPE", "search_type")
     search_gender: str = _env("STATS_SEARCH_GENDER", "gender")
@@ -60,7 +60,7 @@ class StatsSourceMap:
         "STATS_SEARCH_REGION",
         "missing_location",
     )
-    # 동일 실종 사건을 식별하는 컬럼. 없으면 search.id를 사용합니다.
+    # 동일 실종 사건을 식별하는 컬럼. 없으면 search.id를 사용하여 통계한다
     search_case_key: str = _env(
         "STATS_SEARCH_CASE_KEY",
         "",
@@ -78,7 +78,7 @@ class StatsSourceMap:
     # 없으면 빈 문자열로 둡니다.
     analysis_processing_ms: str = _env(
         "STATS_ANALYSIS_PROCESSING_MS",
-        "processing_time_ms",
+        "",
     )
 
     analysis_detail_table: str = _env(
@@ -91,7 +91,7 @@ class StatsSourceMap:
     )
     analysis_detail_similarity: str = _env(
         "STATS_ANALYSIS_DETAIL_SIMILARITY",
-        "similarity_score",
+        "matching_rate",
     )
 
     match_threshold: float = _env_float(
