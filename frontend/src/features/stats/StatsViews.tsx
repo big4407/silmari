@@ -21,7 +21,14 @@ import { formatDateTime, recentDateRange } from './utils';
 
 import './stats.css';
 
-function formatMetricValue(value?: number, decimals = 0): string {
+const STAT_TYPE_LABELS: Record<StatType, string> = {
+  cctv: 'CCTV 통계',
+  search: '검색 통계',
+  demographic: '인구 통계',
+  outcomes: '처리 결과 통계',
+};
+
+function formatMetricValue(value?: number | null, decimals = 0): string {
   if (value === null || value === undefined || Number.isNaN(value)) {
     return '--';
   }
@@ -29,6 +36,16 @@ function formatMetricValue(value?: number, decimals = 0): string {
     return value.toFixed(decimals);
   }
   return value.toLocaleString();
+}
+
+function formatSearchType(value: string): string {
+  return (
+    {
+      1: '안내문자',
+      2: '챗봇',
+      3: '자동 검색',
+    }[value] ?? value
+  );
 }
 
 function StatCard({
@@ -40,7 +57,7 @@ function StatCard({
   className = '',
 }: {
   label: string;
-  value?: number;
+  value?: number | null;
   unit: string;
   loading: boolean;
   decimals?: number;
@@ -78,7 +95,7 @@ export function CctvStatsView() {
     <>
       <PageHead
         viewId="stats-cctv"
-        desc="기간별 CCTV 등록, 인덱싱, 감지 인원 통계를 조회합니다."
+        desc="기간별 CCTV 등록, 인덱스 완료, 감지 인원 통계를 조회합니다."
       />
 
       <StatsFilter
@@ -98,7 +115,7 @@ export function CctvStatsView() {
           loading={state.loading}
         />
         <StatCard
-          label="인덱싱 완료"
+          label="인덱스 완료"
           value={state.data?.summary.indexed_videos}
           unit="건"
           loading={state.loading}
@@ -126,7 +143,7 @@ export function CctvStatsView() {
             <tr>
               <th>지역</th>
               <th>등록 영상</th>
-              <th>인덱싱 완료</th>
+              <th>인덱스 완료</th>
               <th>감지 인원</th>
             </tr>
           </thead>
@@ -231,7 +248,7 @@ export function SearchStatsView() {
                 {state.data?.by_type.length ? (
                   state.data.by_type.map((row) => (
                     <tr key={row.search_type}>
-                      <td>{row.search_type}</td>
+                      <td>{formatSearchType(row.search_type)}</td>
                       <td>{row.count.toLocaleString()}</td>
                       <td>{row.successful_matches.toLocaleString()}</td>
                       <td>{row.success_rate.toFixed(1)}%</td>
@@ -353,7 +370,7 @@ export function OutcomeStatsView() {
     <>
       <PageHead
         viewId="stats-outcomes"
-        desc="발견 및 해결 이벤트를 기록하고 집계 결과를 확인합니다."
+        desc="발견 및 해결 이벤트를 기록하고 처리 결과 통계를 확인합니다."
       />
 
       <StatsFilter
@@ -387,7 +404,7 @@ export function OutcomeStatsView() {
           loading={state.loading}
         />
         <StatCard
-          label="발견 후 해결률"
+          label="발견 대비 해결률"
           value={state.data?.summary.resolution_after_found_rate}
           unit="%"
           decimals={1}
@@ -395,7 +412,7 @@ export function OutcomeStatsView() {
         />
         <StatCard
           label="평균 발견 시간"
-          value={state.data?.summary.average_hours_to_find ?? undefined}
+          value={state.data?.summary.average_hours_to_find}
           unit="시간"
           decimals={1}
           loading={state.loading}
@@ -594,7 +611,7 @@ export function StatsExportView() {
               logs.data.map((row) => (
                 <tr key={row.id}>
                   <td>{formatDateTime(row.created_at)}</td>
-                  <td>{row.stat_type}</td>
+                  <td>{STAT_TYPE_LABELS[row.stat_type as StatType] ?? row.stat_type}</td>
                   <td>
                     {row.from_date} ~ {row.to_date}
                   </td>
