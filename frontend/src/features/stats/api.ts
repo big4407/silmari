@@ -1,3 +1,8 @@
+import client, {
+  readApiErrorMessage,
+  saveBlobDownload,
+} from '../../api/client';
+
 import type {
   CaseEvent,
   CaseEventCreate,
@@ -18,101 +23,80 @@ interface Query {
   searchType?: string;
 }
 
-function buildQuery(query: Query): string {
-  const params = new URLSearchParams();
-
-  if (query.fromDate) {
-    params.set('from_date', query.fromDate);
-  }
-  if (query.toDate) {
-    params.set('to_date', query.toDate);
-  }
-  if (query.region) {
-    params.set('region', query.region);
-  }
-  if (query.searchType) {
-    params.set('search_type', query.searchType);
-  }
-
-  const text = params.toString();
-  return text ? `?${text}` : '';
+function buildParams(query: Query = {}) {
+  return {
+    from_date: query.fromDate || undefined,
+    to_date: query.toDate || undefined,
+    region: query.region || undefined,
+    search_type: query.searchType || undefined,
+  };
 }
 
-async function parseError(response: Response): Promise<Error> {
-  const body = await response.json().catch(() => null);
-  return new Error(body?.detail ?? `요청 실패 (${response.status})`);
+async function toError(
+  error: unknown,
+  fallback: string,
+): Promise<Error> {
+  const message = await readApiErrorMessage(error, fallback);
+  return new Error(message);
 }
 
-async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(`${BASE_URL}${path}`, {
-    method: 'GET',
-    credentials: 'include',
-    headers: {
-      Accept: 'application/json',
-    },
-    signal,
-  });
-
-  if (!response.ok) {
-    throw await parseError(response);
+async function getJson<T>(
+  path: string,
+  query?: Query,
+  signal?: AbortSignal,
+): Promise<T> {
+  try {
+    const response = await client.get(`${BASE_URL}${path}`, {
+      params: buildParams(query),
+      signal,
+    });
+    return response.data;
+  } catch (error) {
+    throw await toError(error, '통계 데이터를 불러오지 못했습니다.');
   }
-
-  return response.json();
 }
 
 export function fetchCctvStats(
   query: Query,
   signal?: AbortSignal,
 ): Promise<CctvStatsResponse> {
-  return getJson<CctvStatsResponse>(`/cctv${buildQuery(query)}`, signal);
+  return getJson<CctvStatsResponse>('/cctv', query, signal);
 }
 
 export function fetchSearchStats(
   query: Query,
   signal?: AbortSignal,
 ): Promise<SearchStatsResponse> {
-  return getJson<SearchStatsResponse>(`/search${buildQuery(query)}`, signal);
+  return getJson<SearchStatsResponse>('/search', query, signal);
 }
 
 export function fetchDemographicStats(
   query: Query,
   signal?: AbortSignal,
 ): Promise<DemographicStatsResponse> {
-  return getJson<DemographicStatsResponse>(
-    `/demographic${buildQuery(query)}`,
-    signal,
-  );
+  return getJson<DemographicStatsResponse>('/demographic', query, signal);
 }
 
 export function fetchOutcomeStats(
   query: Query,
   signal?: AbortSignal,
 ): Promise<OutcomeStatsResponse> {
-  return getJson<OutcomeStatsResponse>(`/outcomes${buildQuery(query)}`, signal);
+  return getJson<OutcomeStatsResponse>('/outcomes', query, signal);
 }
 
 export async function createCaseEvent(
   payload: CaseEventCreate,
 ): Promise<CaseEvent> {
-  const response = await fetch(`${BASE_URL}/case-events`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    throw await parseError(response);
+  try {
+    const response = await client.post(`${BASE_URL}/case-events`, payload);
+    return response.data;
+  } catch (error) {
+    throw await toError(error, '이벤트 저장에 실패했습니다.');
   }
-
-  return response.json();
 }
 
 export function fetchExportLogs(signal?: AbortSignal): Promise<ExportLog[]> {
-  return getJson<ExportLog[]>('/exports', signal);
+  return getJson<ExportLog[]>('/exports', undefined, signal);
 }
 
 export async function exportStats(payload: {
@@ -122,34 +106,23 @@ export async function exportStats(payload: {
   region?: string;
   search_type?: string;
 }): Promise<void> {
-  const response = await fetch(`${BASE_URL}/export`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: {
-      Accept: 'text/csv',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      ...payload,
-      file_format: 'CSV',
-    }),
-  });
+  try {
+    const response = await client.post(
+      `${BASE_URL}/export`,
+      {
+        ...payload,
+        file_format: 'CSV',
+      },
+      {
+        responseType: 'blob',
+      },
+    );
 
-  if (!response.ok) {
-    throw await parseError(response);
+    const disposition = response.headers?.['content-disposition'] ?? '';
+    const match = String(disposition).match(/filename="([^"]+)"/);
+    const filename = match?.[1] ?? 'statistics.csv';
+    saveBlobDownload(response.data, filename);
+  } catch (error) {
+    throw await toError(error, '통계 내보내기에 실패했습니다.');
   }
-
-  const blob = await response.blob();
-  const disposition = response.headers.get('Content-Disposition') ?? '';
-  const match = disposition.match(/filename="([^"]+)"/);
-  const filename = match?.[1] ?? 'statistics.csv';
-
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
 }
