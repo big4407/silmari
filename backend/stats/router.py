@@ -1,24 +1,24 @@
 from __future__ import annotations
 
 from datetime import date
-from io import BytesIO
 
 from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
     Query,
-    Request,
 )
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
+
+from backend.deps import require_roles
+from backend.db.models import User, UserRole
 
 from .db_init import ensure_stats_tables
 from .export_service import StatsExportService
 from .integration import (
     StatsActor,
     get_db,
-    get_stats_actor,
 )
 from .repository import StatsRepository
 from .schemas import (
@@ -55,6 +55,14 @@ def make_service(db: Session) -> StatsService:
     )
 
 
+def make_actor(admin: User) -> StatsActor:
+    return StatsActor(
+        user_id=admin.id,
+        name=admin.full_name or admin.username,
+        role=admin.role.value if admin.role else None,
+    )
+
+
 @router.get(
     "/cctv",
     response_model=CctvStatsResponse,
@@ -63,6 +71,7 @@ def get_cctv_stats(
     from_date: date | None = Query(default=None),
     to_date: date | None = Query(default=None),
     region: str | None = Query(default=None),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
     db: Session = Depends(get_stats_db),
 ):
     try:
@@ -86,6 +95,7 @@ def get_search_stats(
     from_date: date | None = Query(default=None),
     to_date: date | None = Query(default=None),
     search_type: str | None = Query(default=None),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
     db: Session = Depends(get_stats_db),
 ):
     try:
@@ -108,6 +118,7 @@ def get_search_stats(
 def get_demographic_stats(
     from_date: date | None = Query(default=None),
     to_date: date | None = Query(default=None),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
     db: Session = Depends(get_stats_db),
 ):
     try:
@@ -130,6 +141,7 @@ def get_outcome_stats(
     from_date: date | None = Query(default=None),
     to_date: date | None = Query(default=None),
     region: str | None = Query(default=None),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
     db: Session = Depends(get_stats_db),
 ):
     return make_service(db).get_outcomes(
@@ -146,13 +158,12 @@ def get_outcome_stats(
 )
 def create_case_event(
     payload: CaseEventCreate,
-    request: Request,
+    admin: User = Depends(require_roles(UserRole.ADMIN)),
     db: Session = Depends(get_stats_db),
 ):
-    actor = get_stats_actor(request)
     return make_service(db).create_case_event(
         payload,
-        actor,
+        make_actor(admin),
     )
 
 
@@ -165,6 +176,7 @@ def list_case_events(
     to_date: date | None = Query(default=None),
     event_type: str | None = Query(default=None),
     case_key: str | None = Query(default=None),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
     db: Session = Depends(get_stats_db),
 ):
     return make_service(db).list_events(
@@ -178,16 +190,15 @@ def list_case_events(
 @router.post("/export")
 def export_stats(
     payload: ExportRequest,
-    request: Request,
+    admin: User = Depends(require_roles(UserRole.ADMIN)),
     db: Session = Depends(get_stats_db),
 ):
-    actor = get_stats_actor(request)
     exporter = StatsExportService(db)
 
     try:
         filename, content, _ = exporter.build(
             payload,
-            actor,
+            make_actor(admin),
         )
     except ValueError as exc:
         raise HTTPException(
@@ -218,6 +229,7 @@ def export_stats(
 )
 def list_exports(
     limit: int = Query(default=50, ge=1, le=200),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
     db: Session = Depends(get_stats_db),
 ):
     repository = StatsRepository(db)
