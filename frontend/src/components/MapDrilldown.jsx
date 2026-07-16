@@ -9,7 +9,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import useMapDrilldown from '../hooks/useMapDrilldown';
 import { hasDongDrilldown } from '../data/dongRegions';
-import { countAlertsForSido } from '../utils/regionMatch';
+import { countAlertsForMapRegion } from '../utils/regionMatch';
 import {
   getLabelLatLng,
   shouldShowPermanentLabel,
@@ -131,10 +131,9 @@ export default function MapDrilldown({
           geoName,
           alertCount: storedCount,
         }) => {
-          const alertCount =
-            key === 'root' && region
-              ? countAlertsForSido(alerts, region.label)
-              : storedCount || 0;
+          const alertCount = region
+            ? countAlertsForMapRegion(alerts, region, pathRef.current)
+            : storedCount || 0;
           const isActive = isRegionSelected(
             selected,
             region.label,
@@ -278,10 +277,9 @@ export default function MapDrilldown({
           const isActive = region
             ? isRegionSelected(selected, region.label, geoName, shortLabel, key)
             : false;
-          const count =
-            key === 'root' && region
-              ? countAlertsForSido(alerts, region.label)
-              : 0;
+          const count = region
+            ? countAlertsForMapRegion(alerts, region, pathRef.current)
+            : 0;
           return getRegionStyle({ isActive, alertCount: count });
         },
         onEachFeature: (feature, featureLayer) => {
@@ -290,8 +288,11 @@ export default function MapDrilldown({
 
           const geoName = feature.properties?.name || region.label;
           const shortLabel = getShortLabel(geoName || region.label, key);
-          const count =
-            key === 'root' ? countAlertsForSido(alerts, region.label) : 0;
+          const count = countAlertsForMapRegion(
+            alerts,
+            region,
+            pathRef.current,
+          );
           const labelText = count > 0 ? `${shortLabel} (${count})` : shortLabel;
 
           featureMetaRef.current.push({
@@ -320,8 +321,11 @@ export default function MapDrilldown({
               shortLabel,
               key,
             );
-            const alertCount =
-              key === 'root' ? countAlertsForSido(alerts, region.label) : 0;
+            const alertCount = countAlertsForMapRegion(
+              alerts,
+              region,
+              pathRef.current,
+            );
             featureLayer.setStyle(
               getRegionStyle({ isActive: active, alertCount }),
             );

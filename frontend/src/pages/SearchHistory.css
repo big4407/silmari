@@ -246,20 +246,28 @@
 .search-history__table td:nth-child(1) {
   width: 18%;
   white-space: nowrap;
+  text-align: center;
 }
 
 .search-history__table th:nth-child(2),
 .search-history__table td:nth-child(2) {
-  width: 14%;
+  width: 11%;
 }
 
 .search-history__table th:nth-child(3),
 .search-history__table td:nth-child(3) {
-  width: 18%;
+  width: 14%;
+  text-align: center;
 }
 
-.search-history__table th:nth-child(5),
-.search-history__table td:nth-child(5) {
+.search-history__table th:nth-child(4),
+.search-history__table td:nth-child(4) {
+  width: 18%;
+  text-align: center;
+}
+
+.search-history__table th:nth-child(6),
+.search-history__table td:nth-child(6) {
   width: 108px;
 }
 
@@ -313,6 +321,42 @@
   min-width: 0;
 }
 
+.search-history__table th.search-history__col-type,
+.search-history__table td.search-history__col-type {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.search-history__type-badge {
+  display: inline-block;
+  min-width: 58px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.search-history__type-badge--message {
+  background: #e8f0fe;
+  color: #003876;
+}
+
+.search-history__type-badge--chatbot {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.search-history__type-badge--auto {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.search-history__type-badge--unknown {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
 .search-history__thumb {
   width: 40px;
   height: 40px;
@@ -322,8 +366,9 @@
   flex-shrink: 0;
 }
 
-.search-history__col-action {
-  text-align: right;
+.search-history__table th.search-history__col-action,
+.search-history__table td.search-history__col-action {
+  text-align: center;
   white-space: nowrap;
 }
 

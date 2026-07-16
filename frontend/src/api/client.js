@@ -476,6 +476,7 @@ export const deleteSearch = (id) => client.delete(`/search/${id}`);
 function mapSearchItemToHistory(item) {
   return {
     id: item.id,
+    search_type: item.search_type,
     person_name: item.missing_name || '미상',
     person_age: item.age,
     region: item.missing_location || '-',
