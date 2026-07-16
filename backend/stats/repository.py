@@ -3,13 +3,16 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Date, and_, case, cast, distinct, func, insert, literal, select
+from sqlalchemy import and_, case, distinct, func, insert, literal, select
 from sqlalchemy.orm import Session
 
 from .config import SOURCE_MAP, StatsSourceMap
 from .models import stats_case_event, stats_export_log
 from .table_registry import StatsTableRegistry
 
+
+
+# 지역 분류여부 확인하여 통계에 포함할지 결정하는 상수
 UNCLASSIFIED_REGION = "미분류"
 UNSPECIFIED_VALUE = "미입력"
 
@@ -44,7 +47,11 @@ class StatsRepository:
 
         v_id = self.tables.column(video, m.video_id)
         v_created = self.tables.column(video, m.video_created_at)
-        v_status = self.tables.column(video, m.video_status)
+        v_status = self.tables.column(
+            video,
+            m.video_status,
+            required=False,
+        )
         v_region = self.tables.column(video, m.video_region)
 
         d_video_id = self.tables.column(detail, m.video_detail_video_id)
@@ -54,20 +61,26 @@ class StatsRepository:
         if region:
             conditions.append(v_region == region)
 
+        summary_from = video.outerjoin(detail, d_video_id == v_id)
+        if v_status is not None:
+            indexed_expression = func.count(
+                distinct(
+                    case(
+                        (v_status == m.video_completed_value, v_id),
+                        else_=None,
+                    )
+                )
+            )
+        else:
+            indexed_expression = func.count(distinct(d_video_id))
+
         summary_stmt = (
             select(
                 func.count(distinct(v_id)).label("registered_videos"),
-                func.count(
-                    distinct(
-                        case(
-                            (v_status == m.video_completed_value, v_id),
-                            else_=None,
-                        )
-                    )
-                ).label("indexed_videos"),
+                indexed_expression.label("indexed_videos"),
                 func.count(distinct(v_region)).label("covered_regions"),
             )
-            .select_from(video)
+            .select_from(summary_from)
             .where(*conditions)
         )
         summary = _row_dict(self.db.execute(summary_stmt).one())
@@ -87,18 +100,23 @@ class StatsRepository:
             if d_track is not None
             else func.count(d_video_id)
         )
+        if v_status is not None:
+            region_indexed_expression = func.count(
+                distinct(
+                    case(
+                        (v_status == m.video_completed_value, v_id),
+                        else_=None,
+                    )
+                )
+            )
+        else:
+            region_indexed_expression = func.count(distinct(d_video_id))
+
         region_stmt = (
             select(
                 func.coalesce(v_region, UNCLASSIFIED_REGION).label("region"),
                 func.count(distinct(v_id)).label("registered_videos"),
-                func.count(
-                    distinct(
-                        case(
-                            (v_status == m.video_completed_value, v_id),
-                            else_=None,
-                        )
-                    )
-                ).label("indexed_videos"),
+                region_indexed_expression.label("indexed_videos"),
                 region_person_expression.label("detected_persons"),
             )
             .select_from(video.outerjoin(detail, d_video_id == v_id))
@@ -135,6 +153,7 @@ class StatsRepository:
 
         d_analysis_id = self.tables.column(detail, m.analysis_detail_analysis_id)
         d_similarity = self.tables.column(detail, m.analysis_detail_similarity)
+        search_date = func.date(s_created)
 
         conditions = [self._period(s_created, start_at, end_at)]
         if search_type_filter:
@@ -146,7 +165,7 @@ class StatsRepository:
             select(
                 s_id.label("search_id"),
                 func.coalesce(s_type, "UNKNOWN").label("search_type"),
-                cast(s_created, Date).label("search_date"),
+                search_date.label("search_date"),
                 func.max(d_similarity).label("top_similarity"),
                 processing_expression.label("processing_ms"),
             )
@@ -160,7 +179,7 @@ class StatsRepository:
             .group_by(
                 s_id,
                 func.coalesce(s_type, "UNKNOWN"),
-                cast(s_created, Date),
+                search_date,
             )
             .subquery()
         )
