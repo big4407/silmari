@@ -295,7 +295,7 @@ export default function Dashboard() {
         (selectedRegion && selectedRegion !== '전국' ? selectedRegion : null) ||
         selectedAlert.rcptn_rgn_nm ||
         null;
-
+      console.log('안내문자 원문:', selectedAlert.msg_cn);
       // 안내문자 본문은 라벨 없는 자유 서식이라("...노영찬씨(남,76세)를 찾습니다-
       // 163cm,60kg,파란색티,검정바지..." 식) 정규식만으론 한계가 있어 LLM으로
       // 구조화 추출한다. 호출 실패(네트워크·LLM 오류) 시에는 검색 자체가 막히지

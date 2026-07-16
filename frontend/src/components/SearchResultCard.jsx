@@ -66,7 +66,7 @@ export default function SearchResultCard({
             {cctvNo} · {result.recorded_at}
           </p>
           <p className="search-card__meta">
-            <span>{result.region}</span>
+            <span>{result.video_region || result.region}</span>
             <span>
               {result.best_timestamp_sec != null
                 ? formatTime(result.best_timestamp_sec)
