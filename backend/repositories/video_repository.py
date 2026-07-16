@@ -102,10 +102,10 @@ class VideoRepository:
 
         return [row[0] for row in query.all()]
 
-    def exists_by_region_and_period(
+    def exists_by_regions_and_period(
         self,
         *,
-        region_code: str,
+        region_codes: list[str],
         start_at: datetime,
         end_at: datetime,
     ) -> bool:
@@ -113,9 +113,12 @@ class VideoRepository:
         해당 지역과 촬영 기간에 영상이 하나 이상 존재하는지 확인한다.
         """
 
+        if not region_codes:
+            return False
+
         stmt = select(
             exists().where(
-                Video.region_code == region_code,
+                Video.region_code.in_(region_codes),
                 Video.recorded_at >= start_at,
                 Video.recorded_at < end_at,
             )
