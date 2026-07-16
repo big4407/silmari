@@ -13,6 +13,8 @@ clothing_translator.py)으로 넘기고, 그것도 실패하면 최후 수단으
 """
 from __future__ import annotations
 
+import re
+
 # ── 색상 (CCTV 권장 10색) ────────────────────────────────────────────────
 _COLOR_KO_TO_EN: dict[str, str] = {
     "흰색": "white", "하얀색": "white", "하양": "white", "화이트": "white",
@@ -66,6 +68,60 @@ def _find_first_match(text: str, table: dict[str, str]) -> str | None:
         if ko in text:
             return table[ko]
     return None
+
+
+def extract_primary_color_en(clothing_ko: str | None) -> str | None:
+    """한글 인상착의 텍스트에서 색상 하나만 뽑아 taxonomy 영문명으로 돌려준다.
+
+    build_clothes_en_from_taxonomy와 마찬가지로 문장 전체에서 색상을 하나만
+    찾는다(상/하의 구분 없음). extract_colors_by_garment()가 구간을 못 나눠서
+    실패했을 때의 폴백으로 쓰인다.
+    """
+    if not clothing_ko or not clothing_ko.strip():
+        return None
+    return _find_first_match(clothing_ko.strip(), _COLOR_KO_TO_EN)
+
+
+def extract_colors_by_garment(clothing_ko: str | None) -> dict[str, str | None]:
+    """한글 인상착의 텍스트에서 상의 색상과 하의 색상을 각각 따로 뽑는다.
+
+    "빨간 셔츠, 검정 바지"처럼 콤마 등으로 구간이 나뉜 문장이면, 그 구간
+    안에서만 색상을 찾아 상/하의에 정확히 연결한다("파란 셔츠, 검은 바지"에서
+    상의=blue, 하의=black으로 구분됨). "빨간 셔츠 입고 검정 바지 입은 사람"처럼
+    구분자가 없어 구간을 못 나누면 상/하의 어느 색인지 판단할 수 없으므로,
+    문장 전체에서 찾은 색 하나를 상/하의 둘 다에 같은 값으로 채워
+    color_matching.py가 유사도 비교에 참고할 수 있게 한다(둘 중 하나만
+    실제로 맞아도 인정 — 기존 max() 방식과 동일한 최후 수단).
+
+    반환: {"top": 영문 색상명 또는 None, "bottom": 영문 색상명 또는 None}
+    """
+    result: dict[str, str | None] = {"top": None, "bottom": None}
+    if not clothing_ko or not clothing_ko.strip():
+        return result
+
+    text = clothing_ko.strip()
+    segments = re.split(r"[,;]|(?:\s그리고\s)|(?:\s하고\s)", text)
+
+    for seg in segments:
+        seg = seg.strip()
+        if not seg:
+            continue
+        color = _find_first_match(seg, _COLOR_KO_TO_EN)
+        if color is None:
+            continue
+        if result["top"] is None and _find_first_match(seg, _TOP_KO_TO_EN):
+            result["top"] = color
+        if result["bottom"] is None and _find_first_match(seg, _BOTTOM_KO_TO_EN):
+            result["bottom"] = color
+
+    if result["top"] is None and result["bottom"] is None:
+        # 구간을 나눠서 하나도 못 찾은 경우(구분자 없는 문장 등) — 문장 전체
+        # 기준 색 하나를 최후 수단으로 양쪽에 동일하게 채운다.
+        fallback = extract_primary_color_en(text)
+        result["top"] = fallback
+        result["bottom"] = fallback
+
+    return result
 
 
 def build_clothes_en_from_taxonomy(clothing_ko: str | None) -> str | None:

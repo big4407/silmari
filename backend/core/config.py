@@ -81,6 +81,23 @@ class Settings(BaseSettings):
 
     openai_api_key: str | None = None
 
+    # FashionCLIP 로드 시 huggingface_hub가 매번 "새 버전 있는지" 네트워크로
+    # 확인하는 것(HEAD 요청)을 건너뛸지 여부. 캐시가 이미 있는 배포 환경에서는
+    # 기본 True(오프라인)로 두는 게 맞다 — huggingface.co 접속이 느리거나
+    # 막힌 환경에서 이 확인이 매번 타임아웃+재시도를 반복해 로딩이 멈춘
+    # 것처럼 보이는 문제를 막는다. 캐시가 없는 새 환경에서 최초 다운로드가
+    # 필요하면 .env에 HF_HUB_OFFLINE=false 로 잠깐 꺼두면 된다.
+    hf_hub_offline: bool = True
+
+    # huggingface_hub/transformers에 알려진 버그로, HF_HUB_OFFLINE=1이어도
+    # 일부 코드 경로(특히 processor 로딩)가 최소 1번은 HEAD 요청을 시도한다
+    # (huggingface/transformers #43200 등). 기본 타임아웃(10초)이 재시도 5번과
+    # 겹치면 체감상 로딩이 멈춘 것처럼 보이므로, 이 요청 전용 타임아웃을
+    # 짧게 줄여 실패를 빠르게 만든다 — huggingface.co 자체를 막는 게 아니라
+    # (hosts 파일 차단과 달리 이 컴퓨터의 다른 프로그램은 영향 없음) 이
+    # 프로세스의 존재-확인 요청만 빨리 포기하고 캐시로 넘어가게 한다.
+    hf_hub_etag_timeout: int = 1
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
