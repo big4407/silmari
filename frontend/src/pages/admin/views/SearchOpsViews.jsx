@@ -1,10 +1,12 @@
-/** 검색 운영 뷰 — CCTV 소스(지역별 현황 연동, 일자별 이력은 아직 목업) · 검색 요청 이력(연동) */
+/** 검색 운영 뷰 — CCTV 소스(지역별 현황·일자별 이력 연동) · 검색 요청 이력(연동) */
 import { useCallback, useEffect, useState } from 'react';
 import PageHead from '../components/PageHead';
 import { StatValue, TableEmptyRow } from '../components/EmptyState';
 import {
   fetchAdminSearchRequests,
   fetchCctvCoverage,
+  fetchVideoDailySummary,
+  retryVideoIndexJob,
   SEARCH_TYPE_LABELS,
 } from '../../../api/client';
 
@@ -13,6 +15,13 @@ export function CctvSourceView() {
   const [coverage, setCoverage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const [days, setDays] = useState([]);
+  const [daysLoading, setDaysLoading] = useState(true);
+  const [daysError, setDaysError] = useState('');
+  const [retryDate, setRetryDate] = useState('');
+  const [retrying, setRetrying] = useState(false);
+  const [retryMessage, setRetryMessage] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -37,6 +46,52 @@ export function CctvSourceView() {
       cancelled = true;
     };
   }, []);
+
+  const loadDays = useCallback(async () => {
+    setDaysLoading(true);
+    setDaysError('');
+    try {
+      const data = await fetchVideoDailySummary({ page: 1, per_page: 20 });
+      setDays(data.items ?? []);
+    } catch (err) {
+      setDaysError(
+        err?.response?.status === 403
+          ? '관리자 권한이 필요합니다.'
+          : '일자별 영상 현황을 불러오지 못했습니다.',
+      );
+    } finally {
+      setDaysLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (tab === 'daily') loadDays();
+  }, [tab, loadDays]);
+
+  const handleRetry = async () => {
+    if (!retryDate) {
+      setRetryMessage('재시도할 날짜를 먼저 선택하세요.');
+      return;
+    }
+    setRetrying(true);
+    setRetryMessage('');
+    try {
+      const result = await retryVideoIndexJob(retryDate);
+      setRetryMessage(
+        `${result.target_date} 재인덱싱 완료 — 대상 ${result.total}건 중 ` +
+          `처리 ${result.processed} · 건너뜀 ${result.skipped} · 실패 ${result.failed}`,
+      );
+      await loadDays();
+    } catch (err) {
+      setRetryMessage(
+        err?.response?.status === 403
+          ? '관리자 권한이 필요합니다.'
+          : '재인덱싱 요청에 실패했습니다.',
+      );
+    } finally {
+      setRetrying(false);
+    }
+  };
 
   const items = coverage?.items ?? [];
   const summaryData = coverage?.summary;
@@ -99,31 +154,50 @@ export function CctvSourceView() {
     </div>
   );
 
+  const fmtDateTime = (s) =>
+    s
+      ? new Date(s).toLocaleString('ko-KR', {
+          dateStyle: 'short',
+          timeStyle: 'medium',
+        })
+      : '-';
+
   const dailyTable = (
     <div className="admin-card admin-table-wrap">
       <div className="admin-card-h">
-        일자별 인덱싱 작업 이력{' '}
+        일자별 영상 현황{' '}
         <span className="admin-pill admin-pill--muted">
-          영상 적재 + 인물 탐지(video · video_detail)
+          촬영일자(recorded_at) 기준, Video 테이블 집계
         </span>
       </div>
       <table>
         <thead>
           <tr>
-            <th>작업 일자</th>
-            <th>대상 지역</th>
-            <th>영상 적재</th>
-            <th>인물 인덱싱</th>
-            <th>소요</th>
-            <th>상태</th>
-            <th style={{ textAlign: 'right' }} />
+            <th>촬영 일자</th>
+            <th>영상 파일</th>
+            <th>대상 지역 수</th>
+            <th>최초 등록</th>
+            <th>최종 등록</th>
           </tr>
         </thead>
         <tbody>
-          <TableEmptyRow
-            colSpan={7}
-            message="작업 이력을 기록하는 기능은 아직 없습니다."
-          />
+          {daysLoading ? (
+            <TableEmptyRow colSpan={5} message="불러오는 중…" />
+          ) : daysError ? (
+            <TableEmptyRow colSpan={5} message={daysError} />
+          ) : days.length === 0 ? (
+            <TableEmptyRow colSpan={5} message="등록된 영상이 없습니다." />
+          ) : (
+            days.map((day) => (
+              <tr key={day.target_date}>
+                <td>{day.target_date}</td>
+                <td>{day.video_count}</td>
+                <td>{day.region_count}</td>
+                <td>{fmtDateTime(day.first_indexed_at)}</td>
+                <td>{fmtDateTime(day.last_indexed_at)}</td>
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
     </div>
@@ -157,16 +231,31 @@ export function CctvSourceView() {
       ) : (
         <>
           <div className="admin-toolbar">
-            <input type="date" disabled />
-            <select disabled>
-              <option>전체 상태</option>
-            </select>
             <div className="admin-spacer" />
-            <button type="button" className="admin-btn" disabled>
-              인덱싱 재시도
+            <input
+              type="date"
+              value={retryDate}
+              onChange={(e) => setRetryDate(e.target.value)}
+              title="재인덱싱할 촬영일자"
+            />
+            <button
+              type="button"
+              className="admin-btn"
+              onClick={handleRetry}
+              disabled={retrying}
+            >
+              {retrying ? '인덱싱 중…' : '인덱싱 재시도'}
             </button>
           </div>
+          {retryMessage && <p className="admin-footnote">{retryMessage}</p>}
           {dailyTable}
+          <p className="admin-footnote">
+            ※ 별도 작업 기록 테이블 없이 Video 테이블을 촬영일자 기준으로 집계한
+            표라, 그 날 시도했지만 전부 실패했거나 건너뛴 영상은 여기 안
+            잡힙니다 — 실제로 등록에 성공한 영상만 보입니다. "인덱싱 재시도"는
+            YOLO·FashionCLIP 처리라 시간이 걸릴 수 있고, 완료될 때까지 응답을
+            기다립니다(결과는 저장되지 않는 1회성 응답).
+          </p>
         </>
       )}
     </>

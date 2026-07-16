@@ -55,3 +55,39 @@ class CctvSourceSummary(BaseModel):
 class CctvRegionCoverageResponse(BaseModel):
     summary: CctvSourceSummary
     items: list[CctvRegionCoverageItem]
+
+
+class DailyVideoSummaryItem(BaseModel):
+    """촬영일자(recorded_at) 1일치 영상 현황 — "일자별 이력" 화면용.
+
+    별도 작업 기록 테이블 없이 Video 테이블 groupby로 만든다. 그래서 그 날
+    "시도했지만 전부 실패한" 경우나 "건너뛴 개수"는 여기 안 잡힌다 — 성공해서
+    실제로 Video row가 생긴 것만 집계된다는 걸 화면에서도 안내해야 한다.
+    """
+
+    target_date: date
+    video_count: int
+    region_count: int
+    first_indexed_at: datetime | None = None
+    last_indexed_at: datetime | None = None
+
+
+class DailyVideoSummaryResponse(BaseModel):
+    items: list[DailyVideoSummaryItem]
+    total: int
+    page: int
+    per_page: int
+
+
+class VideoIndexRetryRequest(BaseModel):
+    target_date: date = Field(description="다시 인덱싱할 촬영일자")
+
+
+class VideoIndexRetryResponse(BaseModel):
+    """"인덱싱 재시도" 실행 직후 결과 — 별도로 저장되지 않는 1회성 결과다."""
+
+    target_date: date
+    total: int
+    processed: int
+    skipped: int
+    failed: int

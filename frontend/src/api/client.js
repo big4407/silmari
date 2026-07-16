@@ -262,6 +262,21 @@ export const fetchAdminSearchRequests = (params = {}) =>
 export const fetchCctvCoverage = () =>
   client.get('/member/admin/cctv-coverage').then((r) => r.data);
 
+/** 촬영일자별 영상 현황(관리자용) — 별도 작업 기록 테이블 없이 Video groupby 기반.
+ * 그래서 완전히 실패한 날/건너뛴 개수는 안 잡히고, 성공해서 실제 등록된
+ * 영상만 집계된다. */
+export const fetchVideoDailySummary = (params = {}) =>
+  client
+    .get('/member/admin/video-daily-summary', { params })
+    .then((r) => r.data);
+
+/** 특정 날짜 영상 재인덱싱("인덱싱 재시도") — YOLO+FashionCLIP 처리라 오래 걸릴 수
+ * 있음. 결과는 저장 안 되는 1회성 응답이라, 반영하려면 목록을 새로고침해야 함. */
+export const retryVideoIndexJob = (targetDate) =>
+  client
+    .post('/member/admin/video-index-jobs/retry', { target_date: targetDate })
+    .then((r) => r.data);
+
 /** 행정구역 목록 */
 export const fetchRegions = (params = {}) =>
   client.get('/member/admin/regions', { params }).then((r) => r.data);

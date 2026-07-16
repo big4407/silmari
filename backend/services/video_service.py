@@ -118,6 +118,22 @@ class VideoService:
 
         return {"processed": processed, "skipped": skipped, "failed": failed}
 
+    def run_indexing_job(self, target_date: date) -> dict:
+        """target_date 하루치 영상을 수집·인덱싱한다.
+
+        core/scheduler.py의 process_videos_job(매일 자동)과 관리자 콘솔의
+        수동 "인덱싱 재시도"가 이 메서드 하나를 공유한다. 작업 실행 자체를
+        별도로 기록하는 테이블은 없다 — "일자별 이력"은 Video 테이블을
+        recorded_at 기준으로 groupby해서 보여준다(services/cctv_coverage_service.py).
+        반환: {"total": 대상 건수, "processed": 처리, "skipped": 중복, "failed": 실패}
+        """
+        video_paths = self.collect_video_paths(target_date, target_date)
+        if not video_paths:
+            return {"total": 0, "processed": 0, "skipped": 0, "failed": 0}
+
+        result = self.process_videos(video_paths)
+        return {"total": len(video_paths), **result}
+
     def process_video_detail(self, video_id: int, details: list[dict]):
         for detail in details:
             video_detail = VideoDetailCreate(

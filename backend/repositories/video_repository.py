@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import func, select, update, exists
+from sqlalchemy import desc, func, select, update, exists
 from sqlalchemy.orm import Session
 
 from backend.db.models import Video, VideoDetail
@@ -58,6 +58,48 @@ class VideoRepository:
             }
             for region_code, cctv_count, video_count in rows
         ]
+
+    def get_daily_summary(
+        self, page: int, per_page: int
+    ) -> tuple[list[dict], int]:
+        """recorded_at(촬영일자)별 영상 현황 — "일자별 이력" 화면용.
+
+        별도 작업 기록 테이블 없이 Video 테이블만으로 만든다. 그래서 "그 날
+        시도했지만 하나도 성공 못 한 영상"이나 "건너뛴 개수"는 여기 안 잡힌다
+        — Video row는 처리 성공한 것만 최종적으로 남기 때문에, 이 표는
+        "그 날짜로 실제 등록된 영상"만 보여준다는 걸 감안해야 한다.
+        """
+        base_query = self.db.query(Video.recorded_at).filter(
+            Video.recorded_at.isnot(None)
+        )
+        total = base_query.distinct().count()
+
+        rows = (
+            self.db.query(
+                Video.recorded_at,
+                func.count(Video.id).label("video_count"),
+                func.count(func.distinct(Video.region_code)).label("region_count"),
+                func.min(Video.created_at).label("first_indexed_at"),
+                func.max(Video.created_at).label("last_indexed_at"),
+            )
+            .filter(Video.recorded_at.isnot(None))
+            .group_by(Video.recorded_at)
+            .order_by(desc(Video.recorded_at))
+            .offset((page - 1) * per_page)
+            .limit(per_page)
+            .all()
+        )
+        items = [
+            {
+                "target_date": recorded_at,
+                "video_count": video_count,
+                "region_count": region_count,
+                "first_indexed_at": first_indexed_at,
+                "last_indexed_at": last_indexed_at,
+            }
+            for recorded_at, video_count, region_count, first_indexed_at, last_indexed_at in rows
+        ]
+        return items, total
 
     def unlink_all_region_codes(self) -> int:
         """모든 video.region_code 를 NULL 처리한다 (region 테이블 전체 삭제 전 정리용).

@@ -67,7 +67,12 @@ from backend.services.region_admin_service import RegionAdminService
 from backend.services.search_service import SearchService
 from backend.schemas.search_schema import AdminSearchListResponse
 from backend.services.cctv_coverage_service import CctvCoverageService
-from backend.schemas.video_schema import CctvRegionCoverageResponse
+from backend.schemas.video_schema import (
+    CctvRegionCoverageResponse,
+    DailyVideoSummaryResponse,
+    VideoIndexRetryRequest,
+    VideoIndexRetryResponse,
+)
 
 router = APIRouter(prefix="/admin")
 
@@ -360,6 +365,36 @@ def get_cctv_coverage(
 ) -> CctvRegionCoverageResponse:
     """CCTV 영상 수집 현황(관리자용) — 지역별 CCTV 대수·영상 파일 수."""
     return CctvCoverageService(db).get_region_coverage()
+
+
+@router.get("/video-daily-summary", response_model=DailyVideoSummaryResponse)
+def get_video_daily_summary(
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=20, ge=1, le=100),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+    db: Session = Depends(get_db),
+) -> DailyVideoSummaryResponse:
+    """촬영일자별 영상 현황(관리자용) — Video 테이블 groupby 기반."""
+    return CctvCoverageService(db).get_daily_summary(page=page, per_page=per_page)
+
+
+@router.post("/video-index-jobs/retry", response_model=VideoIndexRetryResponse)
+def retry_video_index_job(
+    payload: VideoIndexRetryRequest,
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+    db: Session = Depends(get_db),
+) -> VideoIndexRetryResponse:
+    """특정 날짜의 영상을 다시 인덱싱한다("인덱싱 재시도" 버튼).
+
+    YOLO·FashionCLIP 처리라 시간이 걸릴 수 있다 — 지금은 요청-응답 안에서
+    동기로 끝까지 돈다(검색 생성과 같은 1차 결정). 영상이 많아지면 비동기
+    전환을 검토해야 한다. 결과는 별도로 저장되지 않는 1회성 응답이다 —
+    다시 조회하고 싶으면 /video-daily-summary를 새로고침한다.
+    """
+    from backend.services.video_service import VideoService
+
+    result = VideoService(db).run_indexing_job(payload.target_date)
+    return VideoIndexRetryResponse(target_date=payload.target_date, **result)
 
 
 def _region_child_counts(db: Session, codes: list[str]) -> dict[str, int]:

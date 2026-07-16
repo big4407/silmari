@@ -47,8 +47,8 @@ async def collect_messages_job():
 async def process_videos_job():
     """매일 전날 생성된 CCTV 영상을 Video/VideoDetail 및 Chroma 에 저장.
 
-    영상 경로 수집은 VideoService.collect_video_paths 에 위임한다.
-    같은 file_path 는 이미 처리된 것으로 보고 건너뛴다(중복 방지).
+    실제 수집·인덱싱은 VideoService.run_indexing_job에 위임한다 — 관리자
+    콘솔의 수동 "인덱싱 재시도"와 로직을 공유하기 위함.
     """
     db = SessionLocal()
     try:
@@ -58,16 +58,11 @@ async def process_videos_job():
 
         # 전날 하루 (start=end=어제)
         yesterday = date.today() - timedelta(days=1)
-        video_paths = service.collect_video_paths(yesterday, yesterday)
-
-        if not video_paths:
-            print("[영상 처리] 대상 영상이 없습니다.")
-            return
-
-        result = service.process_videos(video_paths)
+        result = service.run_indexing_job(yesterday)
         print(
-            f"[영상 처리 완료] 대상 {len(video_paths)}건 "
-            f"| 처리 {result['processed']} | 중복 건너뜀 {result['skipped']}"
+            f"[영상 처리 완료] 대상 {result['total']}건 "
+            f"| 처리 {result['processed']} | 중복 건너뜀 {result['skipped']} "
+            f"| 실패 {result['failed']}"
         )
     except Exception as e:
         db.rollback()
