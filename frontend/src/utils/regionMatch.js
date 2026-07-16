@@ -113,6 +113,28 @@ export function countAlertsForSido(alerts, sidoLabel) {
   return filterAlertsByRegion(alerts, filter).length;
 }
 
+/** 현재 지도 단계의 시·도/구·군/동 영역에 해당하는 안내문자 수 */
+export function countAlertsForMapRegion(alerts, region, path) {
+  if (!region || !Array.isArray(path) || path.length === 0) return 0;
+  const filterPath = path.length === 1 ? [...path, region.id] : path;
+  const mapFilter = buildMapFilter(region, filterPath);
+
+  // 구 단위 문자를 모든 동에 중복 집계하면 각 동에 같은 숫자가 표시된다.
+  // 동 지도에서는 문자에 해당 동 이름이 명시된 경우만 배지 숫자에 포함한다.
+  if (mapFilter.level === 'dong') {
+    const dongLabel = mapFilter.label.replace(/\s/g, '');
+    return alerts.filter((alert) => {
+      const regionText = (alert.rcptn_rgn_nm || '').replace(/\s/g, '');
+      return (
+        regionText.includes(dongLabel) &&
+        alertMatchesFilter(alert.rcptn_rgn_nm, mapFilter)
+      );
+    }).length;
+  }
+
+  return filterAlertsByRegion(alerts, mapFilter).length;
+}
+
 /** rcptn_rgn_nm에서 읍·면·동 후보 추출 */
 function extractEmdNames(text) {
   return [...text.matchAll(/([가-힣0-9]+(?:동|읍|면))/g)].map((m) => m[1]);

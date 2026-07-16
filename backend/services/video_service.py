@@ -1,7 +1,9 @@
 import cv2
 import numpy as np
 import os
+import torch
 from pathlib import Path
+from PIL import Image
 from ultralytics import YOLO
 from datetime import date, datetime, timedelta
 from backend.core.config import settings
@@ -32,6 +34,42 @@ def _get_fashion_clip() -> FashionCLIP:
     if _fclip is None:
         _fclip = FashionCLIP("fashion-clip")
     return _fclip
+
+
+def _encode_texts(texts: list[str], batch_size: int = 1) -> np.ndarray:
+    """FashionCLIP의 datasets 기반 인코더 대신 processor를 직접 사용한다."""
+    fclip = _get_fashion_clip()
+    embeddings = []
+    for start in range(0, len(texts), batch_size):
+        inputs = fclip.preprocess(
+            text=texts[start : start + batch_size],
+            return_tensors="pt",
+            max_length=77,
+            padding="max_length",
+            truncation=True,
+        )
+        inputs = {key: value.to(fclip.device) for key, value in inputs.items()}
+        with torch.no_grad():
+            features = fclip.model.get_text_features(**inputs)
+        embeddings.append(features.detach().cpu().numpy())
+    return np.vstack(embeddings)
+
+
+def _encode_images(image_paths: list[str], batch_size: int = 32) -> np.ndarray:
+    """torchvision VideoReader와 무관하게 PIL 이미지 배치를 직접 인코딩한다."""
+    fclip = _get_fashion_clip()
+    embeddings = []
+    for start in range(0, len(image_paths), batch_size):
+        images = []
+        for path in image_paths[start : start + batch_size]:
+            with Image.open(path) as image:
+                images.append(image.convert("RGB").copy())
+        inputs = fclip.preprocess(images=images, return_tensors="pt")
+        inputs = {key: value.to(fclip.device) for key, value in inputs.items()}
+        with torch.no_grad():
+            features = fclip.model.get_image_features(**inputs)
+        embeddings.append(features.detach().cpu().numpy())
+    return np.vstack(embeddings)
 
 # 처리 대상 영상 확장자
 _VIDEO_EXTENSIONS = {".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm"}
@@ -298,7 +336,7 @@ class VideoService:
     # crop embedding ------------------------------------------------------
     def create_image_embeddings(self, crop_paths: list[str]):
         path_strings = [str(path) for path in crop_paths]
-        embeddings = _get_fashion_clip().encode_images(path_strings, batch_size=32)
+        embeddings = _encode_images(path_strings, batch_size=32)
         norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
         return embeddings / norms
 
@@ -333,7 +371,7 @@ class VideoService:
         return result
 
     def search_embeddings(self, query: str, video_id: int, n_results: int = 5):
-        text_embeddings = _get_fashion_clip().encode_text([query], batch_size=1)
+        text_embeddings = _encode_texts([query], batch_size=1)
         text_embeddings = text_embeddings / np.linalg.norm(
             text_embeddings, axis=1, keepdims=True
         )
@@ -353,7 +391,7 @@ class VideoService:
         video_ids가 None이면 전체 컬렉션에서 검색한다(지역·기간 필터 없이 전수 검색).
         하나의 챗봇/검색 요청은 보통 지역·기간으로 video_ids를 먼저 좁혀서 넘긴다.
         """
-        text_embeddings = _get_fashion_clip().encode_text([query], batch_size=1)
+        text_embeddings = _encode_texts([query], batch_size=1)
         text_embeddings = text_embeddings / np.linalg.norm(
             text_embeddings, axis=1, keepdims=True
         )

@@ -486,12 +486,6 @@ export default function Dashboard() {
             )}
           </div>
 
-          {!loading && filteredAlerts.length > 0 && isDefaultQuery && (
-            <p className="sidebar-hint">
-              기본 조회 (최근 90일)
-              {regionLabel && ` · ${regionLabel}`}
-            </p>
-          )}
           {!loading &&
             filteredAlerts.length > 0 &&
             !isDefaultQuery &&
