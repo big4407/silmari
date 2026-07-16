@@ -7,6 +7,7 @@ from datetime import date, datetime, time, timedelta
 from enum import Enum
 
 from backend.repositories.video_repository import VideoRepository
+from backend.repositories.region_repository import RegionRepository
 
 
 class VideoPeriodValidationStatus(str, Enum):
@@ -65,8 +66,11 @@ class VideoPeriodValidator:
     따라서 2026-07-03에 촬영된 영상도 모두 포함된다.
     """
 
-    def __init__(self, video_repository: VideoRepository):
+    def __init__(
+        self, video_repository: VideoRepository, region_repository: RegionRepository
+    ):
         self.video_repository = video_repository
+        self.region_repository = region_repository
 
     def validate(
         self,
@@ -109,9 +113,11 @@ class VideoPeriodValidator:
             start_date=start_date,
             end_date=end_date,
         )
-
-        video_exists = self.video_repository.exists_by_region_and_period(
+        region_codes = self.region_repository.get_video_search_region_codes(
             region_code=region_code,
+        )
+        video_exists = self.video_repository.exists_by_regions_and_period(
+            region_codes=region_codes,
             start_at=start_at,
             end_at=end_at,
         )
@@ -160,7 +166,9 @@ if __name__ == "__main__":
     db = SessionLocal()
 
     try:
-        validator = VideoPeriodValidator(video_repository=VideoRepository(db))
+        validator = VideoPeriodValidator(
+            video_repository=VideoRepository(db), region_repository=RegionRepository(db)
+        )
 
         test_cases = [
             {
