@@ -14,7 +14,7 @@ from sqlalchemy import (
     Text,
 )
 
-# 기존 ORM Base와 분리된 통계 전용 MetaData입니다.
+# 기존 ORM Base와 분리된 통계 전용 MetaData
 stats_metadata = MetaData()
 
 stats_case_event = Table(
