@@ -115,7 +115,7 @@ export function CaseEventForm({ onCreated }: CaseEventFormProps) {
           <input
             value={actorRole}
             onChange={(event) => setActorRole(event.target.value)}
-            placeholder="보호자, 관리자 등"
+            placeholder="보호자, 발견자 등"
           />
         </label>
 
