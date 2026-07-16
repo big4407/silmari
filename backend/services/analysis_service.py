@@ -33,6 +33,7 @@ from backend.repositories.region_repository import RegionRepository
 from backend.repositories.video_repository import VideoRepository
 from backend.schemas.search_schema import SearchDetail
 from backend.services.llm_call_service import LlmCallService
+from backend.services.region_resolver import RegionResolver
 
 # 코사인 거리 기준 최소 유사도(= 1 - distance). 데이터가 쌓이면 재조정 필요.
 DEFAULT_MIN_SIMILARITY = 0.2
@@ -47,6 +48,7 @@ class AnalysisService:
         self.video_repository = VideoRepository(db)
         self.llm_call_service = LlmCallService(db)
         self._video_service = None
+        self.region_resolver = RegionResolver(self.region_repository)
 
     @property
     def video_service(self):
@@ -131,7 +133,10 @@ class AnalysisService:
             # 인상착의 정보가 전혀 없으면 매칭을 시도할 수 없다 — 빈 결과로 완료 처리.
             return self.repository.set_status(analysis, AnalysisStatus.COMPLETED)
 
-        region_codes = self.resolve_region_codes(search.missing_location)
+        region_code = self.region_resolver.resolve(search.missing_location).region_code
+        region_codes = self.region_repository.get_video_search_region_codes(
+            region_code=region_code,
+        )
         video_ids = self.resolve_video_ids(
             region_codes, search.start_date, search.end_date
         )
