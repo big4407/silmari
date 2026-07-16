@@ -6,9 +6,11 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from backend.db.models import LlmCallType
+
 
 class CallCreate(BaseModel):
-    call_type: str = Field(max_length=100)
+    call_type: LlmCallType
 
     search_id: int | None = None
     user_id: str | None = Field(default=None, max_length=36)
@@ -29,7 +31,7 @@ class CallCreate(BaseModel):
 
 
 class CallUpdate(BaseModel):
-    call_type: str | None = Field(default=None, max_length=100)
+    call_type: LlmCallType | None = None
 
     search_id: int | None = None
     user_id: str | None = Field(default=None, max_length=36)
@@ -54,7 +56,7 @@ class CallResponse(BaseModel):
 
     id: int
 
-    call_type: str
+    call_type: LlmCallType
 
     search_id: int | None
     user_id: str | None
@@ -77,7 +79,7 @@ class CallResponse(BaseModel):
 
 
 class CallSearchParams(BaseModel):
-    call_type: str | None = Field(default=None, max_length=100)
+    call_type: LlmCallType | None = None
 
     search_id: int | None = None
     user_id: str | None = Field(default=None, max_length=36)
@@ -93,3 +95,82 @@ class CallSearchParams(BaseModel):
     size: int = Field(default=20, ge=1, le=100)
 
     order_by: str = Field(default="latest")
+
+
+class CallListResponse(BaseModel):
+    items: list[CallResponse]
+    total: int
+    page: int
+    size: int
+
+
+class LlmCallGroupItem(BaseModel):
+    call_type: LlmCallType
+    row_key:str
+    model:str | None = None
+
+    chatbot_s_id: str | None = None
+    llm_call_id: int | None = None
+
+    user_id: str | None = None
+    username: str | None = None
+    search_id: int | None = None
+
+    call_count: int
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+    cost: float | None = None
+
+    total_latency_ms: int
+    avg_latency_ms: float
+
+    first_called_at: datetime
+    last_called_at: datetime
+
+
+class MessageLlmCallDetail(BaseModel):
+    llm_call: CallResponse
+    search_id: int | None = None
+
+
+class ChatbotLlmCallDetail(BaseModel):
+    chatbot_s_id: str
+    session_id: str
+    user_id: str | None
+    search_id: int | None = None
+
+    call_count: int
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+    success_count: int
+    failure_count: int
+    success_rate: float
+    avg_latency_ms: float
+
+    calls: list[CallResponse]
+
+
+class LlmCallGroupListResponse(BaseModel):
+    items: list[LlmCallGroupItem]
+    page: int
+    size: int
+    total: int
+    total_pages: int
+
+
+class LlmCallAdminSearchParams(BaseModel):
+    call_type: LlmCallType | None = None
+
+    search_id: int | None = None
+    user_id: str | None = None
+    model_name: str | None = None
+    status: str | None = None
+
+    start_date: datetime | None = None
+    end_date: datetime | None = None
+
+    page: int = 1
+    size: int = 20
+    order_by: str = "latest"

@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import random
+import string
 from datetime import datetime, timedelta
 
 from backend.db.database import SessionLocal
@@ -34,29 +35,53 @@ DEFAULT_REGIONS = [
     "대전광역시 동구",
     "서울특별시 강남구",
     "부산광역시 해운대구",
-]
-
-CLOTHING_SAMPLES = [
-    "검은 패딩에 청바지 착용",
-    "회색 후드티에 검은 바지 착용",
-    "흰색 셔츠에 베이지색 바지 착용",
-    "파란색 셔츠에 검은색 바지 착용",
-    "빨간색 재킷에 회색 바지 착용",
+    "대구광역시 수성구",
+    "인천광역시 남동구",
+    "광주광역시 북구",
+    "대전광역시 서구",
+    "울산광역시 남구",
+    "서울특별시 마포구",
+    "부산광역시 사하구"
 ]
 
 NAME_SAMPLES = ["김OO", "이OO", "박OO", "최OO", "정OO"]
+GENDER_SAMPLES = ["남", "여"]
+
+TOP_SAMPLES = ["파란색티", "검은색 후드티", "회색 셔츠", "흰색 니트", "빨간색 재킷"]
+BOTTOM_SAMPLES = ["검정바지", "청바지", "베이지색 바지", "회색 츄리닝"]
+SHOE_SAMPLES = ["검정신발", "흰색 운동화", "갈색 구두"]
+HAIR_SAMPLES = ["흰머리", "검은머리", "짧은머리", "긴머리"]
+
+
+def _agency_from_region(region: str) -> str:
+    """지역명 앞 두 글자로 그럴듯한 관할 기관명을 만든다(예: '부산광역시 해운대구' → '부산경찰청')."""
+    return f"{region[:2]}경찰청"
 
 
 def build_test_message(index: int, region: str, base_dt: datetime) -> dict:
-    """utils/message_filter.is_missing_person_message 조건(재해구분명=기타,
-    실종 키워드 포함)에 맞는 문자 1건을 만든다 — 실제 실종문자와 같은 모양이라야
-    나중에 이 데이터로 다른 걸 테스트할 때도 어긋나지 않는다."""
+    """실제 실종 안내문자와 같은 자유 서식으로 문자 1건을 만든다.
+
+    "인상착의:" 같은 라벨 없이, 실제 문자처럼 성별·나이·키·몸무게·인상착의를
+    쉼표로 나열한 terse한 형태를 쓴다 — LLM 파싱(core/llm/alert_parser.py)이
+    실제로 마주치는 형식과 최대한 비슷해야 테스트 의미가 있다.
+    """
     name = random.choice(NAME_SAMPLES)
-    clothing = random.choice(CLOTHING_SAMPLES)
+    gender = random.choice(GENDER_SAMPLES)
+    age = random.randint(5, 89)
+    height = random.randint(140, 190)
+    weight = random.randint(35, 95)
+    top = random.choice(TOP_SAMPLES)
+    bottom = random.choice(BOTTOM_SAMPLES)
+    shoes = random.choice(SHOE_SAMPLES)
+    hair = random.choice(HAIR_SAMPLES)
+    short_code = "".join(random.choices(string.ascii_letters, k=6))
+    agency = _agency_from_region(region)
+
     crt_dt = base_dt + timedelta(minutes=index)
     msg_cn = (
-        f"[{region}] {name}(이)가 실종되었습니다. 인상착의: {clothing}. "
-        f"목격 시 경찰서로 신고 바랍니다."
+        f"{region} 주민인 {name}씨({gender},{age}세)를 찾습니다-"
+        f"{height}cm,{weight}kg,{top},{bottom},{shoes},{hair}\n"
+        f"vo.la/{short_code} / \u260e182 [{agency}]"
     )
     return {
         "sn": f"T{index:05d}",

@@ -5,7 +5,7 @@ from langchain_community.callbacks import get_openai_callback
 from backend.core.config import settings
 from backend.core.chatbot.graph import build_chatbot_graph
 from backend.core.chatbot.utils import create_initial_state
-from backend.db.models import ChatbotSession
+from backend.db.models import ChatbotSession, LlmCallType
 from backend.repositories.chatbot_repository import ChatbotRepository
 
 from backend.services.llm_call_service import LlmCallService
@@ -75,7 +75,7 @@ class ChatbotService:
             search_id = result.get("search_id") if result else None
 
             self.llm_call_service.record_call(
-                call_type="2",
+                call_type=LlmCallType.CHATBOT,
                 model_name=getattr(self.llm, "model", "unknown"),
                 prompt=message,
                 response=response,
@@ -112,7 +112,9 @@ class ChatbotService:
             "response": response,
             "session_id": session_id,
             "search_id": result.get("search_id") if result else None,
-            "search_inserted": result.get("search_inserted", False) if result else False,
+            "search_inserted": result.get("search_inserted", False)
+            if result
+            else False,
         }
 
     def get_or_create_session(self, session_id: str, user_id: str) -> ChatbotSession:
@@ -170,3 +172,12 @@ class ChatbotService:
             "session_id": session_id,
             "messages": state.get("messages", []),
         }
+
+    def delete_user_session(self, user_id: str) -> None:
+        session = self.repository.get_by_user_id(user_id=user_id)
+
+        if session is None:
+            return
+
+        self.repository.delete(session)
+        self.db.commit()

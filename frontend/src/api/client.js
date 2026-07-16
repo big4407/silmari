@@ -254,6 +254,29 @@ export const fetchLoginHistory = (params = {}) =>
 export const fetchAdminHistory = (params = {}) =>
   client.get('/member/admin/admin-history', { params }).then((r) => r.data);
 
+/** 검색 요청 이력(관리자용, 전체 사용자 대상) */
+export const fetchAdminSearchRequests = (params = {}) =>
+  client.get('/member/admin/search-requests', { params }).then((r) => r.data);
+
+/** CCTV 영상 수집 현황(관리자용, 지역별 집계) */
+export const fetchCctvCoverage = () =>
+  client.get('/member/admin/cctv-coverage').then((r) => r.data);
+
+/** 촬영일자별 영상 현황(관리자용) — 별도 작업 기록 테이블 없이 Video groupby 기반.
+ * 그래서 완전히 실패한 날/건너뛴 개수는 안 잡히고, 성공해서 실제 등록된
+ * 영상만 집계된다. */
+export const fetchVideoDailySummary = (params = {}) =>
+  client
+    .get('/member/admin/video-daily-summary', { params })
+    .then((r) => r.data);
+
+/** 특정 날짜 영상 재인덱싱("인덱싱 재시도") — YOLO+FashionCLIP 처리라 오래 걸릴 수
+ * 있음. 결과는 저장 안 되는 1회성 응답이라, 반영하려면 목록을 새로고침해야 함. */
+export const retryVideoIndexJob = (targetDate) =>
+  client
+    .post('/member/admin/video-index-jobs/retry', { target_date: targetDate })
+    .then((r) => r.data);
+
 /** 행정구역 목록 */
 export const fetchRegions = (params = {}) =>
   client.get('/member/admin/regions', { params }).then((r) => r.data);
@@ -395,6 +418,13 @@ export const ADMIN_ACTION_LABELS = {
   6: '수정',
 };
 
+// 검색 요청 출처 코드 → 한글 라벨 (SearchType enum)
+export const SEARCH_TYPE_LABELS = {
+  1: '안내문자',
+  2: '챗봇',
+  3: '자동검색',
+};
+
 // 로그인 실패 사유 — 화면 표시용 라벨.
 // DB/응답에는 숫자 코드("1"~"5")로 저장·전달되고(LoginFailReason enum),
 // 사용자에게는 아래 한글로 변환해 보여준다. (성공 시 fail_reason 은 없음)
@@ -418,6 +448,10 @@ export const LOGIN_FAIL_LABELS = {
 /** DB에 저장된 재난문자 목록 조회 */
 export const fetchMessages = (params = {}) =>
   client.get('/message', { params }).then((r) => r.data);
+
+/** 안내문자 본문에서 LLM으로 실종자 정보(이름·성별·나이·인상착의) 추출 */
+export const parseAlertMessage = (msgCn) =>
+  client.post('/message/parse', { msg_cn: msgCn }).then((r) => r.data);
 
 /** 외부 API에서 재난문자 수집 후 DB 저장 */
 export const collectMessages = (params = {}) =>
@@ -488,6 +522,8 @@ function mapSearchItemToResult(item) {
         return {
           video_id: Number(videoId),
           video_path: bestVideoResult.video_path || '',
+          video_region: bestVideoResult.video_region,
+          recorded_at: bestVideoResult.recorded_at,
           thumbnail_url: bestVideoResult.crop_img_path || '',
           best_confidence: bestVideoResult.matching_rate || 0,
           best_timestamp_sec: bestVideoResult.video_timestamp,

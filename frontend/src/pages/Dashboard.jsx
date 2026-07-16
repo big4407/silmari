@@ -15,6 +15,7 @@ import {
   createSearch,
   fetchMessages,
   getUserId,
+  parseAlertMessage,
 } from '../api/client';
 import { useDetectionStore } from '../store/useDetectionStore';
 import {
@@ -93,14 +94,28 @@ function regionFilterLabel(mapFilter) {
   return mapFilter.label;
 }
 
-/** 안내문자 본문에서 인상착의 후보 텍스트 추출 (최대 100자) */
+/** 안내문자 본문에서 인상착의 후보 텍스트 추출 (최대 100자).
+ *
+ * 우선순위:
+ *   1) "인상착의:" 같은 명시적 라벨 뒤 텍스트 — 실제 실종 안내문자에서 가장
+ *      흔하고 신뢰도 높은 패턴. 동사 없이 "회색 잠바, 검정 바지"처럼 나열만
+ *      하는 경우가 많아서 2번 패턴으로는 못 잡는다.
+ *   2) "착용/입고/입은/차림" 같은 동사 주변 텍스트
+ *   3) (최후 수단) 본문 맨 앞 100자 — 위 두 패턴이 다 없을 때만. 보통 지역·
+ *      기관명 등 서두라 인상착의와 무관할 수 있음을 감안해야 함.
+ */
 function extractClothingFromAlert(text) {
   if (!text) return null;
   const normalized = text.replace(/\s+/g, ' ').trim();
+
+  const labelMatch = normalized.match(/인상착의\s*[:：]?\s*([^.。\n]{1,100})/);
+  if (labelMatch) return labelMatch[1].trim().slice(0, 100);
+
   const wearMatch = normalized.match(
     /[^.。\n]{0,80}(?:착용|입고|입은|차림)[^.。\n]{0,40}/,
   );
   if (wearMatch) return wearMatch[0].slice(0, 100);
+
   return normalized.slice(0, 100);
 }
 
@@ -291,11 +306,26 @@ export default function Dashboard() {
         (selectedRegion && selectedRegion !== '전국' ? selectedRegion : null) ||
         selectedAlert.rcptn_rgn_nm ||
         null;
+      console.log('안내문자 원문:', selectedAlert.msg_cn);
+      // 안내문자 본문은 라벨 없는 자유 서식이라("...노영찬씨(남,76세)를 찾습니다-
+      // 163cm,60kg,파란색티,검정바지..." 식) 정규식만으론 한계가 있어 LLM으로
+      // 구조화 추출한다. 호출 실패(네트워크·LLM 오류) 시에는 검색 자체가 막히지
+      // 않도록 기존 정규식 추출로 폴백한다.
+      let parsed = null;
+      try {
+        parsed = await parseAlertMessage(selectedAlert.msg_cn);
+      } catch (parseErr) {
+        console.error('안내문자 LLM 파싱 실패, 정규식으로 대체', parseErr);
+      }
 
       const payload = {
         user_id: userId,
         message_sn: selectedAlert.sn || selectedAlert.id,
-        clothing: extractClothingFromAlert(selectedAlert.msg_cn),
+        missing_name: parsed?.missing_name ?? null,
+        gender: parsed?.gender ?? null,
+        age: parsed?.age ?? null,
+        clothing:
+          parsed?.clothing || extractClothingFromAlert(selectedAlert.msg_cn),
         missing_location: region ? region.slice(0, 20) : null,
         search_type: '1',
         ...(range.hasUserRange && range.start_date && range.end_date
@@ -428,12 +458,8 @@ export default function Dashboard() {
         {regionSearchError && (
           <p className="filter-panel__error">{regionSearchError}</p>
         )}
-        {searchError && (
-          <p className="filter-panel__error">{searchError}</p>
-        )}
-        {dateWarning && (
-          <p className="filter-panel__error">{dateWarning}</p>
-        )}
+        {searchError && <p className="filter-panel__error">{searchError}</p>}
+        {dateWarning && <p className="filter-panel__error">{dateWarning}</p>}
 
         <div className="filter-panel__progress">
           <SearchProgressBar

@@ -5,15 +5,22 @@ LLM 사용량 체크를 위한 서비스단
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from backend.db.models import LlmCall
+from backend.db.models import LlmCall, LlmCallType
 from backend.repositories.llm_call_repository import LLmCallRepository
 from backend.schemas.llm_call_schema import (
     CallCreate,
     CallUpdate,
     CallSearchParams,
+    CallResponse,
+    LlmCallGroupListResponse,
+    LlmCallAdminSearchParams,
+    MessageLlmCallDetail,
+    ChatbotLlmCallDetail,
+    LlmCallGroupItem,
 )
 
 import time
+import math
 
 
 class LlmCallService:
@@ -102,7 +109,7 @@ class LlmCallService:
     def record_call(
         self,
         *,
-        call_type: str,
+        call_type: LlmCallType,
         model_name: str,
         prompt: str,
         response: str | None,
@@ -224,3 +231,133 @@ class LlmCallService:
         )
 
         return self.input_call(payload)
+
+    def get_admin_list(
+        self,
+        params: LlmCallAdminSearchParams,
+    ) -> LlmCallGroupListResponse:
+        """
+        관리자용 LLM 호출 통합 목록 조회.
+        """
+        rows, total = self.repository.get_admin_grouped_list(params)
+        
+        items = [
+            LlmCallGroupItem(
+                row_key=row.row_key,
+                model=row.model,
+                call_type=row.call_type,
+                chatbot_s_id=row.chatbot_session_id,
+                llm_call_id=row.llm_call_id,
+                user_id=row.user_id,
+                username=row.username,
+                search_id=row.search_id,
+                call_count=int(row.call_count or 0),
+                input_tokens=int(row.input_tokens or 0),
+                output_tokens=int(row.output_tokens or 0),
+                total_tokens=int(row.total_tokens or 0),
+                total_latency_ms=int(row.total_latency_ms or 0),
+                cost=float(row.cost or 0),
+                avg_latency_ms=round(
+                    float(row.avg_latency_ms or 0),
+                    2,
+                ),
+                first_called_at=row.first_called_at,
+                last_called_at=row.last_called_at,
+            )
+            for row in rows
+        ]
+
+        return LlmCallGroupListResponse(
+            items=items,
+            page=params.page,
+            size=params.size,
+            total=total,
+            total_pages=math.ceil(total / params.size) if total else 0,
+        )
+
+    def get_message_call_detail(
+        self,
+        llm_call_id: int,
+    ) -> MessageLlmCallDetail:
+        """
+        안내문자 LLM 호출 상세 조회.
+
+        call_type='1'인 개별 호출만 조회한다.
+        """
+        call = self._get_or_404(llm_call_id)
+
+        if call.call_type != LlmCallType.CLOTHING_TRANSLATE:
+            raise HTTPException(
+                status_code=404,
+                detail="해당 id의 안내문자 LLM 호출 기록이 없습니다.",
+            )
+
+        return MessageLlmCallDetail(
+            llm_call=CallResponse.model_validate(call),
+            search_id=call.search_id,
+        )
+
+    def get_chatbot_call_detail(
+        self,
+        chatbot_s_id: str,
+    ) -> ChatbotLlmCallDetail:
+        """
+        chatbot_s_id에 속한 LLM 호출 목록과 집계 정보 조회.
+        """
+        calls = self.repository.get_calls_by_chatbot_s_id(chatbot_s_id)
+
+        if not calls:
+            raise HTTPException(
+                status_code=404,
+                detail="해당 챗봇 세션의 LLM 호출 기록이 없습니다.",
+            )
+
+        call_count = len(calls)
+
+        input_tokens = sum(call.input_tokens or 0 for call in calls)
+        output_tokens = sum(call.output_tokens or 0 for call in calls)
+
+        success_count = sum(1 for call in calls if call.status == "1")
+        failure_count = sum(1 for call in calls if call.status == "0")
+
+        success_rate = round(
+            success_count / call_count * 100,
+            2,
+        )
+
+        latency_values = [
+            call.latency_ms for call in calls if call.latency_ms is not None
+        ]
+
+        avg_latency_ms = (
+            round(
+                sum(latency_values) / len(latency_values),
+                2,
+            )
+            if latency_values
+            else 0.0
+        )
+
+        # get_calls_by_chatbot_s_id가 시간 오름차순으로 반환한다고 가정
+        first_call = calls[0]
+
+        search_id = next(
+            (call.search_id for call in reversed(calls) if call.search_id is not None),
+            None,
+        )
+
+        return ChatbotLlmCallDetail(
+            chatbot_s_id=chatbot_s_id,
+            session_id=chatbot_s_id,
+            user_id=first_call.user_id,
+            search_id=search_id,
+            call_count=call_count,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            total_tokens=input_tokens + output_tokens,
+            success_count=success_count,
+            failure_count=failure_count,
+            success_rate=success_rate,
+            avg_latency_ms=avg_latency_ms,
+            calls=[CallResponse.model_validate(call) for call in calls],
+        )

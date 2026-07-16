@@ -4,6 +4,9 @@ from sqlalchemy.orm import Session
 
 from backend.repositories.search_repository import SearchRepository
 from backend.schemas.search_schema import (
+    AdminSearchItem,
+    AdminSearchListResponse,
+    AdminSearchSummary,
     SearchCreate,
     SearchDetail,
     SearchListResponse,
@@ -64,6 +67,12 @@ class SearchService:
                         "position": detail.position,
                         "crop_img_path": detail.crop_img_path,
                         "matching_rate": detail.matching_rate,
+                        "recorded_at": detail.video.recorded_at if detail.video else None,
+                        "video_region": (
+    detail.video.region.full_name
+    if detail.video and detail.video.region
+    else None
+),
                     }
                 )
 
@@ -104,3 +113,53 @@ class SearchService:
             raise ValueError("검색 기록을 찾을 수 없습니다.")
 
         self.repository.delete(search)
+
+    def list_for_admin(
+        self,
+        page: int,
+        size: int,
+        keyword: str | None = None,
+        search_type: str | None = None,
+        requester_user_id: str | None = None,
+        start_date=None,
+        end_date=None,
+    ) -> AdminSearchListResponse:
+        """관리자 콘솔의 검색 요청 이력 화면용 — 전체 사용자 대상, 필터+오늘 요약."""
+        items, total = self.repository.find_all_admin(
+            page=page,
+            per_page=size,
+            keyword=keyword,
+            search_type=search_type,
+            requester_user_id=requester_user_id,
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+        admin_items = []
+        for item in items:
+            preview = None
+            if item.message is not None and item.message.msg_cn:
+                preview = item.message.msg_cn[:60]
+
+            data = AdminSearchItem.model_validate(item).model_dump()
+            data.update(
+                requester_name=item.user.full_name if item.user else None,
+                requester_username=item.user.username if item.user else None,
+                message_preview=preview,
+            )
+            admin_items.append(AdminSearchItem(**data))
+
+        page_info = PagingInfo(
+            total=total,
+            total_pages=ceil(total / size) if total > 0 else 0,
+            page=page,
+            per_page=size,
+            has_prev=page > 1,
+            has_next=page * size < total,
+        )
+
+        summary = AdminSearchSummary(**self.repository.count_today_by_type())
+
+        return AdminSearchListResponse(
+            items=admin_items, page_info=page_info, summary=summary
+        )

@@ -29,7 +29,7 @@ const TARGET_LINKS = {
   video: { viewId: 'cctv-source', label: 'CCTV 영상 수집' },
   auth: { viewId: 'members-all', label: '전체 회원' },
   search: { viewId: 'search-requests', label: '검색 요청 이력' },
-  analysis: { viewId: 'search-jobs', label: '검색 작업 현황' },
+  analysis: { viewId: 'search-requests', label: '검색 요청 이력' },
 };
 
 const CHECK_LINKS = {

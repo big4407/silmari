@@ -1,4 +1,6 @@
 from backend.core.chatbot.schemas import ExtractedSearchSlots
+from backend.core.chatbot.prompts import SLOT_EXTRACTION_PROMPT
+
 from backend.schemas.search_schema import SearchCreate
 from backend.services.search_service import SearchService
 
@@ -10,14 +12,28 @@ from backend.services.video_period_validator import (
     VideoPeriodValidationStatus,
 )
 
+from langchain_core.prompts import ChatPromptTemplate
 from datetime import date
 
 
 def extract_slots_node(state, config):
     llm = config["configurable"]["llm"]
 
-    extractor = llm.with_structured_output(ExtractedSearchSlots)
-    slots = extractor.invoke(state["messages"])
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", SLOT_EXTRACTION_PROMPT),
+            ("placeholder", "{messages}"),
+        ]
+    )
+
+    extractor = prompt | llm.with_structured_output(ExtractedSearchSlots)
+    slots = extractor.invoke(
+        {
+            "messages": state["messages"],
+        }
+    )
+
+    print(slots)
 
     return {
         "region": slots.region or state.get("region"),
@@ -28,7 +44,6 @@ def extract_slots_node(state, config):
         "gender": slots.gender or state.get("gender"),
         "age": slots.age or state.get("age"),
     }
-
 
 
 def create_search_node(state, config):
@@ -54,7 +69,7 @@ def create_search_node(state, config):
 
     return {
         "search_id": search.id,
-        "response": f"검색 조건을 저장했습니다. 검색 ID는 {search.id}입니다.",
+        "response": "영상 검색을 완료했습니다. 곧 검색 결과 페이지로 이동합니다.",
         "search_inserted": True,
     }
 

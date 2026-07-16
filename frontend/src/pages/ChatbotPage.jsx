@@ -1,7 +1,12 @@
 /** 챗봇 UI — 세션 복원 + 메시지 전송, 검색 삽입 시 스토어 연동 */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './ChatbotPage.css';
-import { sendChatMessage, getChatSession } from '../api/chatbot_api';
+import {
+  sendChatMessage,
+  getChatSession,
+  deleteChatSession,
+} from '../api/chatbot_api';
 import { useDetectionStore } from '../store/useDetectionStore';
 import SearchProgressBar from '../components/SearchProgressBar';
 
@@ -9,10 +14,13 @@ export default function ChatbotPage() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([]);
   const [sending, setSending] = useState(false);
+  const [searched, setSearched] = useState(false);
   const [sessionId, setSessionId] = useState(() =>
     localStorage.getItem('chatbot_session_id'),
   );
   const setActiveSearch = useDetectionStore((state) => state.setActiveSearch);
+  const navigate = useNavigate();
+  const inputRef = useRef(null);
 
   const updateSessionId = (newSessionId) => {
     if (newSessionId) {
@@ -44,6 +52,7 @@ export default function ChatbotPage() {
         setActiveSearch({
           searchResultId: data.search_id,
         });
+        setSearched(true);
       }
       setMessages((prev) => [...prev, { role: 'bot', text: data.response }]);
     } catch (error) {
@@ -87,6 +96,44 @@ export default function ChatbotPage() {
     loadMessages();
   }, []);
 
+  // 검색이 완료되었을 경우 일정 시간 후 search-results로 redirect
+  useEffect(() => {
+    if (!searched) return;
+
+    const timer = setTimeout(() => {
+      navigate('/search-results');
+    }, 1500); // 1.5초 후 이동
+
+    return () => clearTimeout(timer);
+  }, [searched, navigate]);
+
+  // 챗봇으로부터 메시지를 받으면 바로 채팅창에 focus하도록
+  useEffect(() => {
+    if (!sending&&!searched) {
+      inputRef.current?.focus();
+    }
+  }, [sending]);
+
+  // 챗봇 세션 초기화 버튼을 눌렀을 때 실행
+  const handleResetSession = async () => {
+    try {
+      await deleteChatSession();
+
+      localStorage.removeItem('chatbot_session_id');
+      window.location.reload();
+    } catch (error) {
+      console.error('챗봇 세션 초기화 실패:', error);
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'bot',
+          text: '챗봇 세션을 초기화하지 못했습니다.',
+        },
+      ]);
+    }
+  };
+
   return (
     <div className="chatbot-page">
       <div className="chatbot-page__panel">
@@ -96,7 +143,13 @@ export default function ChatbotPage() {
           <span className="chatbot-page__dot" />
           <span className="chatbot-page__title">챗봇 검색</span>
         </div>
-
+        <button
+          type="button"
+          className="admin-btn"
+          onClick={handleResetSession}
+        >
+          세션 초기화
+        </button>
         <div className="chatbot-page__body">
           <div className="chatbot-page__messages">
             {messages.map((msg, i) => (
@@ -118,12 +171,13 @@ export default function ChatbotPage() {
 
           <div className="chatbot-page__input-row">
             <input
+              ref={inputRef}
               className="chatbot-page__input"
-              placeholder="사진 또는 특징을 입력하세요"
+              placeholder="지역, 일자, 인상착의 등의 실종자 정보를 입력하세요"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-              disabled={sending}
+              disabled={sending||searched}
             />
             <button
               type="button"
