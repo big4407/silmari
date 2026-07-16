@@ -71,6 +71,7 @@ export default function MapDrilldown({
   const geojsonRef = useRef(null);
   const currentKeyRef = useRef('root');
   const selectedRegionRef = useRef('전국');
+  const updateLayerPresentationRef = useRef(null);
 
   const {
     path,
@@ -179,6 +180,7 @@ export default function MapDrilldown({
     },
     [alerts],
   );
+  updateLayerPresentationRef.current = updateLayerPresentation;
 
   const fitMapToLayer = useCallback((map, layer, key) => {
     if (!layer.getBounds().isValid()) return;
@@ -399,10 +401,30 @@ export default function MapDrilldown({
       easeLinearity: 0.2,
     });
 
+    let presentationRaf = null;
+    const refreshPresentation = () => {
+      if (presentationRaf) cancelAnimationFrame(presentationRaf);
+      presentationRaf = requestAnimationFrame(() => {
+        presentationRaf = null;
+        const activeMap = mapInstanceRef.current;
+        const geojson = geojsonRef.current;
+        if (!activeMap || !geoLayerRef.current || !geojson) return;
+        updateLayerPresentationRef.current?.(
+          activeMap,
+          geojson,
+          currentKeyRef.current,
+          selectedRegionRef.current,
+        );
+      });
+    };
+
     mapInstanceRef.current = map;
+    map.on('moveend zoomend', refreshPresentation);
     renderGeoLayer(map);
 
     return () => {
+      if (presentationRaf) cancelAnimationFrame(presentationRaf);
+      map.off('moveend zoomend', refreshPresentation);
       map.remove();
       mapInstanceRef.current = null;
     };
