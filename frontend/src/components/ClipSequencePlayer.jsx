@@ -71,10 +71,6 @@ export default function ClipSequencePlayer({
 
   return (
     <div className="clip-player">
-      <button type="button" className="clip-player__back" onClick={onBack}>
-        ← 목록
-      </button>
-
       <video
         ref={videoRef}
         key={current.url}

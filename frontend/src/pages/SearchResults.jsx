@@ -413,24 +413,36 @@ export default function SearchResults() {
               ))}
 
             {selectedResult && clipsWithFullUrl?.length > 0 && (
-              <div className="search-page__detail">
-                <ClipSequencePlayer
-                  clips={clipsWithFullUrl}
-                  currentIndex={activeClipIndex}
-                  selectCount={clipSelectKey}
-                  onClipChange={setActiveClipIndex}
-                  onBack={() => setSelectedResult(null)}
-                />
-                <DetectionCandidateList
-                  candidates={clipsWithFullUrl}
-                  activeIndex={activeClipIndex}
-                  onSelect={handleClipSelect}
-                  appearance={
-                    sidebarPerson?.clothes ||
-                    selectedResult?.sms_info?.clothes ||
-                    null
-                  }
-                />
+              <div className="search-page__detail-wrap">
+                <div className="search-page__detail-toolbar">
+                  <button
+                    type="button"
+                    className="search-page__back-btn"
+                    onClick={() => setSelectedResult(null)}
+                  >
+                    검색 결과 목록
+                  </button>
+                </div>
+
+                <div className="search-page__detail">
+                  <ClipSequencePlayer
+                    clips={clipsWithFullUrl}
+                    currentIndex={activeClipIndex}
+                    selectCount={clipSelectKey}
+                    onClipChange={setActiveClipIndex}
+                  />
+
+                  <DetectionCandidateList
+                    candidates={clipsWithFullUrl}
+                    activeIndex={activeClipIndex}
+                    onSelect={handleClipSelect}
+                    appearance={
+                      sidebarPerson?.clothes ||
+                      selectedResult?.sms_info?.clothes ||
+                      null
+                    }
+                  />
+                </div>
               </div>
             )}
 
