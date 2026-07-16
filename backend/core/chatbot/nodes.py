@@ -176,8 +176,6 @@ def validate_period_node(state, config):
         }
 
     if result.status == VideoPeriodValidationStatus.VIDEO_NOT_FOUND:
-        print(f"region_code : {region_code}")
-        print("영상 존재하지 않음")
         return {
             "start_date": None,
             "end_date": None,
