@@ -2,7 +2,7 @@
   "name": "silmari-frontend",
   "version": "1.0.0",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host 0.0.0.0 --open",
     "build": "vite build"
   },
   "dependencies": {

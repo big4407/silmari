@@ -79,7 +79,7 @@ def start_scheduler():
     scheduler.add_job(
         collect_messages_job,
         # 매일 일정 시간에 실행
-        trigger=CronTrigger(minute=16,second=30),
+        trigger=CronTrigger(minute=16, second=30),
         # 작업 고유 ID
         id="collect_messages_daily",
         # 같은 ID의 작업이 이미 있으면 덮어쓰기
@@ -89,7 +89,7 @@ def start_scheduler():
     scheduler.add_job(
         process_videos_job,
         # 매일 새벽, 전날 영상 처리 (문자 수집과 시간 분리)
-        trigger=CronTrigger(hour=20,minute=16,second=30),
+        trigger=CronTrigger(hour=17, minute=40, second=59),
         id="process_videos_daily",
         replace_existing=True,
     )

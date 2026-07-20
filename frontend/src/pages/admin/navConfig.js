@@ -1,4 +1,4 @@
-/** 관리자 콘솔 사이드바 메뉴 구조 — viewId → AdminViewPage 뷰 매핑 */
+/** 관리자 콘솔 사이드바 메뉴 구조와 viewId 매핑 */
 export const NAV = [
   { id: 'dashboard', label: '대시보드', solo: true },
   {
@@ -29,6 +29,7 @@ export const NAV = [
       { id: 'stats-cctv', label: 'CCTV 영상 통계' },
       { id: 'stats-search', label: '검색 통계' },
       { id: 'stats-demographic', label: '성별·연령·지역별 실종/검색율' },
+      { id: 'stats-outcomes', label: '발견/해결 결과 통계' },
       { id: 'stats-export', label: '통계데이터 내보내기' },
     ],
   },
@@ -36,14 +37,14 @@ export const NAV = [
     group: '데이터 관리',
     items: [
       { id: 'data-codes', label: '행정구역 관리' },
-      { id: 'data-validate', label: '데이터 정합성 검사' },
+      { id: 'data-validate', label: '데이터 정합성 점검' },
       { id: 'data-retention', label: '삭제·보존 정책' },
     ],
   },
   {
     group: '감사 로그',
     items: [
-      { id: 'audit-admin', label: '관리자 행동 이력' },
+      { id: 'audit-admin', label: '관리자 활동 이력' },
       { id: 'audit-approval', label: '승인·권한변경 이력' },
       { id: 'audit-login', label: '로그인·접근 이력' },
     ],
@@ -56,8 +57,8 @@ NAV.forEach((node) => {
     crumbOf[node.id] = ['대시보드'];
     return;
   }
-  node.items.forEach((it) => {
-    crumbOf[it.id] = [node.group, it.label];
+  node.items.forEach((item) => {
+    crumbOf[item.id] = [node.group, item.label];
   });
 });
 
