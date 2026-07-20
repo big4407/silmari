@@ -15,6 +15,7 @@ import {
   fetchRetentionPolicies,
   updateRetentionPolicies,
   runRetentionDryRun,
+  executeRetentionPolicies,
   runDataIntegrity,
   fetchLastIntegrityRun,
   saveBlobDownload,
@@ -1349,6 +1350,10 @@ export function DataRetentionView() {
   const [dryRunTitle, setDryRunTitle] = useState('');
   const [dryRunLoading, setDryRunLoading] = useState(false);
   const [dryRunError, setDryRunError] = useState('');
+  const [dryRunPolicyId, setDryRunPolicyId] = useState(null);
+  const [executing, setExecuting] = useState(false);
+  const [executeResult, setExecuteResult] = useState(null);
+  const [executeError, setExecuteError] = useState('');
 
   const loadHistory = useCallback(async () => {
     try {
@@ -1417,6 +1422,9 @@ export function DataRetentionView() {
     setDryRunItems([]);
     setDryRunError('');
     setDryRunLoading(true);
+    setDryRunPolicyId(policyId);
+    setExecuteResult(null);
+    setExecuteError('');
     try {
       const data = await runRetentionDryRun({
         policyId,
@@ -1427,6 +1435,21 @@ export function DataRetentionView() {
       setDryRunError('드라이런 미리보기에 실패했습니다.');
     } finally {
       setDryRunLoading(false);
+    }
+  };
+
+  const handleExecute = async () => {
+    setExecuting(true);
+    setExecuteError('');
+    setExecuteResult(null);
+    try {
+      const data = await executeRetentionPolicies({ policyId: dryRunPolicyId });
+      setExecuteResult(data);
+      await load(); // 목록·건수·이력 다시 불러오기
+    } catch {
+      setExecuteError('삭제 실행에 실패했습니다.');
+    } finally {
+      setExecuting(false);
     }
   };
 
@@ -1636,6 +1659,10 @@ export function DataRetentionView() {
         loading={dryRunLoading}
         error={dryRunError}
         onClose={() => setDryRunOpen(false)}
+        onExecute={handleExecute}
+        executing={executing}
+        executeResult={executeResult}
+        executeError={executeError}
       />
     </>
   );

@@ -348,6 +348,16 @@ export const runRetentionDryRun = ({ policyId = null, policies = null } = {}) =>
     )
     .then((r) => r.data);
 
+/** 보존 정책 실제 실행 — 만료된 데이터를 진짜로 삭제한다(되돌릴 수 없음). */
+export const executeRetentionPolicies = ({ policyId = null } = {}) =>
+  client
+    .post(
+      '/member/admin/retention-policies/execute',
+      {},
+      { params: policyId ? { policy_id: policyId } : {} },
+    )
+    .then((r) => r.data);
+
 /** 정합성 검사 실행. */
 export const runDataIntegrity = () =>
   client.post('/member/admin/data-integrity/run').then((r) => r.data);
