@@ -64,6 +64,10 @@ export default function useMapDrilldown(onRegionSelect) {
 
   const applyFocus = useCallback((focus) => {
     if (!focus?.path) return;
+    // 안내문자 클릭 등 "카메라만 이동"하는 포커스는 applyFilter:false로 표시된다.
+    // 이 경우 지도 카메라(줌/센터)는 옮기지만 사이드바 목록 필터(mapFilter)는
+    // 건드리지 않아, 클릭한 문자에 따라 다른 카드가 화면에서 사라지는 문제를 막는다.
+    const notifyFilter = focus.applyFilter !== false;
     setSidoFocus(null);
     setGuFocus(null);
     setDongFocus(null);
@@ -86,7 +90,7 @@ export default function useMapDrilldown(onRegionSelect) {
     }
 
     if (focus.mapFilter) {
-      onRegionSelectRef.current?.(focus.mapFilter);
+      if (notifyFilter) onRegionSelectRef.current?.(focus.mapFilter);
       if (focus.path.length > 2 && focus.mapFilter?.level === 'dong') {
         setDongFocus({
           id: focus.dongId || focus.selectedLabel,
@@ -117,7 +121,7 @@ export default function useMapDrilldown(onRegionSelect) {
 
     const lastKey = focus.path[focus.path.length - 1];
     if (lastKey === 'root') {
-      onRegionSelectRef.current?.({ level: 'nation' });
+      if (notifyFilter) onRegionSelectRef.current?.({ level: 'nation' });
       return;
     }
 
@@ -127,12 +131,14 @@ export default function useMapDrilldown(onRegionSelect) {
     );
     if (gu) {
       setGuFocus(gu);
-      onRegionSelectRef.current?.(buildMapFilter(gu, focus.path));
+      if (notifyFilter) onRegionSelectRef.current?.(buildMapFilter(gu, focus.path));
       return;
     }
 
     const sido = REGION_DATA.root.regions.find((r) => r.id === sidoId);
-    if (sido) onRegionSelectRef.current?.(buildMapFilter(sido, focus.path));
+    if (sido && notifyFilter) {
+      onRegionSelectRef.current?.(buildMapFilter(sido, focus.path));
+    }
   }, []);
 
   const selectRegion = useCallback(

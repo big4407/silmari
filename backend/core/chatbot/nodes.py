@@ -69,7 +69,7 @@ def create_search_node(state, config):
 
     return {
         "search_id": search.id,
-        "response": f"검색 조건을 저장했습니다. 검색 ID는 {search.id}입니다.",
+        "response": "영상 검색을 완료했습니다. 곧 검색 결과 페이지로 이동합니다.",
         "search_inserted": True,
     }
 
@@ -157,7 +157,8 @@ def validate_period_node(state, config):
     db = config["configurable"]["db"]
 
     video_repository = VideoRepository(db)
-    period_validator = VideoPeriodValidator(video_repository)
+    region_repository = RegionRepository(db)
+    period_validator = VideoPeriodValidator(video_repository, region_repository)
 
     result = period_validator.validate(
         region_code=region_code,

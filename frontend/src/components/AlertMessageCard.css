@@ -27,10 +27,22 @@
   background: var(--color-surface-muted);
 }
 
+.alert-card:focus,
+.alert-card:focus-visible {
+  outline: none;
+}
+
 .alert-card--selected {
   border-color: var(--color-accent);
-  background: #f0f6fc;
-  box-shadow: inset 3px 0 0 var(--color-accent);
+  background: #e8f3ff;
+  box-shadow:
+    inset 4px 0 0 var(--color-accent),
+    0 0 0 1px var(--color-accent);
+}
+
+.alert-card--selected:hover {
+  border-color: var(--color-accent);
+  background: #dcecff;
 }
 
 .alert-card--empty {
@@ -111,7 +123,7 @@
 }
 
 .alert-card--selected .alert-card__footer {
-  background: #e8f2fa;
+  background: #d6e9ff;
 }
 
 .alert-card__region {

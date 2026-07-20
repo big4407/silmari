@@ -153,9 +153,13 @@ function matchSidoRegion(geoName) {
 function matchGuRegion(geoName, sidoKey) {
   const regions = REGION_DATA[sidoKey]?.regions;
   if (!regions) return null;
+  // '고양시덕양구'(GeoJSON) ↔ '고양시 덕양구'(REGION_DATA) 공백 차이 허용
+  const geoNorm = geoName.replace(/\s/g, '');
   return (
-    regions.find((r) => geoName.includes(r.label) || r.label === geoName) ||
-    null
+    regions.find((r) => {
+      const labelNorm = r.label.replace(/\s/g, '');
+      return geoNorm.includes(labelNorm) || labelNorm === geoNorm;
+    }) || null
   );
 }
 

@@ -33,6 +33,21 @@ function personLabel(item) {
   return name;
 }
 
+const SEARCH_TYPE_META = {
+  1: { label: '문자 검색', modifier: 'message' },
+  2: { label: '챗봇', modifier: 'chatbot' },
+  3: { label: '자동 검색', modifier: 'auto' },
+};
+
+function searchTypeMeta(searchType) {
+  return (
+    SEARCH_TYPE_META[String(searchType)] || {
+      label: '기타',
+      modifier: 'unknown',
+    }
+  );
+}
+
 function isWithinPeriod(iso, period) {
   if (!iso || period === 'all') return true;
   const date = new Date(iso);
@@ -83,7 +98,9 @@ export default function SearchHistory() {
       if (!isWithinPeriod(item.created_at, period)) return false;
       if (!q) return true;
 
+      const typeLabel = searchTypeMeta(item.search_type).label;
       const haystack = [
+        typeLabel,
         item.person_name,
         item.region,
         item.alert_text,
@@ -203,6 +220,9 @@ export default function SearchHistory() {
                 <thead>
                   <tr>
                     <th scope="col">검색 일시</th>
+                    <th scope="col" className="search-history__col-type">
+                      타입
+                    </th>
                     <th scope="col">대상자</th>
                     <th scope="col">지역</th>
                     <th scope="col">인상착의</th>
@@ -212,34 +232,44 @@ export default function SearchHistory() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredItems.map((item) => (
-                    <tr
-                      key={item.id}
-                      className="search-history__row"
-                      onClick={() => handleOpenResults(item)}
-                    >
-                      <td>{formatDateTime(item.created_at)}</td>
-                      <td>
-                        <span>{personLabel(item)}</span>
-                      </td>
-                      <td>{item.region || '-'}</td>
-                      <td title={item.description}>
-                        {truncateText(item.description)}
-                      </td>
-                      <td className="search-history__col-action">
-                        <button
-                          type="button"
-                          className="search-history__view-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenResults(item);
-                          }}
-                        >
-                          결과 보기
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredItems.map((item) => {
+                    const type = searchTypeMeta(item.search_type);
+                    return (
+                      <tr
+                        key={item.id}
+                        className="search-history__row"
+                        onClick={() => handleOpenResults(item)}
+                      >
+                        <td>{formatDateTime(item.created_at)}</td>
+                        <td className="search-history__col-type">
+                          <span
+                            className={`search-history__type-badge search-history__type-badge--${type.modifier}`}
+                          >
+                            {type.label}
+                          </span>
+                        </td>
+                        <td>
+                          <span>{personLabel(item)}</span>
+                        </td>
+                        <td>{item.region || '-'}</td>
+                        <td title={item.description}>
+                          {truncateText(item.description)}
+                        </td>
+                        <td className="search-history__col-action">
+                          <button
+                            type="button"
+                            className="search-history__view-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenResults(item);
+                            }}
+                          >
+                            결과 보기
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
