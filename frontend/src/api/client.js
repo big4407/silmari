@@ -650,34 +650,62 @@ async function getStatsJson(path, query, signal) {
     });
     return response.data;
   } catch (error) {
-    throw new Error(
-      await readApiErrorMessage(error, '통계 데이터를 불러오지 못했습니다.'),
-    );
+    throw new Error(await readApiErrorMessage(error, '통계 데이터를 불러오지 못했습니다.'));
   }
 }
 
-export const fetchCctvStats = (query, signal) =>
-  getStatsJson('/cctv', query, signal);
-export const fetchSearchStats = (query, signal) =>
-  getStatsJson('/search', query, signal);
+export const fetchCctvStats = (query, signal) => getStatsJson('/cctv', query, signal);
+export const fetchSearchStats = (query, signal) => getStatsJson('/search', query, signal);
 export const fetchDemographicStats = (query, signal) =>
   getStatsJson('/demographic', query, signal);
-export const fetchOutcomeStats = (query, signal) =>
-  getStatsJson('/outcomes', query, signal);
-export const fetchExportLogs = (signal) =>
-  getStatsJson('/exports', undefined, signal);
+export const fetchOutcomeStats = (query, signal) => getStatsJson('/outcomes', query, signal);
+export const fetchExportLogs = (signal) => getStatsJson('/exports', undefined, signal);
 
-export const createCaseEvent = async (payload) => {
+// ── 실종자 관리 케이스 ─────────────────────────────────────────────────
+const CASES_BASE_URL = '/missing-person-cases';
+
+export const fetchMissingPersonCases = async (params = {}) => {
   try {
-    const response = await client.post(
-      `${STATS_BASE_URL}/case-events`,
-      payload,
-    );
+    const response = await client.get(CASES_BASE_URL, { params });
     return response.data;
   } catch (error) {
-    throw new Error(
-      await readApiErrorMessage(error, '이벤트 저장에 실패했습니다.'),
-    );
+    throw new Error(await readApiErrorMessage(error, '케이스 목록을 불러오지 못했습니다.'));
+  }
+};
+
+export const createMissingPersonCase = async (payload) => {
+  try {
+    const response = await client.post(CASES_BASE_URL, payload);
+    return response.data;
+  } catch (error) {
+    throw new Error(await readApiErrorMessage(error, '케이스 등록에 실패했습니다.'));
+  }
+};
+
+async function transitionCase(caseId, action, fallback) {
+  try {
+    const response = await client.post(`${CASES_BASE_URL}/${caseId}/${action}`);
+    return response.data;
+  } catch (error) {
+    throw new Error(await readApiErrorMessage(error, fallback));
+  }
+}
+
+export const assignMissingPersonCase = (caseId) =>
+  transitionCase(caseId, 'assign', '담당 배정에 실패했습니다.');
+export const unassignMissingPersonCase = (caseId) =>
+  transitionCase(caseId, 'unassign', '담당 취소에 실패했습니다.');
+export const resolveMissingPersonCase = (caseId) =>
+  transitionCase(caseId, 'resolve', '완료 처리에 실패했습니다.');
+export const enrichMissingPersonCase = (caseId) =>
+  transitionCase(caseId, 'enrich', 'AI 정보 채우기에 실패했습니다.');
+
+export const updateMissingPersonCaseNotes = async (caseId, notes) => {
+  try {
+    const response = await client.patch(`${CASES_BASE_URL}/${caseId}/notes`, { notes });
+    return response.data;
+  } catch (error) {
+    throw new Error(await readApiErrorMessage(error, '메모 저장에 실패했습니다.'));
   }
 };
 
@@ -693,9 +721,7 @@ export const exportStats = async (payload) => {
     const filename = match?.[1] ?? 'statistics.csv';
     saveBlobDownload(response.data, filename);
   } catch (error) {
-    throw new Error(
-      await readApiErrorMessage(error, '통계 내보내기에 실패했습니다.'),
-    );
+    throw new Error(await readApiErrorMessage(error, '통계 내보내기에 실패했습니다.'));
   }
 };
 
