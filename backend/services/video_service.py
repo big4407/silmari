@@ -244,9 +244,6 @@ class VideoService:
 
         save_dir.mkdir(parents=True, exist_ok=True)
 
-        annotated_dir = Path("data/results/annotated_frames")
-        annotated_dir.mkdir(parents=True, exist_ok=True)
-
         image_paths = sorted(image_paths)
 
         results = _get_yolo_model().predict(
