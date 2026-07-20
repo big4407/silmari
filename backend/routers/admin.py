@@ -57,6 +57,7 @@ from backend.schemas.region_schema import (
 from backend.schemas.retention_schema import (
     RetentionDryRunRequest,
     RetentionDryRunResponse,
+    RetentionExecuteResponse,
     RetentionPolicyBulkUpdate,
     RetentionPolicyItem,
     RetentionPolicyListResponse,
@@ -817,6 +818,38 @@ def delete_region(
     db.commit()
 
 
+@router.post(
+    "/retention-policies/seed-defaults", response_model=RetentionPolicyListResponse
+)
+def seed_default_retention_policies(
+    request: Request,
+    admin: User = Depends(require_roles(UserRole.ADMIN)),
+    db: Session = Depends(get_db),
+) -> RetentionPolicyListResponse:
+    """기본 보존 정책 생성(비어있는 데이터 유형만, 멱등적) — 정책이 하나도 없어서
+    "정책 저장"·"드라이런" 버튼이 다 비활성화된 초기 상태를 벗어나기 위함."""
+    retention_svc = RetentionService(db)
+    before_types = retention_svc.repository.get_existing_data_types()
+    items = [
+        RetentionPolicyItem.model_validate(row) for row in retention_svc.seed_defaults()
+    ]
+    created_types = sorted(
+        {i.data_type for i in items if i.data_type not in before_types}
+    )
+
+    AuditService(db).record_admin_action(
+        actor_id=admin.id,
+        action_type=AdminAction.UPDATE,
+        target_type="retention_policy",
+        target_id="seed-defaults",
+        detail={"created_data_types": created_types},
+        ip_address=request.client.host if request.client else None,
+    )
+    db.commit()
+
+    return RetentionPolicyListResponse(items=items)
+
+
 @router.get("/retention-policies", response_model=RetentionPolicyListResponse)
 def get_retention_policies(
     _: User = Depends(require_roles(UserRole.ADMIN)),
@@ -847,6 +880,39 @@ def retention_policies_dry_run(
         raise HTTPException(status_code=404, detail="보존 정책을 찾을 수 없습니다.")
     total = sum(i.expired_count for i in items if i.is_active)
     return RetentionDryRunResponse(items=items, total_affected=total)
+
+
+@router.post("/retention-policies/execute", response_model=RetentionExecuteResponse)
+def retention_policies_execute(
+    request: Request,
+    policy_id: int | None = Query(
+        default=None, description="특정 정책만 실행. 생략 시 활성화된 전체 정책"
+    ),
+    admin: User = Depends(require_roles(UserRole.ADMIN)),
+    db: Session = Depends(get_db),
+) -> RetentionExecuteResponse:
+    """보존 기간이 지난 데이터를 실제로 삭제한다 — 되돌릴 수 없다.
+
+    is_active=False인 정책과 expiry_action != "delete"인 정책은 건너뛰고
+    skipped_reason으로 알린다. 실행 결과는 관리자 행동 이력에 기록된다.
+    """
+    results = RetentionService(db).execute(policy_id=policy_id)
+    if policy_id is not None and not results:
+        raise HTTPException(status_code=404, detail="보존 정책을 찾을 수 없습니다.")
+
+    total_executed = sum(r["executed_count"] for r in results)
+
+    AuditService(db).record_admin_action(
+        actor_id=admin.id,
+        action_type=AdminAction.DELETE,
+        target_type="retention_policy",
+        target_id=str(policy_id) if policy_id is not None else "bulk",
+        detail={"results": results, "total_executed": total_executed},
+        ip_address=request.client.host if request.client else None,
+    )
+    db.commit()
+
+    return RetentionExecuteResponse(items=results, total_executed=total_executed)
 
 
 @router.patch("/retention-policies", response_model=RetentionPolicyListResponse)

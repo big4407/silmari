@@ -332,6 +332,12 @@ export const importRegionsCsv = (file, dryRun = false) => {
 export const fetchRetentionPolicies = () =>
   client.get('/member/admin/retention-policies').then((r) => r.data);
 
+/** 기본 보존 정책 생성(비어있는 데이터 유형만, 멱등적) — 정책이 하나도 없을 때 사용. */
+export const seedDefaultRetentionPolicies = () =>
+  client
+    .post('/member/admin/retention-policies/seed-defaults')
+    .then((r) => r.data);
+
 /** 보존 정책 일괄 수정. */
 export const updateRetentionPolicies = (policies) =>
   client
@@ -344,6 +350,16 @@ export const runRetentionDryRun = ({ policyId = null, policies = null } = {}) =>
     .post(
       '/member/admin/retention-policies/dry-run',
       policies?.length ? { policies } : {},
+      { params: policyId ? { policy_id: policyId } : {} },
+    )
+    .then((r) => r.data);
+
+/** 보존 정책 실제 실행 — 만료된 데이터를 진짜로 삭제한다(되돌릴 수 없음). */
+export const executeRetentionPolicies = ({ policyId = null } = {}) =>
+  client
+    .post(
+      '/member/admin/retention-policies/execute',
+      {},
       { params: policyId ? { policy_id: policyId } : {} },
     )
     .then((r) => r.data);

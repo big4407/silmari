@@ -105,24 +105,33 @@ class SearchRepository:
 
         return items, total
 
-    def count_today_by_type(self) -> dict[str, int]:
-        """오늘(로컬 날짜 기준) 검색 요청을 search_type별로 집계한다."""
+    def get_summary_counts(self) -> dict[str, int]:
+        """검색 요청 이력 화면 상단 통계 — "오늘 검색 요청"만 당일 기준이고,
+        나머지(유형별 안내문자/챗봇/자동)는 전체 누적 통계다.
+        """
         today = date.today()
         start = datetime.combine(today, time.min)
         end = datetime.combine(today, time.max)
 
+        today_total = (
+            self.db.query(func.count())
+            .select_from(Search)
+            .filter(Search.searched_at >= start, Search.searched_at <= end)
+            .scalar()
+            or 0
+        )
+
         rows = (
             self.db.query(Search.search_type, func.count())
-            .filter(Search.searched_at >= start, Search.searched_at <= end)
             .group_by(Search.search_type)
             .all()
         )
         counts = {search_type: count for search_type, count in rows}
         return {
-            "today_total": sum(counts.values()),
-            "today_sms": counts.get(SearchType.SMS.value, 0),
-            "today_chatbot": counts.get(SearchType.CHATBOT.value, 0),
-            "today_auto": counts.get(SearchType.AUTO.value, 0),
+            "today_total": today_total,
+            "total_sms": counts.get(SearchType.SMS.value, 0),
+            "total_chatbot": counts.get(SearchType.CHATBOT.value, 0),
+            "total_auto": counts.get(SearchType.AUTO.value, 0),
         }
 
     def delete(self, search: Search) -> None:

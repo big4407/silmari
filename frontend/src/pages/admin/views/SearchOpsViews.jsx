@@ -330,16 +330,16 @@ export function SearchRequestsView() {
           <StatValue value={summary?.today_total} unit="건" />
         </div>
         <div className="admin-stat">
-          <div className="admin-label">안내문자 파싱</div>
-          <StatValue value={summary?.today_sms} unit="건" />
+          <div className="admin-label">안내문자 파싱 (전체)</div>
+          <StatValue value={summary?.total_sms} unit="건" />
         </div>
         <div className="admin-stat">
-          <div className="admin-label">챗봇 검색</div>
-          <StatValue value={summary?.today_chatbot} unit="건" />
+          <div className="admin-label">챗봇 검색 (전체)</div>
+          <StatValue value={summary?.total_chatbot} unit="건" />
         </div>
         <div className="admin-stat">
-          <div className="admin-label">자동 검색</div>
-          <StatValue value={summary?.today_auto} unit="건" />
+          <div className="admin-label">자동 검색 (전체)</div>
+          <StatValue value={summary?.total_auto} unit="건" />
         </div>
       </div>
       <div className="admin-toolbar">
