@@ -135,3 +135,51 @@ class RegionRepository:
 
     def delete_all_legal_dongs(self) -> None:
         self.db.execute(delete(RegionLegalDong))
+
+    # ── 하위지역코드 반환────────────────────────────────────────────────
+
+    def get_video_search_region_codes(
+        self,
+        *,
+        region_code: str,
+    ) -> list[str]:
+        """
+        영상 검색에 사용할 지역 코드 목록을 반환한다.
+
+        현재 지역과 부모 지역의 full_name이 같으면,
+        해당 full_name으로 시작하는 모든 최하위 지역 코드를 반환한다.
+
+        그렇지 않으면 입력된 region_code만 반환한다.
+        """
+
+        region = self.db.scalar(
+            select(Region).where(
+                Region.region_code == region_code,
+            )
+        )
+
+        if region is None:
+            return [region_code]
+
+        if region.parent_code is None:
+            return [region.region_code]
+
+        parent = self.db.scalar(
+            select(Region).where(
+                Region.region_code == region.parent_code,
+            )
+        )
+
+        should_expand = parent is not None and parent.full_name == region.full_name
+
+        if not should_expand:
+            return [region.region_code]
+
+        stmt = select(Region.region_code).where(
+            Region.full_name.startswith(parent.full_name),
+            func.char_length(Region.region_code) == 10,
+        )
+
+        region_codes = list(self.db.scalars(stmt).all())
+        
+        return region_codes or [region.region_code]

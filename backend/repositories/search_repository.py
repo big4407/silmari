@@ -1,9 +1,9 @@
 from sqlalchemy.orm import Session, selectinload
 
-from backend.db.models import Search, Analysis, AnalysisDetail
+from backend.db.models import Search, Analysis, AnalysisDetail, SearchType
 from backend.schemas.search_schema import SearchCreate
-from datetime import datetime, date
-from sqlalchemy import desc, asc
+from datetime import datetime, date, time
+from sqlalchemy import desc, asc, or_, func
 
 
 class SearchRepository:
@@ -57,6 +57,82 @@ class SearchRepository:
         searchs = query.offset((page - 1) * per_page).limit(per_page).all()
 
         return searchs, total
+
+    def find_all_admin(
+        self,
+        page: int,
+        per_page: int,
+        keyword: str | None = None,
+        search_type: str | None = None,
+        requester_user_id: str | None = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> tuple[list[Search], int]:
+        """관리자용 검색 요청 전체 조회 — 요청자 제한 없이 필터·페이지네이션.
+
+        keyword는 이름·인상착의·실종지역에 부분 일치, requester_user_id는 정확히
+        일치(요청자 선택 드롭다운용). start_date/end_date는 searched_at 기준.
+        """
+        query = self.db.query(Search).options(
+            selectinload(Search.user), selectinload(Search.message)
+        )
+
+        if keyword:
+            like = f"%{keyword}%"
+            query = query.filter(
+                or_(
+                    Search.missing_name.like(like),
+                    Search.clothing.like(like),
+                    Search.missing_location.like(like),
+                )
+            )
+        if search_type:
+            query = query.filter(Search.search_type == search_type)
+        if requester_user_id:
+            query = query.filter(Search.user_id == requester_user_id)
+        if start_date is not None:
+            query = query.filter(
+                Search.searched_at >= datetime.combine(start_date, time.min)
+            )
+        if end_date is not None:
+            query = query.filter(
+                Search.searched_at <= datetime.combine(end_date, time.max)
+            )
+
+        total = query.count()
+        query = query.order_by(desc(Search.searched_at))
+        items = query.offset((page - 1) * per_page).limit(per_page).all()
+
+        return items, total
+
+    def get_summary_counts(self) -> dict[str, int]:
+        """검색 요청 이력 화면 상단 통계 — "오늘 검색 요청"만 당일 기준이고,
+        나머지(유형별 안내문자/챗봇/자동)는 전체 누적 통계다.
+        """
+        today = date.today()
+        start = datetime.combine(today, time.min)
+        end = datetime.combine(today, time.max)
+
+        today_total = (
+            self.db.query(func.count())
+            .select_from(Search)
+            .filter(Search.searched_at >= start, Search.searched_at <= end)
+            .scalar()
+            or 0
+        )
+
+        rows = (
+            self.db.query(Search.search_type, func.count())
+            .group_by(Search.search_type)
+            .all()
+        )
+        counts = {search_type: count for search_type, count in rows}
+        return {
+            "today_total": today_total,
+            "total_sms": counts.get(SearchType.SMS.value, 0),
+            "total_chatbot": counts.get(SearchType.CHATBOT.value, 0),
+            "total_auto": counts.get(SearchType.AUTO.value, 0),
+        }
 
     def delete(self, search: Search) -> None:
         """검색내역 삭제"""

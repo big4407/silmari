@@ -157,7 +157,8 @@ def validate_period_node(state, config):
     db = config["configurable"]["db"]
 
     video_repository = VideoRepository(db)
-    period_validator = VideoPeriodValidator(video_repository)
+    region_repository = RegionRepository(db)
+    period_validator = VideoPeriodValidator(video_repository, region_repository)
 
     result = period_validator.validate(
         region_code=region_code,

@@ -1,4 +1,4 @@
-/** LLM 운영 뷰 — 사용량·비용·성능·로그 (목 UI) */
+/** LLM 운영 뷰 — LLM 사용량 (연동) */
 
 import { useEffect, useState } from 'react';
 
@@ -178,52 +178,6 @@ export function LlmUsageView() {
         loading={conversationLoading}
         onClose={handleCloseConversation}
       />
-    </>
-  );
-}
-
-export function LlmLogsView() {
-  return (
-    <>
-      <PageHead
-        viewId="llm-logs"
-        desc="LLM 호출의 프롬프트·응답 원문을 조회합니다. 특히 인상착의 한영변환이 정확한지 검증해 FashionCLIP 검색 품질을 관리합니다."
-      />
-      <div className="admin-toolbar">
-        <input placeholder="프롬프트·응답·검색 ID 검색" disabled />
-        <select disabled>
-          <option>전체 유형</option>
-        </select>
-        <select disabled>
-          <option>전체 모델</option>
-        </select>
-        <select disabled>
-          <option>전체 상태</option>
-        </select>
-        <div className="admin-spacer" />
-        <button type="button" className="admin-btn" disabled>
-          CSV보내기
-        </button>
-      </div>
-      <div className="admin-card admin-table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>호출 ID</th>
-              <th>유형</th>
-              <th>모델</th>
-              <th>연계 검색</th>
-              <th>프롬프트 → 응답</th>
-              <th>토큰</th>
-              <th>지연</th>
-              <th>상태</th>
-            </tr>
-          </thead>
-          <tbody>
-            <TableEmptyRow colSpan={8} />
-          </tbody>
-        </table>
-      </div>
     </>
   );
 }

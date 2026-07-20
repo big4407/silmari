@@ -3,7 +3,7 @@ import { DashboardView } from './DashboardView';
 import { MembersPendingView, MembersAllView } from './MemberViews';
 import { ReportsView } from './MessageViews';
 import { CctvSourceView, SearchRequestsView } from './SearchOpsViews';
-import { LlmUsageView, LlmLogsView } from './LlmViews';
+import { LlmUsageView } from './LlmViews';
 import {
   CctvStatsView,
   SearchStatsView,
@@ -30,7 +30,6 @@ export const ADMIN_VIEWS = {
   'cctv-source': CctvSourceView,
   'search-requests': SearchRequestsView,
   'llm-usage': LlmUsageView,
-  'llm-logs': LlmLogsView,
   'stats-cctv': CctvStatsView,
   'stats-search': SearchStatsView,
   'stats-demographic': DemographicStatsView,

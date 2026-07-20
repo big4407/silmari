@@ -156,10 +156,16 @@ export default function Dashboard() {
   const [regionSearchError, setRegionSearchError] = useState(null);
   const isDefaultQuery = !startDate && !endDate;
 
-  const filteredAlerts = useMemo(
-    () => filterAlertsByRegion(alertList, mapFilter),
-    [alertList, mapFilter],
-  );
+  const filteredAlerts = useMemo(() => {
+    const list = filterAlertsByRegion(alertList, mapFilter);
+    const key = alertKey(selectedAlert);
+    // 문자 클릭으로 지도가 깊게 들어가며 필터가 좁혀져도
+    // 선택한 카드가 목록에서 사라지지 않게 유지한다(선택 파란 하이라이트 유지).
+    if (!key) return list;
+    if (list.some((a) => alertKey(a) === key)) return list;
+    const selected = alertList.find((a) => alertKey(a) === key);
+    return selected ? [selected, ...list] : list;
+  }, [alertList, mapFilter, selectedAlert]);
 
   const regionLabel = regionFilterLabel(mapFilter);
 
@@ -270,9 +276,14 @@ export default function Dashboard() {
       smsInfo: {},
       region: normalized.rcptn_rgn_nm || null,
     });
+    // 문자 클릭은 지도 카메라만 이동시키고, 사이드바 목록 필터(mapFilter)는
+    // 건드리지 않는다(applyFilter: false). 필터까지 같이 좁히면 클릭한 문자에
+    // 따라 REGION_DATA 매칭 정밀도가 달라져(동/구/시도 단위 등) 다른 카드들이
+    // 화면에서 무작위로 사라지는 것처럼 보였다(선택 파란 표시가 "일부만 되는"
+    // 현상의 실제 원인).
     const focus = resolveAlertMapFocus(normalized.rcptn_rgn_nm);
     if (focus) {
-      setMapFocus({ ...focus, key: Date.now() });
+      setMapFocus({ ...focus, key: Date.now(), applyFilter: false });
     }
   };
 
@@ -295,7 +306,7 @@ export default function Dashboard() {
         (selectedRegion && selectedRegion !== '전국' ? selectedRegion : null) ||
         selectedAlert.rcptn_rgn_nm ||
         null;
-
+      console.log('안내문자 원문:', selectedAlert.msg_cn);
       // 안내문자 본문은 라벨 없는 자유 서식이라("...노영찬씨(남,76세)를 찾습니다-
       // 163cm,60kg,파란색티,검정바지..." 식) 정규식만으론 한계가 있어 LLM으로
       // 구조화 추출한다. 호출 실패(네트워크·LLM 오류) 시에는 검색 자체가 막히지
@@ -475,12 +486,6 @@ export default function Dashboard() {
             )}
           </div>
 
-          {!loading && filteredAlerts.length > 0 && isDefaultQuery && (
-            <p className="sidebar-hint">
-              기본 조회 (최근 90일)
-              {regionLabel && ` · ${regionLabel}`}
-            </p>
-          )}
           {!loading &&
             filteredAlerts.length > 0 &&
             !isDefaultQuery &&

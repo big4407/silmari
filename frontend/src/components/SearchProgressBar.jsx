@@ -1,4 +1,4 @@
-/** 검색·분석 진행 표시 — indeterminate ProgressBar */
+/** 검색·분석 진행 표시 — 원형 스피너 */
 import './SearchProgressBar.css';
 
 export default function SearchProgressBar({
@@ -14,10 +14,8 @@ export default function SearchProgressBar({
       aria-live="polite"
       aria-busy="true"
     >
+      <div className="search-progress__spinner" aria-hidden="true" />
       <div className="search-progress__label">{label}</div>
-      <div className="search-progress__track" aria-hidden="true">
-        <div className="search-progress__bar" />
-      </div>
     </div>
   );
 }

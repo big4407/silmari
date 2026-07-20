@@ -58,11 +58,108 @@ def _expired_files(
                 samples.append(path.name)
     return count, samples
 
+def _delete_expired_files(directory: Path, retention_days: int) -> int:
+    """cutoff 이전 파일을 실제로 지운다. 지운 개수를 반환."""
+    if not directory.exists():
+        return 0
+    cutoff_ts = _cutoff(retention_days).timestamp()
+    count = 0
+    for path in directory.rglob("*"):
+        if not path.is_file():
+            continue
+        try:
+            if path.stat().st_mtime >= cutoff_ts:
+                continue
+            path.unlink()
+            count += 1
+        except OSError:
+            continue
+    return count
+
+# 관리자가 처음 이 화면을 열었을 때 테이블이 비어있으면 아무것도 못 하므로
+# (정책 저장·드라이런 버튼이 다 disabled됨), 7개 데이터 유형에 대한 기본
+# 정책을 만들어준다. 값은 전부 시작점일 뿐이라 관리자가 화면에서 바로
+# 조정할 수 있다 — data_type이 unique라 이미 있는 유형은 건너뛴다.
+DEFAULT_POLICIES: list[dict] = [
+    {
+        "data_type": "cctv_video",
+        "data_label": "CCTV 원본 영상",
+        "storage_target": "data/CCTV (video 테이블)",
+        "retention_days": 90,
+        "expiry_action": "delete",
+        "is_active": True,
+    },
+    {
+        "data_type": "search_result",
+        "data_label": "검색 매칭 결과",
+        "storage_target": "analysis, analysis_detail 테이블",
+        "retention_days": 180,
+        "expiry_action": "delete",
+        "is_active": True,
+    },
+    {
+        "data_type": "search_request",
+        "data_label": "검색 요청 이력",
+        "storage_target": "search 테이블",
+        "retention_days": 365,
+        "expiry_action": "delete",
+        "is_active": True,
+    },
+    {
+        "data_type": "login_history",
+        "data_label": "로그인 이력",
+        "storage_target": "login_history 테이블",
+        "retention_days": 365,
+        "expiry_action": "delete",
+        "is_active": True,
+    },
+    {
+        "data_type": "disaster_message",
+        "data_label": "재난 안내문자",
+        "storage_target": "message 테이블",
+        "retention_days": 730,
+        "expiry_action": "delete",
+        "is_active": False,
+    },
+    {
+        "data_type": "clip_thumbnail",
+        "data_label": "탐지 크롭·썸네일 이미지",
+        "storage_target": "data/results (clips, thumbnails)",
+        "retention_days": 90,
+        "expiry_action": "delete",
+        "is_active": True,
+    },
+    {
+        "data_type": "chroma_embedding",
+        "data_label": "영상 임베딩(Chroma)",
+        "storage_target": "data/chroma",
+        "retention_days": 90,
+        "expiry_action": "delete",
+        "is_active": True,
+    },
+]
+
 
 class RetentionService:
     def __init__(self, db: Session):
         self.db = db
         self.repository = RetentionRepository(db)
+
+    def seed_defaults(self) -> list[dict]:
+        """비어있는 데이터 유형에 한해 기본 보존 정책을 만든다(멱등적).
+
+        이미 있는 data_type은 건드리지 않는다 — 관리자가 값을 바꿔놨는데
+        다시 누르면 초기화되는 걸 막기 위함.
+        """
+        existing = self.repository.get_existing_data_types()
+        to_create = [
+            RetentionPolicy(**p)
+            for p in DEFAULT_POLICIES
+            if p["data_type"] not in existing
+        ]
+        if to_create:
+            self.repository.create_many(to_create)
+        return self.list_policies()
 
     def list_policies(self) -> list[dict]:
         result: list[dict] = []
@@ -221,3 +318,115 @@ class RetentionService:
         if data_type == "chroma_embedding":
             return _expired_files(Path(settings.chroma_dir), retention_days)
         return 0, []
+    
+    # ── 실제 삭제 실행 ───────────────────────────────────────────────────
+    def execute(self, *, policy_id: int | None = None) -> list[dict]:
+        """만료된 데이터를 실제로 삭제한다.
+
+        - is_active=False인 정책은 건너뛴다(자동 실행 대상이 아니므로).
+        - expiry_action="delete"만 지원한다. "archive"/"anonymize"는 아직
+          구현이 없어 건너뛰고 skipped_reason으로 알린다 — 조용히 아무 일도
+          안 하는 것보다, 뭘 못 했는지 명시하는 게 삭제 기능에선 더 중요하다.
+        - 정책별로 개별 커밋한다 — 하나가 실패해도 그 전까지 처리한 정책은
+          남는다(전부 롤백되는 큰 트랜잭션 하나로 묶지 않음).
+        """
+        policies = self.repository.list_filtered(policy_id)
+        results: list[dict] = []
+
+        for p in policies:
+            if not p.is_active:
+                results.append(
+                    {
+                        "policy_id": p.id,
+                        "data_type": p.data_type,
+                        "data_label": p.data_label,
+                        "expiry_action": p.expiry_action,
+                        "executed_count": 0,
+                        "skipped_reason": "정책이 중지 상태라 실행하지 않았습니다.",
+                    }
+                )
+                continue
+
+            if p.expiry_action != "delete":
+                results.append(
+                    {
+                        "policy_id": p.id,
+                        "data_type": p.data_type,
+                        "data_label": p.data_label,
+                        "expiry_action": p.expiry_action,
+                        "executed_count": 0,
+                        "skipped_reason": (
+                            f"'{p.expiry_action}' 처리는 아직 지원하지 않습니다"
+                            "(지금은 delete만 실행 가능)."
+                        ),
+                    }
+                )
+                continue
+
+            executed_count = self._execute_for_data_type(p.data_type, p.retention_days)
+            self.db.commit()
+            results.append(
+                {
+                    "policy_id": p.id,
+                    "data_type": p.data_type,
+                    "data_label": p.data_label,
+                    "expiry_action": p.expiry_action,
+                    "executed_count": executed_count,
+                    "skipped_reason": None,
+                }
+            )
+
+        return results
+
+    def _delete_expired_db(self, model, date_column, retention_days: int) -> int:
+        """model을 ORM으로 하나씩 불러와서 지운다(bulk delete 대신) —
+
+        Video.details/Search.analyses/Analysis.details가 relationship에
+        cascade="all, delete-orphan"으로 걸려있는데, 이건 ORM 레벨 cascade라
+        db.execute(delete(...)) 같은 bulk 삭제로는 안 타고, 개별 db.delete(row)
+        로 불러와야 자식 row(VideoDetail/Analysis/AnalysisDetail)까지 같이
+        지워진다. DB에 ON DELETE CASCADE가 없어서 이 방식이 아니면 FK 제약
+        위반이 날 수 있다.
+        """
+        cutoff = _cutoff(retention_days)
+        rows = self.db.scalars(select(model).where(date_column < cutoff)).all()
+        for row in rows:
+            self.db.delete(row)
+        self.db.flush()
+        return len(rows)
+
+    def _execute_for_data_type(self, data_type: str, retention_days: int) -> int:
+        settings = get_settings()
+        if data_type == "cctv_video":
+            # Video row만 지우면 실제 영상 파일이 디스크에 그대로 남으므로,
+            # 파일도 같이 지운다.
+            cutoff = _cutoff(retention_days)
+            videos = self.db.scalars(
+                select(Video).where(Video.created_at < cutoff)
+            ).all()
+            for v in videos:
+                try:
+                    Path(v.file_path).unlink(missing_ok=True)
+                except OSError:
+                    pass
+                self.db.delete(v)
+            self.db.flush()
+            return len(videos)
+        if data_type == "search_result":
+            return self._delete_expired_db(Analysis, Analysis.created_at, retention_days)
+        if data_type == "search_request":
+            return self._delete_expired_db(Search, Search.searched_at, retention_days)
+        if data_type == "login_history":
+            return self._delete_expired_db(
+                LoginHistory, LoginHistory.created_at, retention_days
+            )
+        if data_type == "disaster_message":
+            return self._delete_expired_db(Message, Message.crt_dt, retention_days)
+        if data_type == "clip_thumbnail":
+            results_dir = Path(settings.results_dir)
+            return _delete_expired_files(
+                results_dir / "clips", retention_days
+            ) + _delete_expired_files(results_dir / "thumbnails", retention_days)
+        if data_type == "chroma_embedding":
+            return _delete_expired_files(Path(settings.chroma_dir), retention_days)
+        return 0

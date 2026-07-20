@@ -450,6 +450,15 @@ class VideoDetail(Base):
     position: Mapped[str] = mapped_column(
         String(100), nullable=False, comment="bbox (x,y,width,height)"
     )
+    top_color: Mapped[list[float] | None] = mapped_column(
+        JSON, nullable=True, comment="상의 우세 색상 CIE Lab [L,a,b] (색상 추출 실패 시 NULL)"
+    )
+    bottom_color: Mapped[list[float] | None] = mapped_column(
+        JSON, nullable=True, comment="하의 우세 색상 CIE Lab [L,a,b] (색상 추출 실패 시 NULL)"
+    )
+    shoes_color: Mapped[list[float] | None] = mapped_column(
+        JSON, nullable=True, comment="신발 우세 색상 CIE Lab [L,a,b] (색상 추출 실패 시 NULL)"
+    )
 
     video: Mapped["Video"] = relationship(back_populates="details")
 
@@ -586,7 +595,15 @@ class AnalysisDetail(Base):
         String(260), nullable=True, comment="매칭된 인물 crop 이미지 경로(썸네일)"
     )
     matching_rate: Mapped[float] = mapped_column(
-        Float, nullable=False, default=0, comment="매칭 정확도"
+        Float, nullable=False, default=0, comment="매칭 정확도(FashionCLIP 코사인 유사도)"
+    )
+    color_match_rate: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+        comment="인상착의 텍스트 색상과 크롭 실제 색상의 매칭 점수(0~1, "
+        "core/search/color_matching.py). 비교 불가 시 NULL — matching_rate와 "
+        "합산해 최종 정렬 점수를 만들 때는 조회 시점에 계산한다(가중치 튜닝을 "
+        "위해 원값을 따로 저장).",
     )
 
     analysis: Mapped["Analysis"] = relationship(back_populates="details")

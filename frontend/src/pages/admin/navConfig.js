@@ -15,16 +15,13 @@ export const NAV = [
   {
     group: 'CCTV·검색 운영',
     items: [
-      { id: 'cctv-source', label: 'CCTV 영상 수집' },
+      { id: 'cctv-source', label: 'CCTV 영상 수집 현황' },
       { id: 'search-requests', label: '검색 요청 이력' },
     ],
   },
   {
     group: 'LLM 운영 관리',
-    items: [
-      { id: 'llm-usage', label: '모델별 사용량' },
-      { id: 'llm-logs', label: '프롬프트·결과 로그' },
-    ],
+    items: [{ id: 'llm-usage', label: 'LLM 사용량' }],
   },
   {
     group: '통계',
