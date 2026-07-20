@@ -453,15 +453,15 @@ export function OutcomeStatsView() {
         <table>
           <thead>
             <tr>
-              <th>일시</th>
-              <th>사건 키</th>
-              <th>구분</th>
-              <th>대상자</th>
-              <th>역할</th>
-              <th>지역</th>
+              <th style={{ width: 130 }}>일시</th>
+              <th style={{ width: 110 }}>사건 키</th>
+              <th style={{ width: 60 }}>구분</th>
+              <th style={{ width: 90 }}>대상자</th>
+              <th style={{ width: 80 }}>역할</th>
+              <th style={{ width: 110 }}>지역</th>
               <th>장소</th>
-              <th>기록자</th>
-              <th>검색 ID</th>
+              <th style={{ width: 90 }}>기록자</th>
+              <th style={{ width: 80 }}>검색 ID</th>
             </tr>
           </thead>
           <tbody>
@@ -469,12 +469,14 @@ export function OutcomeStatsView() {
               state.data.recent_records.map((row) => (
                 <tr key={row.id}>
                   <td>{formatDateTime(row.occurred_at)}</td>
-                  <td>{row.case_key}</td>
+                  <td title={row.case_key}>{row.case_key}</td>
                   <td>{row.event_type === 'FOUND' ? '발견' : '해결'}</td>
                   <td>{row.actor_name ?? '-'}</td>
                   <td>{row.actor_role ?? '-'}</td>
                   <td>{row.region ?? '-'}</td>
-                  <td>{row.location_text ?? '-'}</td>
+                  <td title={row.location_text ?? undefined}>
+                    {row.location_text ?? '-'}
+                  </td>
                   <td>{row.recorded_by_name}</td>
                   <td>{row.source_search_id ?? '-'}</td>
                 </tr>
@@ -540,7 +542,9 @@ export function StatsExportView() {
               <label>통계 종류</label>
               <select
                 value={statType}
-                onChange={(event) => setStatType(event.target.value as StatType)}
+                onChange={(event) =>
+                  setStatType(event.target.value as StatType)
+                }
               >
                 <option value="cctv">CCTV 통계</option>
                 <option value="search">검색 통계</option>
@@ -611,7 +615,10 @@ export function StatsExportView() {
               logs.data.map((row) => (
                 <tr key={row.id}>
                   <td>{formatDateTime(row.created_at)}</td>
-                  <td>{STAT_TYPE_LABELS[row.stat_type as StatType] ?? row.stat_type}</td>
+                  <td>
+                    {STAT_TYPE_LABELS[row.stat_type as StatType] ??
+                      row.stat_type}
+                  </td>
                   <td>
                     {row.from_date} ~ {row.to_date}
                   </td>

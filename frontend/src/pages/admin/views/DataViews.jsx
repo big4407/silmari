@@ -1227,7 +1227,7 @@ export function DataValidateView() {
               <th>결과</th>
               <th>이슈</th>
               <th>샘플</th>
-              <th />
+              <th style={{ width: 120 }} />
             </tr>
           </thead>
           <tbody>
@@ -1557,7 +1557,7 @@ export function DataRetentionView() {
               <th style={{ textAlign: 'right' }}>현재 보관량</th>
               <th style={{ textAlign: 'right' }}>만료 예정</th>
               <th>상태</th>
-              <th />
+              <th style={{ width: 100 }} />
             </tr>
           </thead>
           <tbody>

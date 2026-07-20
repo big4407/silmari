@@ -59,19 +59,19 @@ export function CaseEventForm({ onCreated }: CaseEventFormProps) {
   }
 
   return (
-    <form className="stats-event-form" onSubmit={handleSubmit}>
-      <div className="stats-form-grid">
-        <label>
-          사건 키
+    <form onSubmit={handleSubmit}>
+      <div className="admin-form-row">
+        <div className="admin-fld">
+          <label>사건 키</label>
           <input
             value={caseKey}
             onChange={(event) => setCaseKey(event.target.value)}
             placeholder="예: CASE-2026-001"
           />
-        </label>
+        </div>
 
-        <label>
-          연결 검색 ID
+        <div className="admin-fld">
+          <label>연결 검색 ID</label>
           <input
             type="number"
             min={1}
@@ -79,74 +79,80 @@ export function CaseEventForm({ onCreated }: CaseEventFormProps) {
             onChange={(event) => setSearchId(event.target.value)}
             placeholder="사건 키가 없으면 필수"
           />
-        </label>
+        </div>
 
-        <label>
-          기록 종류
+        <div className="admin-fld">
+          <label>기록 종류</label>
           <select
             value={eventType}
-            onChange={(event) => setEventType(event.target.value as CaseEventType)}
+            onChange={(event) =>
+              setEventType(event.target.value as CaseEventType)
+            }
           >
             <option value="FOUND">대상자 발견</option>
             <option value="RESOLVED">사건 해결</option>
           </select>
-        </label>
+        </div>
 
-        <label>
-          발생 일시
+        <div className="admin-fld">
+          <label>발생 일시</label>
           <input
             type="datetime-local"
             value={occurredAt}
             onChange={(event) => setOccurredAt(event.target.value)}
             required
           />
-        </label>
+        </div>
+      </div>
 
-        <label>
-          대상자명
+      <div className="admin-form-row">
+        <div className="admin-fld">
+          <label>대상자명</label>
           <input
             value={actorName}
             onChange={(event) => setActorName(event.target.value)}
           />
-        </label>
+        </div>
 
-        <label>
-          대상자 역할
+        <div className="admin-fld">
+          <label>대상자 역할</label>
           <input
             value={actorRole}
             onChange={(event) => setActorRole(event.target.value)}
             placeholder="보호자, 발견자 등"
           />
-        </label>
+        </div>
 
-        <label>
-          지역
+        <div className="admin-fld">
+          <label>지역</label>
           <input
             value={region}
             onChange={(event) => setRegion(event.target.value)}
             placeholder="예: 서울 관악구"
           />
-        </label>
+        </div>
 
-        <label>
-          상세 장소
+        <div className="admin-fld">
+          <label>상세 장소</label>
           <input
             value={locationText}
             onChange={(event) => setLocationText(event.target.value)}
           />
-        </label>
+        </div>
       </div>
 
-      <label className="stats-form-wide">
-        처리 내용
-        <textarea
-          value={note}
-          onChange={(event) => setNote(event.target.value)}
-          rows={3}
-        />
-      </label>
+      <div className="admin-form-row">
+        <div className="admin-fld" style={{ flex: '1 1 100%' }}>
+          <label>처리 내용</label>
+          <textarea
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            rows={3}
+          />
+        </div>
+      </div>
 
-      {error && <div className="stats-error">{error}</div>}
+      {error && <p className="admin-modal__error">{error}</p>}
 
       <button
         type="submit"

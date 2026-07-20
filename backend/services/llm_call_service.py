@@ -14,6 +14,7 @@ from backend.schemas.llm_call_schema import (
     CallResponse,
     LlmCallGroupListResponse,
     LlmCallAdminSearchParams,
+    LlmUsageSummary,
     MessageLlmCallDetail,
     ChatbotLlmCallDetail,
     LlmCallGroupItem,
@@ -27,6 +28,9 @@ class LlmCallService:
     def __init__(self, db: Session):
         self.db = db
         self.repository = LLmCallRepository(db)
+
+    def get_usage_summary(self) -> LlmUsageSummary:
+        return LlmUsageSummary(**self.repository.get_summary_counts())
 
     def _get_or_404(self, id: int) -> LlmCall:
         """

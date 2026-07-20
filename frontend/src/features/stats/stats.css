@@ -1,8 +1,11 @@
 .stats-error {
   margin: 12px 0;
-  padding: 10px 12px;
-  border: 1px solid currentColor;
-  border-radius: 6px;
+  padding: 16px;
+  border-radius: 8px;
+  background: #fff5f5;
+  border: 1px solid #f0c4c4;
+  color: #8a2f2f;
+  font-size: 13px;
 }
 
 .stats-empty {
@@ -10,6 +13,8 @@
   display: grid;
   place-items: center;
   opacity: 0.7;
+  color: var(--admin-ink-3);
+  font-size: 13px;
 }
 
 .stats-bars {
@@ -22,20 +27,21 @@
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--admin-ink);
 }
 
 .stats-bars__track {
   height: 9px;
   overflow: hidden;
   border-radius: 999px;
-  background: rgba(127, 127, 127, 0.18);
+  background: var(--admin-line-soft);
 }
 
 .stats-bars__fill {
   height: 100%;
   border-radius: inherit;
-  background: currentColor;
-  opacity: 0.65;
+  background: var(--admin-blue);
 }
 
 .stats-chart-wrap {
@@ -50,39 +56,14 @@
 }
 
 .stats-line-chart__axis {
-  stroke: currentColor;
-  opacity: 0.25;
+  stroke: var(--admin-line);
 }
 
 .stats-line-chart__line {
-  stroke: currentColor;
+  stroke: var(--admin-blue);
   stroke-width: 2.5;
 }
 
 .stats-line-chart__point {
-  fill: currentColor;
-}
-
-.stats-event-form {
-  display: grid;
-  gap: 14px;
-}
-
-.stats-form-grid {
-  display: grid;
-  grid-template-columns:
-    repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
-}
-
-.stats-form-grid label,
-.stats-form-wide {
-  display: grid;
-  gap: 6px;
-}
-
-.stats-form-grid input,
-.stats-form-grid select,
-.stats-form-wide textarea {
-  width: 100%;
+  fill: var(--admin-blue);
 }

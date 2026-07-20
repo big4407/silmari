@@ -14,7 +14,7 @@ import type {
   StatType,
 } from './types';
 
-const BASE_URL = '/api/v1/admin/stats';
+const BASE_URL = '/member/admin/stats';
 
 interface Query {
   fromDate?: string;
@@ -32,10 +32,7 @@ function buildParams(query: Query = {}) {
   };
 }
 
-async function toError(
-  error: unknown,
-  fallback: string,
-): Promise<Error> {
+async function toError(error: unknown, fallback: string): Promise<Error> {
   const message = await readApiErrorMessage(error, fallback);
   return new Error(message);
 }

@@ -434,6 +434,14 @@ export const ADMIN_ACTION_LABELS = {
   6: '수정',
 };
 
+// 관리자 행동 이력의 target_type → 어느 화면(대상)에서 벌어진 일인지 표시용 라벨
+export const ADMIN_TARGET_TYPE_LABELS = {
+  user: '회원 관리',
+  region: '행정구역 관리',
+  retention_policy: '삭제·보존 정책',
+  integrity_check: '데이터 정합성 검사',
+};
+
 // 검색 요청 출처 코드 → 한글 라벨 (SearchType enum)
 export const SEARCH_TYPE_LABELS = {
   1: '안내문자',

@@ -144,7 +144,7 @@ app.include_router(
     tags=["llm_call"],
 )
 app.include_router(video.router, prefix="/video", tags=["video"])
-app.include_router(stats_router)
+app.include_router(stats_router, prefix="/member", tags=["member"])
 
 
 @app.get("/health")

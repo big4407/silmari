@@ -174,3 +174,15 @@ class LlmCallAdminSearchParams(BaseModel):
     page: int = 1
     size: int = 20
     order_by: str = "latest"
+
+
+class LlmUsageSummary(BaseModel):
+    """LLM 사용량 화면 상단 통계 카드용.
+
+    today_total만 당일(오늘) 기준이고, 나머지 유형별 건수는 전체 누적이다.
+    """
+
+    today_total: int = 0
+    total_translation: int = 0
+    total_chatbot: int = 0
+    total_alert_parse: int = 0

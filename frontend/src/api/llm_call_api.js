@@ -1,5 +1,10 @@
 import client from './client.js';
 
+export async function getLlmUsageSummary() {
+  const response = await client.get('/llm_call/summary');
+  return response.data;
+}
+
 export async function getLlmCallList({
   page = 1,
   perPage = 20,
@@ -12,7 +17,6 @@ export async function getLlmCallList({
   endDate,
   orderBy = 'latest',
 }) {
-
   const params = {
     page,
     size: perPage,
@@ -43,10 +47,7 @@ export async function getLlmConversation(chatbotSessionId) {
 }
 
 export async function getLlmMessageCallDetail(llmCallId) {
-  const response = await client.get(
-    `/llm_call/admin/message/${llmCallId}`,
-  );
+  const response = await client.get(`/llm_call/admin/message/${llmCallId}`);
 
   return response.data;
 }
-

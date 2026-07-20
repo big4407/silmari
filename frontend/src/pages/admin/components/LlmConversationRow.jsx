@@ -9,10 +9,11 @@ function formatCost(value) {
 export function LlmConversationRow({ conversation, onOpen }) {
   const totalTokens =
     (conversation.input_tokens ?? 0) + (conversation.output_tokens ?? 0);
+  const calledAt = formatDateTime(conversation.last_called_at);
 
   return (
     <tr>
-      <td>{formatDateTime(conversation.last_called_at)}</td>
+      <td title={calledAt}>{calledAt}</td>
       <td>챗봇 대화</td>
       <td>{conversation.username ?? '-'}</td>
       <td>{conversation.model}</td>

@@ -408,7 +408,9 @@ export function SearchRequestsView() {
                     </span>
                   </td>
                   <td>{r.requester_name ?? r.requester_username ?? '-'}</td>
-                  <td>{r.message_preview ?? '-'}</td>
+                  <td title={r.message_preview ?? undefined}>
+                    {r.message_preview ?? '-'}
+                  </td>
                   <td>
                     {r.missing_name ?? '-'}
                     {r.gender ? ` (${r.gender === 'M' ? '남' : '여'}` : ''}
@@ -418,7 +420,7 @@ export function SearchRequestsView() {
                         ? ')'
                         : ''}
                   </td>
-                  <td>{r.clothing ?? '-'}</td>
+                  <td title={r.clothing ?? undefined}>{r.clothing ?? '-'}</td>
                   <td>
                     {r.missing_location ?? '-'}
                     {r.missing_time ? ` · ${fmt(r.missing_time)}` : ''}

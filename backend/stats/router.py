@@ -36,7 +36,7 @@ from .table_registry import StatsSourceError
 
 
 router = APIRouter(
-    prefix="/api/v1/admin/stats",
+    prefix="/admin/stats",
     tags=["Statistics"],
 )
 

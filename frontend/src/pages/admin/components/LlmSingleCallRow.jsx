@@ -8,9 +8,10 @@ function formatCost(value) {
 
 export function LlmSingleCallRow({ call }) {
   const totalTokens = (call.input_tokens ?? 0) + (call.output_tokens ?? 0);
+  const calledAt = formatDateTime(call.first_called_at);
   return (
     <tr>
-      <td>{formatDateTime(call.first_called_at)}</td>
+      <td title={calledAt}>{calledAt}</td>
       <td>인상착의 한영변환</td>
       <td>{call.username ?? '-'}</td>
       <td>{call.model}</td>

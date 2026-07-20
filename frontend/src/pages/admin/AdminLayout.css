@@ -905,7 +905,8 @@
 }
 
 .admin-fld input,
-.admin-fld select {
+.admin-fld select,
+.admin-fld textarea {
   font-family: inherit;
   font-size: 13px;
   padding: 8px 11px;
@@ -914,6 +915,10 @@
   color: var(--admin-ink);
   background: #fff;
   width: 100%;
+}
+
+.admin-fld textarea {
+  resize: vertical;
 }
 
 .admin-form-row .admin-spacer {

@@ -10,7 +10,7 @@ export function LlmConversationModal({ open, conversation, loading, onClose }) {
     >
       <div className="admin-card-h">
         챗봇 대화 호출 상세
-        <button class="admin-btn" type="button" onClick={onClose}>
+        <button className="admin-btn" type="button" onClick={onClose}>
           닫기
         </button>
       </div>
@@ -34,23 +34,30 @@ export function LlmConversationModal({ open, conversation, loading, onClose }) {
           </thead>
 
           <tbody>
-            {(conversation?.calls ?? []).map((call) => (
-              <tr key={call.id}>
-                <td>{new Date(call.created_at).toLocaleString()}</td>
-                <td>{call.model_name}</td>
-                <td>{call.prompt}</td>
-                <td>{call.response ?? '-'}</td>
-                <td>{call.input_tokens ?? '-'}</td>
-                <td>{call.output_tokens ?? '-'}</td>
-                <td>
-                  {call.latency_ms == null ? '-' : `${call.latency_ms}ms`}
-                </td>
-                <td>
-                  {call.cost == null ? '-' : `$${Number(call.cost).toFixed(6)}`}
-                </td>
-                <td>{call.status === '1' ? '성공' : '실패'}</td>
-              </tr>
-            ))}
+            {(conversation?.calls ?? []).map((call) => {
+              const calledAt = new Date(call.created_at).toLocaleString();
+              return (
+                <tr key={call.id}>
+                  <td title={calledAt}>{calledAt}</td>
+                  <td>{call.model_name}</td>
+                  <td title={call.prompt}>{call.prompt}</td>
+                  <td title={call.response ?? undefined}>
+                    {call.response ?? '-'}
+                  </td>
+                  <td>{call.input_tokens ?? '-'}</td>
+                  <td>{call.output_tokens ?? '-'}</td>
+                  <td>
+                    {call.latency_ms == null ? '-' : `${call.latency_ms}ms`}
+                  </td>
+                  <td>
+                    {call.cost == null
+                      ? '-'
+                      : `$${Number(call.cost).toFixed(6)}`}
+                  </td>
+                  <td>{call.status === '1' ? '성공' : '실패'}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}

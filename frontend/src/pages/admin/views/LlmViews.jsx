@@ -10,17 +10,17 @@ import { LlmConversationModal } from '../components/LlmConversationModal';
 import {
   getLlmCallList,
   getLlmConversation,
-  // getLlmUsageSummary,
+  getLlmUsageSummary,
 } from '../../../api/llm_call_api';
 
 const PAGE_SIZE = 10;
 
 export function LlmUsageView() {
   const [summary, setSummary] = useState({
-    total_calls: 0,
-    translation_calls: 0,
-    chatbot_calls: 0,
-    success_rate: 0,
+    today_total: 0,
+    total_translation: 0,
+    total_chatbot: 0,
+    total_alert_parse: 0,
   });
 
   const [items, setItems] = useState([]);
@@ -42,21 +42,20 @@ export function LlmUsageView() {
         setLoading(true);
         setError('');
 
-        const [listData] = await Promise.all([
-          // getLlmUsageSummary(),
+        const [summaryData, listData] = await Promise.all([
+          getLlmUsageSummary(),
           getLlmCallList({
             page,
             perPage: PAGE_SIZE,
           }),
         ]);
 
-        // setSummary({
-        //   total_calls: summaryData.total_calls ?? 0,
-        //   translation_calls: summaryData.translation_calls ?? 0,
-        //   chatbot_calls: summaryData.chatbot_calls ?? 0,
-        //   success_rate: summaryData.success_rate ?? 0,
-        // });
-        // console.log('listData', listData);
+        setSummary({
+          today_total: summaryData?.today_total ?? 0,
+          total_translation: summaryData?.total_translation ?? 0,
+          total_chatbot: summaryData?.total_chatbot ?? 0,
+          total_alert_parse: summaryData?.total_alert_parse ?? 0,
+        });
         if (listData) {
           setItems(listData.items ?? []);
           setTotal(listData.total ?? 0);
@@ -109,25 +108,28 @@ export function LlmUsageView() {
       <div className="admin-stat-grid">
         <div className="admin-stat">
           <div className="admin-label">오늘 총 호출</div>
-          <StatValue value={summary.total_calls.toLocaleString()} unit="건" />
+          <StatValue value={summary.today_total.toLocaleString()} unit="건" />
         </div>
 
         <div className="admin-stat">
-          <div className="admin-label">인상착의 한영변환</div>
+          <div className="admin-label">인상착의 한영변환 (전체)</div>
           <StatValue
-            value={summary.translation_calls.toLocaleString()}
+            value={summary.total_translation.toLocaleString()}
             unit="건"
           />
         </div>
 
         <div className="admin-stat">
-          <div className="admin-label">챗봇 호출</div>
-          <StatValue value={summary.chatbot_calls.toLocaleString()} unit="건" />
+          <div className="admin-label">챗봇 호출 (전체)</div>
+          <StatValue value={summary.total_chatbot.toLocaleString()} unit="건" />
         </div>
 
-        <div className="admin-stat admin-stat--green">
-          <div className="admin-label">성공률</div>
-          <StatValue value={summary.success_rate.toFixed(1)} unit="%" />
+        <div className="admin-stat">
+          <div className="admin-label">안내문자 파싱 (전체)</div>
+          <StatValue
+            value={summary.total_alert_parse.toLocaleString()}
+            unit="건"
+          />
         </div>
       </div>
 
