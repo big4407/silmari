@@ -30,10 +30,10 @@ from backend.routers import (
     messages,
     operations,
     search,
+    stats,
     users,
     video,
 )
-from backend.stats.router import router as stats_router
 
 # scheduler logging side effects
 import backend.core.scheduler_logging  # noqa: F401
@@ -144,7 +144,7 @@ app.include_router(
     tags=["llm_call"],
 )
 app.include_router(video.router, prefix="/video", tags=["video"])
-app.include_router(stats_router, prefix="/member", tags=["member"])
+app.include_router(stats.router, prefix="/member", tags=["member"])
 
 
 @app.get("/health")

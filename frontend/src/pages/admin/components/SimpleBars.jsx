@@ -1,6 +1,5 @@
-import type { DistributionItem } from '../types';
-
-export function SimpleBars({ items }: { items: DistributionItem[] }) {
+/** 성별/연령 분포 등 단순 막대그래프 */
+export function SimpleBars({ items }) {
   if (items.length === 0) {
     return <div className="stats-empty">통계 데이터가 없습니다.</div>;
   }

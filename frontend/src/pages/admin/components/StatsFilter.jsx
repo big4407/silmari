@@ -1,12 +1,4 @@
-interface StatsFilterProps {
-  periodDays: number;
-  onPeriodDaysChange: (days: number) => void;
-  region?: string;
-  onRegionChange?: (region: string) => void;
-  searchType?: string;
-  onSearchTypeChange?: (searchType: string) => void;
-}
-
+/** 통계 화면 공용 필터 — 기간·지역·검색유형 */
 export function StatsFilter({
   periodDays,
   onPeriodDaysChange,
@@ -14,7 +6,7 @@ export function StatsFilter({
   onRegionChange,
   searchType,
   onSearchTypeChange,
-}: StatsFilterProps) {
+}) {
   return (
     <div className="admin-toolbar">
       <select

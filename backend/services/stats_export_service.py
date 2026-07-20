@@ -1,16 +1,21 @@
+"""
+통계 CSV 내보내기.
+
+CctvCoverageService가 VideoService 옆에 별도로 있는 것과 같은 구성 —
+StatsService(집계 조회)를 그대로 조합해서 CSV로 포맷팅만 담당한다.
+"""
 from __future__ import annotations
 
 import csv
 import io
-from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy.orm import Session
 
-from .integration import StatsActor
-from .repository import StatsRepository
-from .schemas import ExportRequest
-from .service import StatsService
+from backend.repositories.stats_repository import StatsRepository
+from backend.schemas.stats_schema import ExportRequest
+from backend.services.stats_service import StatsService
+from backend.utils.timeutils import kst_now
 
 
 class StatsExportService:
@@ -25,10 +30,7 @@ class StatsExportService:
         self.service = service or StatsService(db, self.repository)
 
     @staticmethod
-    def _csv_content(
-        headers: list[str],
-        rows: list[list[Any]],
-    ) -> str:
+    def _csv_content(headers: list[str], rows: list[list[Any]]) -> str:
         stream = io.StringIO()
         stream.write("\ufeff")
         writer = csv.writer(stream)
@@ -37,9 +39,7 @@ class StatsExportService:
         return stream.getvalue()
 
     def build(
-        self,
-        request: ExportRequest,
-        actor: StatsActor,
+        self, request: ExportRequest, *, actor_id: str | None, actor_name: str
     ) -> tuple[str, str, int]:
         if request.from_date > request.to_date:
             raise ValueError("시작일은 종료일보다 늦을 수 없습니다.")
@@ -47,41 +47,23 @@ class StatsExportService:
         stat_type = request.stat_type
 
         if stat_type == "cctv":
-            data = self.service.get_cctv(
-                request.from_date,
-                request.to_date,
-                request.region,
-            )
+            data = self.service.get_cctv(request.from_date, request.to_date, request.region)
             headers = ["지역", "등록 영상", "인덱싱 완료", "감지 인원"]
             rows = [
-                [
-                    item.region,
-                    item.registered_videos,
-                    item.indexed_videos,
-                    item.detected_persons,
-                ]
+                [item.region, item.registered_videos, item.indexed_videos, item.detected_persons]
                 for item in data.by_region
             ]
         elif stat_type == "search":
             data = self.service.get_search(
-                request.from_date,
-                request.to_date,
-                request.search_type,
+                request.from_date, request.to_date, request.search_type
             )
             headers = ["날짜", "검색 건수", "성공 매칭 건수"]
             rows = [
-                [
-                    item.date.isoformat(),
-                    item.search_count,
-                    item.successful_count,
-                ]
+                [item.date.isoformat(), item.search_count, item.successful_count]
                 for item in data.daily
             ]
         elif stat_type == "demographic":
-            data = self.service.get_demographic(
-                request.from_date,
-                request.to_date,
-            )
+            data = self.service.get_demographic(request.from_date, request.to_date)
             headers = ["지역", "검색 요청", "발견", "해결", "발견율", "해결율"]
             rows = [
                 [
@@ -96,24 +78,11 @@ class StatsExportService:
             ]
         else:
             data = self.service.get_outcomes(
-                request.from_date,
-                request.to_date,
-                request.region,
+                request.from_date, request.to_date, request.region
             )
             headers = [
-                "사건 키",
-                "구분",
-                "발생 시각",
-                "신고 시각",
-                "지역",
-                "대상자",
-                "역할",
-                "기록자",
-                "장소",
-                "검색 ID",
-                "분석 ID",
-                "분석 상세 ID",
-                "비고",
+                "사건 키", "구분", "발생 시각", "신고 시각", "지역", "대상자",
+                "역할", "기록자", "장소", "검색 ID", "분석 ID", "분석 상세 ID", "비고",
             ]
             rows = [
                 [
@@ -135,9 +104,7 @@ class StatsExportService:
             ]
 
         filename = (
-            f"{stat_type}_stats_"
-            f"{request.from_date.isoformat()}_"
-            f"{request.to_date.isoformat()}.csv"
+            f"{stat_type}_stats_{request.from_date.isoformat()}_{request.to_date.isoformat()}.csv"
         )
         content = self._csv_content(headers, rows)
 
@@ -150,9 +117,9 @@ class StatsExportService:
                     "file_format": request.file_format,
                     "file_name": filename,
                     "row_count": len(rows),
-                    "requested_by_id": actor.user_id,
-                    "requested_by_name": actor.name,
-                    "created_at": datetime.now(timezone.utc),
+                    "requested_by_id": actor_id,
+                    "requested_by_name": actor_name,
+                    "created_at": kst_now(),
                 }
             )
             self.db.commit()

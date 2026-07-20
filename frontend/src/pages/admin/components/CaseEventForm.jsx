@@ -1,16 +1,11 @@
-import { type FormEvent, useState } from 'react';
+/** 발견/해결 결과 통계 — 사건 진행 기록(발견/해결) 입력 폼 */
+import { useState } from 'react';
+import { createCaseEvent } from '../../../api/client';
 
-import { createCaseEvent } from '../api';
-import type { CaseEvent, CaseEventType } from '../types';
-
-interface CaseEventFormProps {
-  onCreated: (event: CaseEvent) => void;
-}
-
-export function CaseEventForm({ onCreated }: CaseEventFormProps) {
+export function CaseEventForm({ onCreated }) {
   const [caseKey, setCaseKey] = useState('');
   const [searchId, setSearchId] = useState('');
-  const [eventType, setEventType] = useState<CaseEventType>('FOUND');
+  const [eventType, setEventType] = useState('1');
   const [occurredAt, setOccurredAt] = useState('');
   const [actorName, setActorName] = useState('');
   const [actorRole, setActorRole] = useState('');
@@ -18,12 +13,12 @@ export function CaseEventForm({ onCreated }: CaseEventFormProps) {
   const [locationText, setLocationText] = useState('');
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState('');
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event) {
     event.preventDefault();
     setSubmitting(true);
-    setError(null);
+    setError('');
 
     try {
       const created = await createCaseEvent({
@@ -85,12 +80,10 @@ export function CaseEventForm({ onCreated }: CaseEventFormProps) {
           <label>기록 종류</label>
           <select
             value={eventType}
-            onChange={(event) =>
-              setEventType(event.target.value as CaseEventType)
-            }
+            onChange={(event) => setEventType(event.target.value)}
           >
-            <option value="FOUND">대상자 발견</option>
-            <option value="RESOLVED">사건 해결</option>
+            <option value="1">대상자 발견</option>
+            <option value="2">사건 해결</option>
           </select>
         </div>
 

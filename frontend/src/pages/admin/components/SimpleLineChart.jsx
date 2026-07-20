@@ -1,10 +1,5 @@
-interface DailyPoint {
-  date: string;
-  search_count: number;
-  successful_count: number;
-}
-
-export function SimpleLineChart({ data }: { data: DailyPoint[] }) {
+/** 일별 검색 추이 꺾은선 그래프 */
+export function SimpleLineChart({ data }) {
   if (data.length === 0) {
     return <div className="stats-empty">통계 데이터가 없습니다.</div>;
   }
@@ -19,9 +14,7 @@ export function SimpleLineChart({ data }: { data: DailyPoint[] }) {
     .map((item, index) => {
       const x = padding + (index / denominator) * (width - padding * 2);
       const y =
-        height
-        - padding
-        - (item.search_count / maxValue) * (height - padding * 2);
+        height - padding - (item.search_count / maxValue) * (height - padding * 2);
       return `${x},${y}`;
     })
     .join(' ');
@@ -41,17 +34,11 @@ export function SimpleLineChart({ data }: { data: DailyPoint[] }) {
           y2={height - padding}
           className="stats-line-chart__axis"
         />
-        <polyline
-          points={points}
-          fill="none"
-          className="stats-line-chart__line"
-        />
+        <polyline points={points} fill="none" className="stats-line-chart__line" />
         {data.map((item, index) => {
           const x = padding + (index / denominator) * (width - padding * 2);
           const y =
-            height
-            - padding
-            - (item.search_count / maxValue) * (height - padding * 2);
+            height - padding - (item.search_count / maxValue) * (height - padding * 2);
 
           return (
             <circle
@@ -62,8 +49,7 @@ export function SimpleLineChart({ data }: { data: DailyPoint[] }) {
               className="stats-line-chart__point"
             >
               <title>
-                {item.date}: 검색 {item.search_count}건, 성공{' '}
-                {item.successful_count}건
+                {item.date}: 검색 {item.search_count}건, 성공 {item.successful_count}건
               </title>
             </circle>
           );

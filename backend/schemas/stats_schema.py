@@ -1,3 +1,6 @@
+"""
+관리자 통계(CCTV·검색·인구통계·발견해결결과) API 스키마.
+"""
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -80,7 +83,7 @@ class DemographicStatsResponse(BaseModel):
     by_region: list[RegionDemographicItem] = Field(default_factory=list)
 
 
-CaseEventType = Literal["FOUND", "RESOLVED"]
+CaseEventType = Literal["1", "2"]  # 1: 발견, 2: 해결
 
 
 class CaseEventCreate(BaseModel):

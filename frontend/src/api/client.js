@@ -630,4 +630,73 @@ export const deleteAllSearchResults = async () => {
   return { ok: true, deleted_count: items.length };
 };
 
+// ── 관리자 통계(CCTV·검색·인구통계·발견해결결과) ──────────────────────────
+const STATS_BASE_URL = '/member/admin/stats';
+
+function buildStatsParams(query = {}) {
+  return {
+    from_date: query.fromDate || undefined,
+    to_date: query.toDate || undefined,
+    region: query.region || undefined,
+    search_type: query.searchType || undefined,
+  };
+}
+
+async function getStatsJson(path, query, signal) {
+  try {
+    const response = await client.get(`${STATS_BASE_URL}${path}`, {
+      params: buildStatsParams(query),
+      signal,
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      await readApiErrorMessage(error, '통계 데이터를 불러오지 못했습니다.'),
+    );
+  }
+}
+
+export const fetchCctvStats = (query, signal) =>
+  getStatsJson('/cctv', query, signal);
+export const fetchSearchStats = (query, signal) =>
+  getStatsJson('/search', query, signal);
+export const fetchDemographicStats = (query, signal) =>
+  getStatsJson('/demographic', query, signal);
+export const fetchOutcomeStats = (query, signal) =>
+  getStatsJson('/outcomes', query, signal);
+export const fetchExportLogs = (signal) =>
+  getStatsJson('/exports', undefined, signal);
+
+export const createCaseEvent = async (payload) => {
+  try {
+    const response = await client.post(
+      `${STATS_BASE_URL}/case-events`,
+      payload,
+    );
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      await readApiErrorMessage(error, '이벤트 저장에 실패했습니다.'),
+    );
+  }
+};
+
+export const exportStats = async (payload) => {
+  try {
+    const response = await client.post(
+      `${STATS_BASE_URL}/export`,
+      { ...payload, file_format: 'CSV' },
+      { responseType: 'blob' },
+    );
+    const disposition = response.headers?.['content-disposition'] ?? '';
+    const match = String(disposition).match(/filename="([^"]+)"/);
+    const filename = match?.[1] ?? 'statistics.csv';
+    saveBlobDownload(response.data, filename);
+  } catch (error) {
+    throw new Error(
+      await readApiErrorMessage(error, '통계 내보내기에 실패했습니다.'),
+    );
+  }
+};
+
 export default client;
