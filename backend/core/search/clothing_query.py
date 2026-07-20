@@ -54,6 +54,16 @@ _BOTTOM_KO_TO_EN: dict[str, str] = {
     "치마": "skirt", "스커트": "skirt",
 }
 
+# ── 신발 종류 — color_matching.py의 shoes 영역과 짝을 맞춘다 ────────────
+_SHOES_KO_TO_EN: dict[str, str] = {
+    "운동화": "sneakers", "스니커즈": "sneakers",
+    "구두": "dress shoes",
+    "부츠": "boots", "워커": "boots",
+    "슬리퍼": "slippers", "샌들": "sandals",
+    "슬립온": "slip-on shoes",
+    "신발": "shoes",
+}
+
 # ── 액세서리 (선택 정보 — 있으면 문장에 덧붙임) ─────────────────────────
 _ACCESSORY_KO_TO_EN: dict[str, str] = {
     "모자": "hat", "야구모자": "cap", "캡모자": "cap", "비니": "beanie",
@@ -83,19 +93,20 @@ def extract_primary_color_en(clothing_ko: str | None) -> str | None:
 
 
 def extract_colors_by_garment(clothing_ko: str | None) -> dict[str, str | None]:
-    """한글 인상착의 텍스트에서 상의 색상과 하의 색상을 각각 따로 뽑는다.
+    """한글 인상착의 텍스트에서 상의·하의·신발 색상을 각각 따로 뽑는다.
 
-    "빨간 셔츠, 검정 바지"처럼 콤마 등으로 구간이 나뉜 문장이면, 그 구간
-    안에서만 색상을 찾아 상/하의에 정확히 연결한다("파란 셔츠, 검은 바지"에서
-    상의=blue, 하의=black으로 구분됨). "빨간 셔츠 입고 검정 바지 입은 사람"처럼
-    구분자가 없어 구간을 못 나누면 상/하의 어느 색인지 판단할 수 없으므로,
-    문장 전체에서 찾은 색 하나를 상/하의 둘 다에 같은 값으로 채워
-    color_matching.py가 유사도 비교에 참고할 수 있게 한다(둘 중 하나만
-    실제로 맞아도 인정 — 기존 max() 방식과 동일한 최후 수단).
+    "빨간 셔츠, 검정 바지, 흰 운동화"처럼 콤마 등으로 구간이 나뉜 문장이면,
+    그 구간 안에서만 색상을 찾아 부위에 정확히 연결한다. "빨간 셔츠 입고
+    검정 바지 입은 사람"처럼 구분자가 없어 구간을 못 나누면 어느 색이
+    어느 부위인지 판단할 수 없으므로, 문장 전체에서 찾은 색 하나를
+    상/하의에만 동일하게 채운다(둘 중 하나만 실제로 맞아도 인정 — 최후
+    수단). 신발은 이 폴백에서 제외한다 — 목격 진술에서 신발 색은 상/하의보다
+    훨씬 덜 언급되고 크롭 추출 신뢰도도 낮아서(color_matching.py 참고),
+    실제로 "신발" 관련 키워드가 문장에 있을 때만 값을 채운다.
 
-    반환: {"top": 영문 색상명 또는 None, "bottom": 영문 색상명 또는 None}
+    반환: {"top": 영문 색상명 또는 None, "bottom": ..., "shoes": ...}
     """
-    result: dict[str, str | None] = {"top": None, "bottom": None}
+    result: dict[str, str | None] = {"top": None, "bottom": None, "shoes": None}
     if not clothing_ko or not clothing_ko.strip():
         return result
 
@@ -113,10 +124,13 @@ def extract_colors_by_garment(clothing_ko: str | None) -> dict[str, str | None]:
             result["top"] = color
         if result["bottom"] is None and _find_first_match(seg, _BOTTOM_KO_TO_EN):
             result["bottom"] = color
+        if result["shoes"] is None and _find_first_match(seg, _SHOES_KO_TO_EN):
+            result["shoes"] = color
 
     if result["top"] is None and result["bottom"] is None:
-        # 구간을 나눠서 하나도 못 찾은 경우(구분자 없는 문장 등) — 문장 전체
-        # 기준 색 하나를 최후 수단으로 양쪽에 동일하게 채운다.
+        # 구간을 나눠서 상/하의를 하나도 못 찾은 경우(구분자 없는 문장 등) —
+        # 문장 전체 기준 색 하나를 최후 수단으로 상/하의 양쪽에 동일하게
+        # 채운다. 신발은 위에서 이미 못 찾았으면 그대로 None으로 둔다.
         fallback = extract_primary_color_en(text)
         result["top"] = fallback
         result["bottom"] = fallback

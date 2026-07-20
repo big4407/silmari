@@ -98,6 +98,12 @@ class Settings(BaseSettings):
     # 프로세스의 존재-확인 요청만 빨리 포기하고 캐시로 넘어가게 한다.
     hf_hub_etag_timeout: int = 1
 
+    # 검색 1건당 Chroma에서 가져오는 후보(AnalysisDetail) 최대 개수.
+    # 프론트에서 페이지네이션으로 보여주므로 여기 값을 넉넉히 잡아도 화면이
+    # 지저분해지지 않는다 — 다만 값이 크면 Chroma 조회·인덱싱 크기에 따라
+    # 응답이 느려질 수 있어 .env에서 조정 가능하게 뺐다.
+    search_result_limit: int = 100
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

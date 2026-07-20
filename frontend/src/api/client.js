@@ -476,7 +476,6 @@ export const deleteSearch = (id) => client.delete(`/search/${id}`);
 function mapSearchItemToHistory(item) {
   return {
     id: item.id,
-    search_type: item.search_type,
     person_name: item.missing_name || '미상',
     person_age: item.age,
     region: item.missing_location || '-',
@@ -491,6 +490,7 @@ function mapSearchItemToHistory(item) {
 
 function mapSearchItemToResult(item) {
   const results = item.analysis_results || [];
+  const rank = (result) => result.final_score ?? result.matching_rate ?? 0;
   const groupedByVideo = results.reduce((groups, result) => {
     const videoId = result.video_id;
 
@@ -504,7 +504,7 @@ function mapSearchItemToResult(item) {
   const bestResult =
     results.length > 0
       ? results.reduce((best, current) =>
-          current.matching_rate > best.matching_rate ? current : best,
+          rank(current) > rank(best) ? current : best,
         )
       : null;
 
@@ -517,7 +517,7 @@ function mapSearchItemToResult(item) {
     video_results: Object.entries(groupedByVideo).map(
       ([videoId, videoResults]) => {
         const bestVideoResult = videoResults.reduce((best, current) =>
-          current.matching_rate > best.matching_rate ? current : best,
+          rank(current) > rank(best) ? current : best,
         );
 
         return {
@@ -526,7 +526,7 @@ function mapSearchItemToResult(item) {
           video_region: bestVideoResult.video_region,
           recorded_at: bestVideoResult.recorded_at,
           thumbnail_url: bestVideoResult.crop_img_path || '',
-          best_confidence: bestVideoResult.matching_rate || 0,
+          best_confidence: rank(bestVideoResult),
           best_timestamp_sec: bestVideoResult.video_timestamp,
           clips: videoResults.map((result) => ({
             id: result.id,
@@ -535,7 +535,9 @@ function mapSearchItemToResult(item) {
             start_sec: result.video_timestamp,
             end_sec: result.video_timestamp + 5,
             thumbnail_url: result.crop_img_path || '',
-            confidence: result.matching_rate,
+            confidence: rank(result),
+            matching_rate: result.matching_rate,
+            color_match_rate: result.color_match_rate,
             position: result.position,
           })),
         };
@@ -543,7 +545,7 @@ function mapSearchItemToResult(item) {
     ),
 
     thumbnail_url: bestResult?.crop_img_path || '',
-    best_confidence: bestResult?.matching_rate || 0,
+    best_confidence: bestResult ? rank(bestResult) : 0,
     best_timestamp_sec: bestResult?.video_timestamp ?? null,
     clips: results.map((result) => ({
       id: result.id,
@@ -552,7 +554,9 @@ function mapSearchItemToResult(item) {
       start_sec: result.video_timestamp,
       end_sec: result.video_timestamp + 5,
       thumbnail_url: result.crop_img_path || '',
-      confidence: result.matching_rate,
+      confidence: rank(result),
+      matching_rate: result.matching_rate,
+      color_match_rate: result.color_match_rate,
       position: result.position,
     })),
 

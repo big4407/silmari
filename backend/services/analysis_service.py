@@ -22,6 +22,7 @@ import time
 from langchain_community.callbacks import get_openai_callback
 from sqlalchemy.orm import Session
 
+from backend.core.config import settings
 from backend.core.llm.clothing_translator import (
     CLOTHING_TRANSLATE_MODEL,
     translate_clothing_with_llm,
@@ -37,11 +38,9 @@ from backend.repositories.region_repository import RegionRepository
 from backend.repositories.video_repository import VideoRepository
 from backend.schemas.search_schema import SearchDetail
 from backend.services.llm_call_service import LlmCallService
-from backend.services.region_resolver import RegionResolver
 
 # 코사인 거리 기준 최소 유사도(= 1 - distance). 데이터가 쌓이면 재조정 필요.
 DEFAULT_MIN_SIMILARITY = 0.2
-DEFAULT_N_RESULTS = 20
 
 
 class AnalysisService:
@@ -52,7 +51,6 @@ class AnalysisService:
         self.video_repository = VideoRepository(db)
         self.llm_call_service = LlmCallService(db)
         self._video_service = None
-        self.region_resolver = RegionResolver(self.region_repository)
 
     @property
     def video_service(self):
@@ -137,10 +135,7 @@ class AnalysisService:
             # 인상착의 정보가 전혀 없으면 매칭을 시도할 수 없다 — 빈 결과로 완료 처리.
             return self.repository.set_status(analysis, AnalysisStatus.COMPLETED)
 
-        region_code = self.region_resolver.resolve(search.missing_location).region_code
-        region_codes = self.region_repository.get_video_search_region_codes(
-            region_code=region_code,
-        )
+        region_codes = self.resolve_region_codes(search.missing_location)
         video_ids = self.resolve_video_ids(
             region_codes, search.start_date, search.end_date
         )
@@ -149,7 +144,7 @@ class AnalysisService:
             return self.repository.set_status(analysis, AnalysisStatus.COMPLETED)
 
         raw = self.video_service.search_embeddings_multi(
-            clothes_en, video_ids=video_ids, n_results=DEFAULT_N_RESULTS
+            clothes_en, video_ids=video_ids, n_results=settings.search_result_limit
         )
         garment_colors = extract_colors_by_garment(search.clothing)
         candidates = self._to_analysis_details(
@@ -170,12 +165,12 @@ class AnalysisService:
         raw 구조: {"metadatas": [[...]], "distances": [[...]]} (batch 1건 기준
         바깥 리스트는 항상 길이 1).
 
-        color_match_rate: 인상착의 텍스트에서 상/하의별로 뽑은 색상
+        color_match_rate: 인상착의 텍스트에서 상의·하의·신발별로 뽑은 색상
         (garment_colors — core/search/clothing_query.extract_colors_by_garment)을
-        그 crop의 실제 상의·하의 색(video_detail에 인덱싱 시점에 저장돼 있음,
+        그 crop의 실제 부위별 색(video_detail에 인덱싱 시점에 저장돼 있음,
         core/search/color_matching.py)과 각각 비교한다. 텍스트에 언급된
-        부위만 평균에 반영한다(둘 다 언급됐으면 평균, 하나만 언급됐으면 그
-        하나만 — 언급 안 된 부위 때문에 점수가 부당하게 깎이지 않게). 아무
+        부위만 평균에 반영한다(여러 부위가 언급됐으면 평균, 하나만 언급됐으면
+        그 하나만 — 언급 안 된 부위 때문에 점수가 부당하게 깎이지 않게). 아무
         색상도 없거나 해당 video_detail을 못 찾으면 None(비교 불가)으로 둔다.
         """
         metadatas = (raw.get("metadatas") or [[]])[0]
@@ -187,6 +182,14 @@ class AnalysisService:
             for d in video_repository.find_details_by_video_ids(list(video_ids))
         }
 
+        # (텍스트 색상 dict 키) → (video_detail의 해당 부위 색 컬럼명)
+        garment_to_column = {
+            "top": "top_color",
+            "bottom": "bottom_color",
+            "shoes": "shoes_color",
+        }
+        has_any_color = any(garment_colors.get(g) for g in garment_to_column)
+
         details = []
         for metadata, distance in zip(metadatas, distances):
             similarity = 1 - distance
@@ -194,7 +197,7 @@ class AnalysisService:
                 continue
 
             color_match_rate = None
-            if garment_colors.get("top") or garment_colors.get("bottom"):
+            if has_any_color:
                 video_detail = detail_lookup.get(
                     (
                         metadata["video_id"],
@@ -203,17 +206,14 @@ class AnalysisService:
                     )
                 )
                 if video_detail is not None:
-                    scores = []
-                    if garment_colors.get("top"):
-                        scores.append(
-                            match_color(garment_colors["top"], video_detail.top_color)
+                    scores = [
+                        match_color(
+                            garment_colors[garment],
+                            getattr(video_detail, column),
                         )
-                    if garment_colors.get("bottom"):
-                        scores.append(
-                            match_color(
-                                garment_colors["bottom"], video_detail.bottom_color
-                            )
-                        )
+                        for garment, column in garment_to_column.items()
+                        if garment_colors.get(garment)
+                    ]
                     if scores:
                         color_match_rate = round(sum(scores) / len(scores), 4)
 

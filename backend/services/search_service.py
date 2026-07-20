@@ -56,8 +56,8 @@ class VideoNotFoundError(SearchValidationError):
 # 계산한다 — 가중치를 나중에 튜닝해도 DB를 다시 채울 필요가 없게 하기 위함.
 # color_match_rate가 없으면(텍스트에 색상 정보 자체가 없던 검색) matching_rate만
 # 그대로 쓴다.
-MATCHING_RATE_WEIGHT = 0.7
-COLOR_MATCH_RATE_WEIGHT = 0.3
+MATCHING_RATE_WEIGHT = 0.6
+COLOR_MATCH_RATE_WEIGHT = 0.4
 
 
 def _compute_final_score(matching_rate: float, color_match_rate: float | None) -> float:
