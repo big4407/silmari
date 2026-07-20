@@ -8,6 +8,7 @@
  *
  * 레거시 경로 /alert, /cctv, /result 는 현행 화면으로 리다이렉트.
  */
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import DashboardLayout from './components/DashboardLayout';
 import Landing from './pages/Landing';
@@ -21,9 +22,14 @@ import AdminLayout from './pages/admin/AdminLayout';
 import AdminViewPage from './pages/admin/AdminViewPage';
 import RequireAuth from './components/RequireAuth';
 import RequireAdmin from './components/RequireAdmin';
+import { initAutoTitle } from './utils/autoTitle';
 import './App.css';
 
 export default function App() {
+  // 말줄임표(ellipsis)로 잘린 요소에 마우스 올리면 자동으로 title 붙이기 —
+  // 앱 전체(관리자 콘솔·대시보드·검색 이력 등)에 한 번만 등록.
+  useEffect(() => initAutoTitle(), []);
+
   return (
     <BrowserRouter>
       <Routes>
