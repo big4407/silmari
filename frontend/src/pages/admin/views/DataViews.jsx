@@ -13,6 +13,7 @@ import {
   fetchRegions,
   importRegionsCsv,
   fetchRetentionPolicies,
+  seedDefaultRetentionPolicies,
   updateRetentionPolicies,
   runRetentionDryRun,
   executeRetentionPolicies,
@@ -1354,6 +1355,8 @@ export function DataRetentionView() {
   const [executing, setExecuting] = useState(false);
   const [executeResult, setExecuteResult] = useState(null);
   const [executeError, setExecuteError] = useState('');
+  const [seeding, setSeeding] = useState(false);
+  const [seedError, setSeedError] = useState('');
 
   const loadHistory = useCallback(async () => {
     try {
@@ -1385,6 +1388,19 @@ export function DataRetentionView() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const handleSeedDefaults = async () => {
+    setSeeding(true);
+    setSeedError('');
+    try {
+      await seedDefaultRetentionPolicies();
+      await load();
+    } catch {
+      setSeedError('기본 정책 생성에 실패했습니다.');
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   const patchRow = (id, field, value) => {
     setRows((prev) =>
@@ -1507,6 +1523,24 @@ export function DataRetentionView() {
             onClick={load}
           >
             다시 시도
+          </button>
+        </div>
+      )}
+
+      {!loading && !error && rows.length === 0 && (
+        <div className="admin-inline-error admin-mb">
+          <p>
+            아직 등록된 보존 정책이 없습니다 — 데이터 유형별 기본 정책을 먼저
+            생성해야 저장·드라이런을 사용할 수 있습니다.
+          </p>
+          {seedError && <p className="admin-cell-sub">{seedError}</p>}
+          <button
+            type="button"
+            className="admin-btn admin-btn--primary admin-btn--sm"
+            onClick={handleSeedDefaults}
+            disabled={seeding}
+          >
+            {seeding ? '생성 중…' : '기본 정책 생성'}
           </button>
         </div>
       )}

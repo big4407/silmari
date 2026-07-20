@@ -332,6 +332,12 @@ export const importRegionsCsv = (file, dryRun = false) => {
 export const fetchRetentionPolicies = () =>
   client.get('/member/admin/retention-policies').then((r) => r.data);
 
+/** 기본 보존 정책 생성(비어있는 데이터 유형만, 멱등적) — 정책이 하나도 없을 때 사용. */
+export const seedDefaultRetentionPolicies = () =>
+  client
+    .post('/member/admin/retention-policies/seed-defaults')
+    .then((r) => r.data);
+
 /** 보존 정책 일괄 수정. */
 export const updateRetentionPolicies = (policies) =>
   client

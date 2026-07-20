@@ -58,7 +58,6 @@ def _expired_files(
                 samples.append(path.name)
     return count, samples
 
-
 def _delete_expired_files(directory: Path, retention_days: int) -> int:
     """cutoff 이전 파일을 실제로 지운다. 지운 개수를 반환."""
     if not directory.exists():
@@ -77,11 +76,90 @@ def _delete_expired_files(directory: Path, retention_days: int) -> int:
             continue
     return count
 
+# 관리자가 처음 이 화면을 열었을 때 테이블이 비어있으면 아무것도 못 하므로
+# (정책 저장·드라이런 버튼이 다 disabled됨), 7개 데이터 유형에 대한 기본
+# 정책을 만들어준다. 값은 전부 시작점일 뿐이라 관리자가 화면에서 바로
+# 조정할 수 있다 — data_type이 unique라 이미 있는 유형은 건너뛴다.
+DEFAULT_POLICIES: list[dict] = [
+    {
+        "data_type": "cctv_video",
+        "data_label": "CCTV 원본 영상",
+        "storage_target": "data/CCTV (video 테이블)",
+        "retention_days": 90,
+        "expiry_action": "delete",
+        "is_active": True,
+    },
+    {
+        "data_type": "search_result",
+        "data_label": "검색 매칭 결과",
+        "storage_target": "analysis, analysis_detail 테이블",
+        "retention_days": 180,
+        "expiry_action": "delete",
+        "is_active": True,
+    },
+    {
+        "data_type": "search_request",
+        "data_label": "검색 요청 이력",
+        "storage_target": "search 테이블",
+        "retention_days": 365,
+        "expiry_action": "delete",
+        "is_active": True,
+    },
+    {
+        "data_type": "login_history",
+        "data_label": "로그인 이력",
+        "storage_target": "login_history 테이블",
+        "retention_days": 365,
+        "expiry_action": "delete",
+        "is_active": True,
+    },
+    {
+        "data_type": "disaster_message",
+        "data_label": "재난 안내문자",
+        "storage_target": "message 테이블",
+        "retention_days": 730,
+        "expiry_action": "delete",
+        "is_active": False,
+    },
+    {
+        "data_type": "clip_thumbnail",
+        "data_label": "탐지 크롭·썸네일 이미지",
+        "storage_target": "data/results (clips, thumbnails)",
+        "retention_days": 90,
+        "expiry_action": "delete",
+        "is_active": True,
+    },
+    {
+        "data_type": "chroma_embedding",
+        "data_label": "영상 임베딩(Chroma)",
+        "storage_target": "data/chroma",
+        "retention_days": 90,
+        "expiry_action": "delete",
+        "is_active": True,
+    },
+]
+
 
 class RetentionService:
     def __init__(self, db: Session):
         self.db = db
         self.repository = RetentionRepository(db)
+
+    def seed_defaults(self) -> list[dict]:
+        """비어있는 데이터 유형에 한해 기본 보존 정책을 만든다(멱등적).
+
+        이미 있는 data_type은 건드리지 않는다 — 관리자가 값을 바꿔놨는데
+        다시 누르면 초기화되는 걸 막기 위함.
+        """
+        existing = self.repository.get_existing_data_types()
+        to_create = [
+            RetentionPolicy(**p)
+            for p in DEFAULT_POLICIES
+            if p["data_type"] not in existing
+        ]
+        if to_create:
+            self.repository.create_many(to_create)
+        return self.list_policies()
 
     def list_policies(self) -> list[dict]:
         result: list[dict] = []
@@ -240,7 +318,7 @@ class RetentionService:
         if data_type == "chroma_embedding":
             return _expired_files(Path(settings.chroma_dir), retention_days)
         return 0, []
-
+    
     # ── 실제 삭제 실행 ───────────────────────────────────────────────────
     def execute(self, *, policy_id: int | None = None) -> list[dict]:
         """만료된 데이터를 실제로 삭제한다.

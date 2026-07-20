@@ -818,6 +818,38 @@ def delete_region(
     db.commit()
 
 
+@router.post(
+    "/retention-policies/seed-defaults", response_model=RetentionPolicyListResponse
+)
+def seed_default_retention_policies(
+    request: Request,
+    admin: User = Depends(require_roles(UserRole.ADMIN)),
+    db: Session = Depends(get_db),
+) -> RetentionPolicyListResponse:
+    """기본 보존 정책 생성(비어있는 데이터 유형만, 멱등적) — 정책이 하나도 없어서
+    "정책 저장"·"드라이런" 버튼이 다 비활성화된 초기 상태를 벗어나기 위함."""
+    retention_svc = RetentionService(db)
+    before_types = retention_svc.repository.get_existing_data_types()
+    items = [
+        RetentionPolicyItem.model_validate(row) for row in retention_svc.seed_defaults()
+    ]
+    created_types = sorted(
+        {i.data_type for i in items if i.data_type not in before_types}
+    )
+
+    AuditService(db).record_admin_action(
+        actor_id=admin.id,
+        action_type=AdminAction.UPDATE,
+        target_type="retention_policy",
+        target_id="seed-defaults",
+        detail={"created_data_types": created_types},
+        ip_address=request.client.host if request.client else None,
+    )
+    db.commit()
+
+    return RetentionPolicyListResponse(items=items)
+
+
 @router.get("/retention-policies", response_model=RetentionPolicyListResponse)
 def get_retention_policies(
     _: User = Depends(require_roles(UserRole.ADMIN)),
