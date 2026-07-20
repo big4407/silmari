@@ -27,7 +27,7 @@ export function LlmCallList({
 
         <tbody>
           {items.length === 0 ? (
-            <TableEmptyRow colSpan={8} />
+            <TableEmptyRow colSpan={10} />
           ) : (
             items.map((item, index) =>
               item.call_type === '2' ? (

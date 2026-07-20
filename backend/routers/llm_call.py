@@ -17,6 +17,7 @@ from backend.schemas.llm_call_schema import (
     CallListResponse,
     LlmCallGroupListResponse,
     LlmCallAdminSearchParams,
+    LlmUsageSummary,
     MessageLlmCallDetail,
     ChatbotLlmCallDetail,
 )
@@ -31,6 +32,14 @@ def get_llm_service(db: Session = Depends(get_db)) -> LlmCallService:
 
 
 router = APIRouter()
+
+
+@router.get("/summary", response_model=LlmUsageSummary)
+def get_llm_usage_summary(
+    service: LlmCallService = Depends(get_llm_service),
+):
+    """LLM 사용량 화면 상단 통계 카드 — 오늘 총 호출 + 유형별 전체 누적."""
+    return service.get_usage_summary()
 
 
 @router.post(

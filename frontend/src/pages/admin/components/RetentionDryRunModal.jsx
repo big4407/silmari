@@ -26,7 +26,13 @@ function dryRunToCsvBlob(items) {
   for (const item of items) {
     if (!item.samples?.length) {
       lines.push(
-        [item.policy_id, item.data_label, item.expiry_action, item.expired_count, '']
+        [
+          item.policy_id,
+          item.data_label,
+          item.expiry_action,
+          item.expired_count,
+          '',
+        ]
           .map(csvEscape)
           .join(','),
       );
@@ -34,13 +40,21 @@ function dryRunToCsvBlob(items) {
     }
     for (const sample of item.samples) {
       lines.push(
-        [item.policy_id, item.data_label, item.expiry_action, item.expired_count, sample]
+        [
+          item.policy_id,
+          item.data_label,
+          item.expiry_action,
+          item.expired_count,
+          sample,
+        ]
           .map(csvEscape)
           .join(','),
       );
     }
   }
-  return new Blob(['\ufeff', lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+  return new Blob(['\ufeff', lines.join('\n')], {
+    type: 'text/csv;charset=utf-8',
+  });
 }
 
 export default function RetentionDryRunModal({
@@ -50,6 +64,10 @@ export default function RetentionDryRunModal({
   loading,
   error,
   onClose,
+  onExecute,
+  executing,
+  executeResult,
+  executeError,
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -88,6 +106,16 @@ export default function RetentionDryRunModal({
     saveBlobDownload(dryRunToCsvBlob(items), 'retention_dry_run.csv');
   };
 
+  const handleExecute = () => {
+    if (!onExecute) return;
+    const confirmed = window.confirm(
+      `보존 기간이 지난 데이터를 지금 실제로 삭제합니다(적용 중인 정책 기준 ${activeTotal.toLocaleString()}건).\n` +
+        '이 작업은 되돌릴 수 없습니다. 정말 진행할까요?',
+    );
+    if (!confirmed) return;
+    onExecute();
+  };
+
   return (
     <div className="admin-modal-overlay" role="presentation" onClick={onClose}>
       <div
@@ -98,7 +126,11 @@ export default function RetentionDryRunModal({
       >
         <div className="admin-modal__head">
           <h2>{title || '보존 정책 드라이런'}</h2>
-          <button type="button" className="admin-modal__close" onClick={onClose}>
+          <button
+            type="button"
+            className="admin-modal__close"
+            onClick={onClose}
+          >
             ×
           </button>
         </div>
@@ -132,14 +164,49 @@ export default function RetentionDryRunModal({
                 >
                   CSV 다운로드
                 </button>
+                {onExecute && (
+                  <button
+                    type="button"
+                    className="admin-btn admin-btn--sm admin-btn--danger"
+                    onClick={handleExecute}
+                    disabled={!activeTotal || executing}
+                  >
+                    {executing ? '삭제 중…' : '실제 삭제 실행'}
+                  </button>
+                )}
               </div>
+              {executeError && (
+                <p className="admin-modal__error">{executeError}</p>
+              )}
+              {executeResult && (
+                <div className="admin-dry-run-list">
+                  <p className="admin-inline-ok">
+                    삭제 완료 — 총{' '}
+                    {executeResult.total_executed.toLocaleString()}건
+                  </p>
+                  {executeResult.items.map((item) => (
+                    <div key={item.policy_id} className="admin-dry-run-item">
+                      <div className="admin-dry-run-item__head">
+                        <strong>{item.data_label}</strong>
+                        <span>
+                          {item.executed_count.toLocaleString()}건 삭제
+                        </span>
+                      </div>
+                      {item.skipped_reason && (
+                        <p className="admin-cell-sub">{item.skipped_reason}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="admin-dry-run-list">
                 {items.map((item) => (
                   <div key={item.policy_id} className="admin-dry-run-item">
                     <div className="admin-dry-run-item__head">
                       <strong>{item.data_label}</strong>
                       <span className="admin-pill admin-pill--muted">
-                        {ACTION_LABELS[item.expiry_action] || item.expiry_action}
+                        {ACTION_LABELS[item.expiry_action] ||
+                          item.expiry_action}
                       </span>
                       <span>
                         {item.expired_count.toLocaleString()}건
@@ -164,7 +231,9 @@ export default function RetentionDryRunModal({
                 ))}
               </div>
               {allSamples.length === 0 && items.length > 0 && (
-                <p className="admin-footnote">모든 정책에서 만료 대상이 없습니다.</p>
+                <p className="admin-footnote">
+                  모든 정책에서 만료 대상이 없습니다.
+                </p>
               )}
             </>
           )}

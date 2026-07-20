@@ -55,3 +55,19 @@ class RetentionPolicyListResponse(BaseModel):
 
 class RetentionPolicyBulkUpdate(BaseModel):
     policies: list[RetentionPolicyPatch]
+
+
+class RetentionExecuteResultItem(BaseModel):
+    """만료 데이터 실행(삭제) 결과 — 정책 1건당."""
+
+    policy_id: int
+    data_type: str
+    data_label: str
+    expiry_action: str
+    executed_count: int = 0
+    skipped_reason: str | None = None
+
+
+class RetentionExecuteResponse(BaseModel):
+    items: list[RetentionExecuteResultItem]
+    total_executed: int

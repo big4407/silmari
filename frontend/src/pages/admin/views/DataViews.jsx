@@ -13,8 +13,10 @@ import {
   fetchRegions,
   importRegionsCsv,
   fetchRetentionPolicies,
+  seedDefaultRetentionPolicies,
   updateRetentionPolicies,
   runRetentionDryRun,
+  executeRetentionPolicies,
   runDataIntegrity,
   fetchLastIntegrityRun,
   saveBlobDownload,
@@ -1225,7 +1227,7 @@ export function DataValidateView() {
               <th>결과</th>
               <th>이슈</th>
               <th>샘플</th>
-              <th />
+              <th style={{ width: 120 }} />
             </tr>
           </thead>
           <tbody>
@@ -1349,6 +1351,12 @@ export function DataRetentionView() {
   const [dryRunTitle, setDryRunTitle] = useState('');
   const [dryRunLoading, setDryRunLoading] = useState(false);
   const [dryRunError, setDryRunError] = useState('');
+  const [dryRunPolicyId, setDryRunPolicyId] = useState(null);
+  const [executing, setExecuting] = useState(false);
+  const [executeResult, setExecuteResult] = useState(null);
+  const [executeError, setExecuteError] = useState('');
+  const [seeding, setSeeding] = useState(false);
+  const [seedError, setSeedError] = useState('');
 
   const loadHistory = useCallback(async () => {
     try {
@@ -1380,6 +1388,19 @@ export function DataRetentionView() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const handleSeedDefaults = async () => {
+    setSeeding(true);
+    setSeedError('');
+    try {
+      await seedDefaultRetentionPolicies();
+      await load();
+    } catch {
+      setSeedError('기본 정책 생성에 실패했습니다.');
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   const patchRow = (id, field, value) => {
     setRows((prev) =>
@@ -1417,6 +1438,9 @@ export function DataRetentionView() {
     setDryRunItems([]);
     setDryRunError('');
     setDryRunLoading(true);
+    setDryRunPolicyId(policyId);
+    setExecuteResult(null);
+    setExecuteError('');
     try {
       const data = await runRetentionDryRun({
         policyId,
@@ -1427,6 +1451,21 @@ export function DataRetentionView() {
       setDryRunError('드라이런 미리보기에 실패했습니다.');
     } finally {
       setDryRunLoading(false);
+    }
+  };
+
+  const handleExecute = async () => {
+    setExecuting(true);
+    setExecuteError('');
+    setExecuteResult(null);
+    try {
+      const data = await executeRetentionPolicies({ policyId: dryRunPolicyId });
+      setExecuteResult(data);
+      await load(); // 목록·건수·이력 다시 불러오기
+    } catch {
+      setExecuteError('삭제 실행에 실패했습니다.');
+    } finally {
+      setExecuting(false);
     }
   };
 
@@ -1488,6 +1527,24 @@ export function DataRetentionView() {
         </div>
       )}
 
+      {!loading && !error && rows.length === 0 && (
+        <div className="admin-inline-error admin-mb">
+          <p>
+            아직 등록된 보존 정책이 없습니다 — 데이터 유형별 기본 정책을 먼저
+            생성해야 저장·드라이런을 사용할 수 있습니다.
+          </p>
+          {seedError && <p className="admin-cell-sub">{seedError}</p>}
+          <button
+            type="button"
+            className="admin-btn admin-btn--primary admin-btn--sm"
+            onClick={handleSeedDefaults}
+            disabled={seeding}
+          >
+            {seeding ? '생성 중…' : '기본 정책 생성'}
+          </button>
+        </div>
+      )}
+
       <div className="admin-card admin-table-wrap">
         <div className="admin-card-h">보존 정책</div>
         <table>
@@ -1500,7 +1557,7 @@ export function DataRetentionView() {
               <th style={{ textAlign: 'right' }}>현재 보관량</th>
               <th style={{ textAlign: 'right' }}>만료 예정</th>
               <th>상태</th>
-              <th />
+              <th style={{ width: 100 }} />
             </tr>
           </thead>
           <tbody>
@@ -1636,6 +1693,10 @@ export function DataRetentionView() {
         loading={dryRunLoading}
         error={dryRunError}
         onClose={() => setDryRunOpen(false)}
+        onExecute={handleExecute}
+        executing={executing}
+        executeResult={executeResult}
+        executeError={executeError}
       />
     </>
   );

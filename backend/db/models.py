@@ -112,6 +112,13 @@ class AdminAction(str, enum.Enum):
     UPDATE = "6"  # 데이터 수정 (향후 확장)
 
 
+class CaseEventType(str, enum.Enum):
+    """통계 페이지의 사건 진행 기록 유형. value 는 DB 저장용 코드값(숫자)."""
+
+    FOUND = "1"  # 대상자 발견
+    RESOLVED = "2"  # 사건 해결
+
+
 class User(Base):
     __tablename__ = "user"
 
@@ -450,6 +457,15 @@ class VideoDetail(Base):
     position: Mapped[str] = mapped_column(
         String(100), nullable=False, comment="bbox (x,y,width,height)"
     )
+    top_color: Mapped[list[float] | None] = mapped_column(
+        JSON, nullable=True, comment="상의 우세 색상 CIE Lab [L,a,b] (색상 추출 실패 시 NULL)"
+    )
+    bottom_color: Mapped[list[float] | None] = mapped_column(
+        JSON, nullable=True, comment="하의 우세 색상 CIE Lab [L,a,b] (색상 추출 실패 시 NULL)"
+    )
+    shoes_color: Mapped[list[float] | None] = mapped_column(
+        JSON, nullable=True, comment="신발 우세 색상 CIE Lab [L,a,b] (색상 추출 실패 시 NULL)"
+    )
 
     video: Mapped["Video"] = relationship(back_populates="details")
 
@@ -586,7 +602,15 @@ class AnalysisDetail(Base):
         String(260), nullable=True, comment="매칭된 인물 crop 이미지 경로(썸네일)"
     )
     matching_rate: Mapped[float] = mapped_column(
-        Float, nullable=False, default=0, comment="매칭 정확도"
+        Float, nullable=False, default=0, comment="매칭 정확도(FashionCLIP 코사인 유사도)"
+    )
+    color_match_rate: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+        comment="인상착의 텍스트 색상과 크롭 실제 색상의 매칭 점수(0~1, "
+        "core/search/color_matching.py). 비교 불가 시 NULL — matching_rate와 "
+        "합산해 최종 정렬 점수를 만들 때는 조회 시점에 계산한다(가중치 튜닝을 "
+        "위해 원값을 따로 저장).",
     )
 
     analysis: Mapped["Analysis"] = relationship(back_populates="details")
@@ -713,4 +737,102 @@ class LlmCall(Base):
         nullable=False,
         server_default=func.current_timestamp(),
         comment="호출 일시",
+    )
+
+
+class CaseEvent(Base):
+    """실종자 발견·사건 해결 기록 — "발견/해결 결과" 통계 화면의 원천 데이터.
+
+    search 테이블과 달리 이 정보는 검색 자체가 아니라 그 검색이 실제로 어떤
+    결과(발견/해결)로 이어졌는지를 관리자가 수동으로 입력하는 기록이다.
+    """
+
+    __tablename__ = "case_event"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    case_key: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        index=True,
+        comment="사건 식별값 (없으면 SEARCH-{search_id}로 채움)",
+    )
+    event_type: Mapped[CaseEventType] = mapped_column(
+        Enum(
+            CaseEventType,
+            native_enum=False,
+            length=1,
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        nullable=False,
+        index=True,
+        comment="1: 발견, 2: 해결",
+    )
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, index=True, comment="발견/해결이 실제로 일어난 시각"
+    )
+    reported_at_snapshot: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True, comment="연결된 검색의 신고 시각 스냅샷"
+    )
+    region_snapshot: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, index=True, comment="연결된 검색의 지역 스냅샷"
+    )
+
+    actor_id: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, comment="대상자(발견자 등) ID — 시스템 사용자 아님"
+    )
+    actor_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    actor_role: Mapped[str | None] = mapped_column(
+        String(50), nullable=True, comment="보호자, 발견자 등"
+    )
+
+    recorded_by_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("user.id"),
+        nullable=True,
+        comment="이 기록을 입력한 관리자",
+    )
+    recorded_by_name: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    location_text: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    source_search_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("search.id"), nullable=True, index=True
+    )
+    source_analysis_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("analysis.id"), nullable=True
+    )
+    source_analysis_detail_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("analysis_detail.id"), nullable=True
+    )
+
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=kst_now
+    )
+
+
+class StatsExportLog(Base):
+    """통계 CSV 내보내기 이력."""
+
+    __tablename__ = "stats_export_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    stat_type: Mapped[str] = mapped_column(
+        String(30), nullable=False, index=True, comment="cctv | search | demographic | outcomes"
+    )
+    from_date: Mapped[date] = mapped_column(Date, nullable=False)
+    to_date: Mapped[date] = mapped_column(Date, nullable=False)
+    file_format: Mapped[str] = mapped_column(String(10), nullable=False, default="CSV")
+    file_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    row_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    requested_by_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("user.id"), nullable=True
+    )
+    requested_by_name: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=kst_now
     )

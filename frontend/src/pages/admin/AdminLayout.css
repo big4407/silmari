@@ -905,7 +905,8 @@
 }
 
 .admin-fld input,
-.admin-fld select {
+.admin-fld select,
+.admin-fld textarea {
   font-family: inherit;
   font-size: 13px;
   padding: 8px 11px;
@@ -914,6 +915,10 @@
   color: var(--admin-ink);
   background: #fff;
   width: 100%;
+}
+
+.admin-fld textarea {
+  resize: vertical;
 }
 
 .admin-form-row .admin-spacer {
@@ -1502,4 +1507,83 @@
   font-size: 11.5px;
   color: var(--admin-ink-3);
   margin-top: 2px;
+}
+
+/* ── 통계 뷰(views/StatsViews.jsx) 전용 스타일 ─────────────────────────── */
+.stats-error {
+  margin: 12px 0;
+  padding: 16px;
+  border-radius: 8px;
+  background: #fff5f5;
+  border: 1px solid #f0c4c4;
+  color: #8a2f2f;
+  font-size: 13px;
+}
+
+.stats-empty {
+  min-height: 140px;
+  display: grid;
+  place-items: center;
+  opacity: 0.7;
+  color: var(--admin-ink-3);
+  font-size: 13px;
+}
+
+.stats-bars {
+  display: grid;
+  gap: 14px;
+}
+
+.stats-bars__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--admin-ink);
+}
+
+.stats-bars__track {
+  height: 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--admin-line-soft);
+}
+
+.stats-bars__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--admin-blue);
+}
+
+.stats-chart-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.stats-line-chart {
+  width: 100%;
+  min-width: 420px;
+  height: auto;
+}
+
+.stats-line-chart__axis {
+  stroke: var(--admin-line);
+}
+
+.stats-line-chart__line {
+  stroke: var(--admin-blue);
+  stroke-width: 2.5;
+}
+
+.stats-line-chart__point {
+  fill: var(--admin-blue);
+}
+
+/* 성별·연령·지역별 통계 페이지의 "지역별 처리 현황" 표 — 기본 관리자 표보다
+   행 간격을 넉넉하게(위아래 여백을 늘려서 행이 다닥다닥 붙어 보이지 않게). */
+.stats-region-table td,
+.stats-region-table th {
+  padding-top: 16px;
+  padding-bottom: 16px;
 }

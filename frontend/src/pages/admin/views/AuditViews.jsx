@@ -7,6 +7,7 @@ import {
   LOGIN_FAIL_LABELS,
   fetchAdminHistory,
   ADMIN_ACTION_LABELS,
+  ADMIN_TARGET_TYPE_LABELS,
 } from '../../../api/client';
 
 export function AuditAdminView() {
@@ -126,6 +127,7 @@ export function AuditAdminView() {
               <th>시각</th>
               <th>행위자</th>
               <th>유형</th>
+              <th>화면</th>
               <th>대상 · 변경 내용</th>
               <th>결과</th>
               <th>IP</th>
@@ -133,12 +135,12 @@ export function AuditAdminView() {
           </thead>
           <tbody>
             {loading ? (
-              <TableEmptyRow colSpan={6} message="불러오는 중…" />
+              <TableEmptyRow colSpan={7} message="불러오는 중…" />
             ) : error ? (
-              <TableEmptyRow colSpan={6} message={error} />
+              <TableEmptyRow colSpan={7} message={error} />
             ) : rows.length === 0 ? (
               <TableEmptyRow
-                colSpan={6}
+                colSpan={7}
                 message="관리자 행동 이력이 없습니다."
               />
             ) : (
@@ -151,7 +153,10 @@ export function AuditAdminView() {
                       {ADMIN_ACTION_LABELS[r.action_type] ?? r.action_type}
                     </span>
                   </td>
-                  <td>{targetSummary(r)}</td>
+                  <td>
+                    {ADMIN_TARGET_TYPE_LABELS[r.target_type] ?? r.target_type}
+                  </td>
+                  <td title={targetSummary(r)}>{targetSummary(r)}</td>
                   <td>
                     <span
                       className={`admin-pill ${

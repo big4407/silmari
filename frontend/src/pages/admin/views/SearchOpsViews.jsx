@@ -330,16 +330,16 @@ export function SearchRequestsView() {
           <StatValue value={summary?.today_total} unit="건" />
         </div>
         <div className="admin-stat">
-          <div className="admin-label">안내문자 파싱</div>
-          <StatValue value={summary?.today_sms} unit="건" />
+          <div className="admin-label">안내문자 파싱 (전체)</div>
+          <StatValue value={summary?.total_sms} unit="건" />
         </div>
         <div className="admin-stat">
-          <div className="admin-label">챗봇 검색</div>
-          <StatValue value={summary?.today_chatbot} unit="건" />
+          <div className="admin-label">챗봇 검색 (전체)</div>
+          <StatValue value={summary?.total_chatbot} unit="건" />
         </div>
         <div className="admin-stat">
-          <div className="admin-label">자동 검색</div>
-          <StatValue value={summary?.today_auto} unit="건" />
+          <div className="admin-label">자동 검색 (전체)</div>
+          <StatValue value={summary?.total_auto} unit="건" />
         </div>
       </div>
       <div className="admin-toolbar">
@@ -408,7 +408,9 @@ export function SearchRequestsView() {
                     </span>
                   </td>
                   <td>{r.requester_name ?? r.requester_username ?? '-'}</td>
-                  <td>{r.message_preview ?? '-'}</td>
+                  <td title={r.message_preview ?? undefined}>
+                    {r.message_preview ?? '-'}
+                  </td>
                   <td>
                     {r.missing_name ?? '-'}
                     {r.gender ? ` (${r.gender === 'M' ? '남' : '여'}` : ''}
@@ -418,7 +420,7 @@ export function SearchRequestsView() {
                         ? ')'
                         : ''}
                   </td>
-                  <td>{r.clothing ?? '-'}</td>
+                  <td title={r.clothing ?? undefined}>{r.clothing ?? '-'}</td>
                   <td>
                     {r.missing_location ?? '-'}
                     {r.missing_time ? ` · ${fmt(r.missing_time)}` : ''}

@@ -29,6 +29,15 @@ class VideoDetailCreate(BaseModel):
     video_timestamp: int
     crop_id: int
     position: str = Field(max_length=100)
+    top_color: list[float] | None = Field(
+        default=None, description="상의 우세 색상 CIE Lab [L,a,b]"
+    )
+    bottom_color: list[float] | None = Field(
+        default=None, description="하의 우세 색상 CIE Lab [L,a,b]"
+    )
+    shoes_color: list[float] | None = Field(
+        default=None, description="신발 우세 색상 CIE Lab [L,a,b]"
+    )
 
 
 class CctvRegionCoverageItem(BaseModel):

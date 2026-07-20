@@ -2,6 +2,8 @@
 llm 사용량 체크를 위한 repository단
 """
 
+from datetime import date, datetime, time
+
 from sqlalchemy import (
     Integer,
     String,
@@ -14,7 +16,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Session, Query
 
 
-from backend.db.models import LlmCall, User
+from backend.db.models import LlmCall, LlmCallType, User
 from backend.schemas.llm_call_schema import (
     CallCreate,
     CallUpdate,
@@ -26,6 +28,37 @@ from backend.schemas.llm_call_schema import (
 class LLmCallRepository:
     def __init__(self, db: Session):
         self.db = db
+
+    def get_summary_counts(self) -> dict[str, int]:
+        """LLM 사용량 화면 상단 통계 카드용.
+
+        today_total만 당일(오늘) 기준이고, 나머지 유형별 건수는 전체 누적이다
+        (검색 요청 이력 화면의 AdminSearchSummary와 같은 패턴).
+        """
+        today = date.today()
+        start = datetime.combine(today, time.min)
+        end = datetime.combine(today, time.max)
+
+        today_total = (
+            self.db.query(func.count())
+            .select_from(LlmCall)
+            .filter(LlmCall.created_at >= start, LlmCall.created_at <= end)
+            .scalar()
+            or 0
+        )
+
+        rows = (
+            self.db.query(LlmCall.call_type, func.count())
+            .group_by(LlmCall.call_type)
+            .all()
+        )
+        counts = {call_type: count for call_type, count in rows}
+        return {
+            "today_total": today_total,
+            "total_translation": counts.get(LlmCallType.CLOTHING_TRANSLATE.value, 0),
+            "total_chatbot": counts.get(LlmCallType.CHATBOT.value, 0),
+            "total_alert_parse": counts.get(LlmCallType.ALERT_PARSE.value, 0),
+        }
 
     def create(self, payload: CallCreate) -> LlmCall:
         llm_call = LlmCall(**payload.model_dump())

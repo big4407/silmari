@@ -28,3 +28,11 @@ class RetentionRepository:
 
     def get(self, policy_id: int) -> RetentionPolicy | None:
         return self.db.get(RetentionPolicy, policy_id)
+
+    def get_existing_data_types(self) -> set[str]:
+        return set(self.db.scalars(select(RetentionPolicy.data_type)).all())
+
+    def create_many(self, policies: list[RetentionPolicy]) -> list[RetentionPolicy]:
+        self.db.add_all(policies)
+        self.db.flush()
+        return policies

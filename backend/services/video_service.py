@@ -1,12 +1,32 @@
+import os
+
+from backend.core.config import settings
+
+# huggingface_hub는 로컬에 캐시가 있어도 매번 "새 버전 있는지" 네트워크로
+# 확인하려고 한다(HEAD 요청) — huggingface.co 접속이 느리거나 막힌 환경에서는
+# 이 확인이 매번 타임아웃+재시도를 반복해서 로딩이 멈춘 것처럼 보인다.
+# huggingface_hub는 이 값들을 import 시점에 한 번만 읽으므로, fashion_clip을
+# import하기 전에 반드시 먼저 설정해야 한다.
+#
+#   HF_HUB_OFFLINE: 네트워크 확인 자체를 끈다(기본 True — settings.hf_hub_offline).
+#     .env에서 HF_HUB_OFFLINE=false로 덮어쓸 수 있다(캐시 없는 새 환경에서
+#     최초 다운로드가 필요할 때).
+#   HF_HUB_ETAG_TIMEOUT: huggingface_hub/transformers의 알려진 버그로,
+#     HF_HUB_OFFLINE=1이어도 일부 코드 경로(특히 processor 로딩)가 최소 1번은
+#     HEAD 요청을 시도한다(huggingface/transformers #43200 등) — 이 값을
+#     짧게 줄여서 그 요청이 느리게 매달리지 않고 빨리 실패해 캐시로
+#     넘어가게 한다(기본 10초 → settings.hf_hub_etag_timeout, 기본 1초).
+os.environ["HF_HUB_OFFLINE"] = "1" if settings.hf_hub_offline else "0"
+os.environ["TRANSFORMERS_OFFLINE"] = "1" if settings.hf_hub_offline else "0"
+os.environ["HF_HUB_ETAG_TIMEOUT"] = str(settings.hf_hub_etag_timeout)
+
 import cv2
 import numpy as np
-import os
 import torch
 from pathlib import Path
 from PIL import Image
 from ultralytics import YOLO
 from datetime import date, datetime, timedelta
-from backend.core.config import settings
 import shutil
 import json
 from fashion_clip.fashion_clip import FashionCLIP
@@ -15,6 +35,7 @@ from sqlalchemy.orm import Session
 from backend.repositories.video_repository import VideoRepository
 from backend.schemas.video_schema import VideoCreate, VideoDetailCreate
 from backend.db.models import Video, VideoDetail
+from backend.core.search.color_matching import extract_region_dominant_color
 
 _model = None
 _fclip = None
@@ -177,6 +198,9 @@ class VideoService:
                 video_timestamp=detail["video_timestamp"],
                 crop_id=detail["crop_id"],
                 position=detail["position"],
+                top_color=detail.get("top_color"),
+                bottom_color=detail.get("bottom_color"),
+                shoes_color=detail.get("shoes_color"),
             )
             self.repository.create_detail(VideoDetail(**video_detail.model_dump()))
 
@@ -263,11 +287,35 @@ class VideoService:
                 success = cv2.imwrite(str(save_path), person_crop)
                 if success:
                     crop_paths.append(str(save_path))
+
+                    # 상의/하의/신발 우세 색상(CIE Lab)을 인덱싱 시점에 미리
+                    # 뽑아둔다 — 검색할 때마다 다시 계산 안 하고
+                    # video_detail.*_color에 저장해서 재사용한다
+                    # (core/search/color_matching.py). 실패해도(추출 불가)
+                    # None으로 두고 계속 진행한다 — 색상 매칭 없이도 나머지
+                    # 파이프라인은 정상 동작해야 한다.
+                    top_color = extract_region_dominant_color(person_crop, "top")
+                    bottom_color = extract_region_dominant_color(person_crop, "bottom")
+                    shoes_color = extract_region_dominant_color(person_crop, "shoes")
+
                     details.append(
                         {
                             "video_timestamp": int(image_path.stem.split("_")[-1][:-1]),
                             "crop_id": person_idx,
                             "position": f"{x1}, {y1}, {x2}, {y2}",
+                            "top_color": (
+                                top_color.tolist() if top_color is not None else None
+                            ),
+                            "bottom_color": (
+                                bottom_color.tolist()
+                                if bottom_color is not None
+                                else None
+                            ),
+                            "shoes_color": (
+                                shoes_color.tolist()
+                                if shoes_color is not None
+                                else None
+                            ),
                         }
                     )
         return details, crop_paths

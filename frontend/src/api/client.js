@@ -332,6 +332,12 @@ export const importRegionsCsv = (file, dryRun = false) => {
 export const fetchRetentionPolicies = () =>
   client.get('/member/admin/retention-policies').then((r) => r.data);
 
+/** 기본 보존 정책 생성(비어있는 데이터 유형만, 멱등적) — 정책이 하나도 없을 때 사용. */
+export const seedDefaultRetentionPolicies = () =>
+  client
+    .post('/member/admin/retention-policies/seed-defaults')
+    .then((r) => r.data);
+
 /** 보존 정책 일괄 수정. */
 export const updateRetentionPolicies = (policies) =>
   client
@@ -344,6 +350,16 @@ export const runRetentionDryRun = ({ policyId = null, policies = null } = {}) =>
     .post(
       '/member/admin/retention-policies/dry-run',
       policies?.length ? { policies } : {},
+      { params: policyId ? { policy_id: policyId } : {} },
+    )
+    .then((r) => r.data);
+
+/** 보존 정책 실제 실행 — 만료된 데이터를 진짜로 삭제한다(되돌릴 수 없음). */
+export const executeRetentionPolicies = ({ policyId = null } = {}) =>
+  client
+    .post(
+      '/member/admin/retention-policies/execute',
+      {},
       { params: policyId ? { policy_id: policyId } : {} },
     )
     .then((r) => r.data);
@@ -418,6 +434,14 @@ export const ADMIN_ACTION_LABELS = {
   6: '수정',
 };
 
+// 관리자 행동 이력의 target_type → 어느 화면(대상)에서 벌어진 일인지 표시용 라벨
+export const ADMIN_TARGET_TYPE_LABELS = {
+  user: '회원 관리',
+  region: '행정구역 관리',
+  retention_policy: '삭제·보존 정책',
+  integrity_check: '데이터 정합성 검사',
+};
+
 // 검색 요청 출처 코드 → 한글 라벨 (SearchType enum)
 export const SEARCH_TYPE_LABELS = {
   1: '안내문자',
@@ -476,7 +500,6 @@ export const deleteSearch = (id) => client.delete(`/search/${id}`);
 function mapSearchItemToHistory(item) {
   return {
     id: item.id,
-    search_type: item.search_type,
     person_name: item.missing_name || '미상',
     person_age: item.age,
     region: item.missing_location || '-',
@@ -491,6 +514,7 @@ function mapSearchItemToHistory(item) {
 
 function mapSearchItemToResult(item) {
   const results = item.analysis_results || [];
+  const rank = (result) => result.final_score ?? result.matching_rate ?? 0;
   const groupedByVideo = results.reduce((groups, result) => {
     const videoId = result.video_id;
 
@@ -504,7 +528,7 @@ function mapSearchItemToResult(item) {
   const bestResult =
     results.length > 0
       ? results.reduce((best, current) =>
-          current.matching_rate > best.matching_rate ? current : best,
+          rank(current) > rank(best) ? current : best,
         )
       : null;
 
@@ -517,7 +541,7 @@ function mapSearchItemToResult(item) {
     video_results: Object.entries(groupedByVideo).map(
       ([videoId, videoResults]) => {
         const bestVideoResult = videoResults.reduce((best, current) =>
-          current.matching_rate > best.matching_rate ? current : best,
+          rank(current) > rank(best) ? current : best,
         );
 
         return {
@@ -526,7 +550,7 @@ function mapSearchItemToResult(item) {
           video_region: bestVideoResult.video_region,
           recorded_at: bestVideoResult.recorded_at,
           thumbnail_url: bestVideoResult.crop_img_path || '',
-          best_confidence: bestVideoResult.matching_rate || 0,
+          best_confidence: rank(bestVideoResult),
           best_timestamp_sec: bestVideoResult.video_timestamp,
           clips: videoResults.map((result) => ({
             id: result.id,
@@ -535,7 +559,9 @@ function mapSearchItemToResult(item) {
             start_sec: result.video_timestamp,
             end_sec: result.video_timestamp + 5,
             thumbnail_url: result.crop_img_path || '',
-            confidence: result.matching_rate,
+            confidence: rank(result),
+            matching_rate: result.matching_rate,
+            color_match_rate: result.color_match_rate,
             position: result.position,
           })),
         };
@@ -543,7 +569,7 @@ function mapSearchItemToResult(item) {
     ),
 
     thumbnail_url: bestResult?.crop_img_path || '',
-    best_confidence: bestResult?.matching_rate || 0,
+    best_confidence: bestResult ? rank(bestResult) : 0,
     best_timestamp_sec: bestResult?.video_timestamp ?? null,
     clips: results.map((result) => ({
       id: result.id,
@@ -552,7 +578,9 @@ function mapSearchItemToResult(item) {
       start_sec: result.video_timestamp,
       end_sec: result.video_timestamp + 5,
       thumbnail_url: result.crop_img_path || '',
-      confidence: result.matching_rate,
+      confidence: rank(result),
+      matching_rate: result.matching_rate,
+      color_match_rate: result.color_match_rate,
       position: result.position,
     })),
 
@@ -600,6 +628,75 @@ export const deleteAllSearchResults = async () => {
   const items = data.items || [];
   await Promise.all(items.map((item) => deleteSearch(item.id)));
   return { ok: true, deleted_count: items.length };
+};
+
+// ── 관리자 통계(CCTV·검색·인구통계·발견해결결과) ──────────────────────────
+const STATS_BASE_URL = '/member/admin/stats';
+
+function buildStatsParams(query = {}) {
+  return {
+    from_date: query.fromDate || undefined,
+    to_date: query.toDate || undefined,
+    region: query.region || undefined,
+    search_type: query.searchType || undefined,
+  };
+}
+
+async function getStatsJson(path, query, signal) {
+  try {
+    const response = await client.get(`${STATS_BASE_URL}${path}`, {
+      params: buildStatsParams(query),
+      signal,
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      await readApiErrorMessage(error, '통계 데이터를 불러오지 못했습니다.'),
+    );
+  }
+}
+
+export const fetchCctvStats = (query, signal) =>
+  getStatsJson('/cctv', query, signal);
+export const fetchSearchStats = (query, signal) =>
+  getStatsJson('/search', query, signal);
+export const fetchDemographicStats = (query, signal) =>
+  getStatsJson('/demographic', query, signal);
+export const fetchOutcomeStats = (query, signal) =>
+  getStatsJson('/outcomes', query, signal);
+export const fetchExportLogs = (signal) =>
+  getStatsJson('/exports', undefined, signal);
+
+export const createCaseEvent = async (payload) => {
+  try {
+    const response = await client.post(
+      `${STATS_BASE_URL}/case-events`,
+      payload,
+    );
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      await readApiErrorMessage(error, '이벤트 저장에 실패했습니다.'),
+    );
+  }
+};
+
+export const exportStats = async (payload) => {
+  try {
+    const response = await client.post(
+      `${STATS_BASE_URL}/export`,
+      { ...payload, file_format: 'CSV' },
+      { responseType: 'blob' },
+    );
+    const disposition = response.headers?.['content-disposition'] ?? '';
+    const match = String(disposition).match(/filename="([^"]+)"/);
+    const filename = match?.[1] ?? 'statistics.csv';
+    saveBlobDownload(response.data, filename);
+  } catch (error) {
+    throw new Error(
+      await readApiErrorMessage(error, '통계 내보내기에 실패했습니다.'),
+    );
+  }
 };
 
 export default client;
