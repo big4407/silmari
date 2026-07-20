@@ -23,7 +23,7 @@ export function LlmSingleCallRow({ call }) {
           : `${call.total_latency_ms.toLocaleString()}ms`}
       </td>
       <td>{formatCost(call.cost)}</td>
-      <td>단일 호출</td>
+      <td>–</td>
     </tr>
   );
 }
