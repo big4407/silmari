@@ -69,6 +69,8 @@ class SearchResultClip(BaseModel):
     position: str
     crop_img_path: str | None
     matching_rate: float
+    color_match_rate: float | None = None
+    final_score: float
     recorded_at: datetime | None = None
     video_region:str | None = None
 

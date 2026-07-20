@@ -59,6 +59,21 @@ class VideoRepository:
             for region_code, cctv_count, video_count in rows
         ]
 
+    def find_details_by_video_ids(self, video_ids: list[int]) -> list[VideoDetail]:
+        """video_id 목록에 속한 VideoDetail 전부를 한 번에 가져온다.
+
+        검색 결과(Chroma metadata)마다 색상을 조회하려고 매번 쿼리하지 않고,
+        관련 video_id들의 VideoDetail을 한 번에 읽어서 (video_id,
+        video_timestamp, crop_id)로 매칭하기 위함(services/analysis_service.py).
+        """
+        if not video_ids:
+            return []
+        return (
+            self.db.query(VideoDetail)
+            .filter(VideoDetail.video_id.in_(video_ids))
+            .all()
+        )
+
     def get_daily_summary(
         self, page: int, per_page: int
     ) -> tuple[list[dict], int]:

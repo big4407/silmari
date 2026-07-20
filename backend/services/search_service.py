@@ -50,6 +50,25 @@ class InvalidVideoPeriodError(SearchValidationError):
 class VideoNotFoundError(SearchValidationError):
     """해당 지역과 기간에 CCTV 영상이 없음."""
 
+# 최종 정렬 점수 = matching_rate(FashionCLIP 코사인 유사도) + color_match_rate
+# (실제 색상 매칭, core/search/color_matching.py)의 가중합. 원값(matching_rate,
+# color_match_rate)은 AnalysisDetail에 그대로 저장해두고, 조합은 조회 시점에만
+# 계산한다 — 가중치를 나중에 튜닝해도 DB를 다시 채울 필요가 없게 하기 위함.
+# color_match_rate가 없으면(텍스트에 색상 정보 자체가 없던 검색) matching_rate만
+# 그대로 쓴다.
+MATCHING_RATE_WEIGHT = 0.6
+COLOR_MATCH_RATE_WEIGHT = 0.4
+
+
+def _compute_final_score(matching_rate: float, color_match_rate: float | None) -> float:
+    if color_match_rate is None:
+        return round(matching_rate, 4)
+    return round(
+        matching_rate * MATCHING_RATE_WEIGHT
+        + color_match_rate * COLOR_MATCH_RATE_WEIGHT,
+        4,
+    )
+
 
 class SearchService:
     def __init__(self, db: Session):
@@ -154,6 +173,10 @@ class SearchService:
                         "position": detail.position,
                         "crop_img_path": detail.crop_img_path,
                         "matching_rate": detail.matching_rate,
+                        "color_match_rate": detail.color_match_rate,
+                        "final_score": _compute_final_score(
+                            detail.matching_rate, detail.color_match_rate
+                        ),
                         "recorded_at": detail.video.recorded_at if detail.video else None,
                         "video_region": (
     detail.video.region.full_name
@@ -162,6 +185,8 @@ class SearchService:
 ),
                     }
                 )
+
+        analysis_results.sort(key=lambda item: item["final_score"], reverse=True)
 
         search_detail = SearchDetail.model_validate(search)
 
