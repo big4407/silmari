@@ -233,17 +233,28 @@ class LLmCallRepository:
 
         cost = func.coalesce(LlmCall.cost, 0)
 
+        # row_key/chatbot_session_id는 문자열 리터럴·CAST(NULL) 조합이라
+        # collation이 "접속 세션 기본값"을 따른다. 아래 챗봇 쿼리의 같은
+        # 컬럼은 실제 chatbot_s_id 컬럼(테이블 생성 시 collation)을 그대로
+        # 쓰기 때문에, 로컬 DB의 기본 collation이 테이블 collation과 다른
+        # 환경(예: docker-compose 없이 네이티브로 설치한 MySQL/MariaDB)에서
+        # UNION ALL 시 "Illegal mix of collations" 에러가 난다. 서버 기본값에
+        # 기대지 않고 명시적으로 고정해서 어떤 환경에서도 동일하게 동작하게 한다.
         query = self.db.query(
             LlmCall.model_name.label("model"),
             func.concat(
                 "call-",
                 cast(LlmCall.id, String),
-            ).label("row_key"),
+            )
+            .collate("utf8mb4_unicode_ci")
+            .label("row_key"),
             literal("1").label("call_type"),
             cast(
                 literal(None),
                 String(36),
-            ).label("chatbot_session_id"),
+            )
+            .collate("utf8mb4_unicode_ci")
+            .label("chatbot_session_id"),
             LlmCall.id.label("llm_call_id"),
             LlmCall.user_id.label("user_id"),
             LlmCall.search_id.label("search_id"),
@@ -303,9 +314,13 @@ class LLmCallRepository:
             func.concat(
                 "chatbot-",
                 LlmCall.chatbot_s_id,
-            ).label("row_key"),
+            )
+            .collate("utf8mb4_unicode_ci")
+            .label("row_key"),
             literal("2").label("call_type"),
-            LlmCall.chatbot_s_id.label("chatbot_session_id"),
+            LlmCall.chatbot_s_id.collate("utf8mb4_unicode_ci").label(
+                "chatbot_session_id"
+            ),
             cast(
                 literal(None),
                 Integer,

@@ -107,8 +107,8 @@ class StatsExportService:
             self.repository.create_export_log(
                 {
                     "stat_type": stat_type,
-                    "from_date": request.from_date,
-                    "to_date": request.to_date,
+                    "from_dt": request.from_date,
+                    "to_dt": request.to_date,
                     "file_format": request.file_format,
                     "file_name": filename,
                     "row_count": len(rows),

@@ -23,6 +23,7 @@ from backend.schemas.stats_schema import (
     DailySearchItem,
     DemographicStatsResponse,
     DistributionItem,
+    ExportLogItem,
     MissingPersonCaseSummaryItem,
     OutcomeRegionItem,
     OutcomeStatsResponse,
@@ -244,5 +245,23 @@ class StatsService:
             recent_cases=recent_cases,
         )
 
-    def list_exports(self, limit: int = 50):
-        return self.repository.list_export_logs(limit)
+    def list_exports(self, limit: int = 50) -> list[ExportLogItem]:
+        # ORM 속성명(from_dt/to_dt)과 API 응답 필드명(from_date/to_date)이
+        # 다르므로 여기서 명시적으로 매핑한다 — ORM 쪽은 MariaDB 예약어
+        # (TO_DATE) 충돌 회피용 이름, API 쪽은 프론트가 이미 쓰고 있는
+        # 기존 계약(GET /stats/exports 응답의 from_date/to_date)을 유지.
+        logs = self.repository.list_export_logs(limit)
+        return [
+            ExportLogItem(
+                id=log.id,
+                stat_type=log.stat_type,
+                from_date=log.from_dt,
+                to_date=log.to_dt,
+                file_format=log.file_format,
+                file_name=log.file_name,
+                row_count=log.row_count,
+                requested_by_name=log.requested_by_name,
+                created_at=log.created_at,
+            )
+            for log in logs
+        ]
