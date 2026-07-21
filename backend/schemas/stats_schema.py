@@ -1,6 +1,7 @@
 """
 관리자 통계(CCTV·검색·인구통계·발견해결결과) API 스키마.
 """
+
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -127,6 +128,8 @@ class OutcomeStatsResponse(BaseModel):
 
 StatType = Literal["cctv", "search", "demographic", "outcomes"]
 
+ExportFileFormat = Literal["csv", "png", "zip"]
+
 
 class ExportRequest(BaseModel):
     stat_type: StatType
@@ -134,7 +137,7 @@ class ExportRequest(BaseModel):
     to_date: date
     region: str | None = None
     search_type: str | None = None
-    file_format: Literal["CSV"] = "CSV"
+    file_format: ExportFileFormat = "csv"
 
 
 class ExportLogItem(BaseModel):
