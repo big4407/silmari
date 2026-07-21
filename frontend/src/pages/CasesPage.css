@@ -283,7 +283,7 @@
 
 .cases-page__table th:nth-child(5),
 .cases-page__table td:nth-child(5) {
-  width: 16%;
+  width: 11%;
 }
 
 .cases-page__table th:nth-child(6),
@@ -305,6 +305,11 @@
 .cases-page__table th:nth-child(9),
 .cases-page__table td:nth-child(9) {
   width: 12%;
+}
+
+.cases-page__table th:nth-child(10),
+.cases-page__table td:nth-child(10) {
+  width: 18%;
 }
 
 /* 처리 칸은 버튼이 여러 개 들어가므로 말줄임 대신 자연스러운 줄바꿈 허용 */

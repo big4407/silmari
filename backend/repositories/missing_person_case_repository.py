@@ -6,7 +6,7 @@ from __future__ import annotations
 from datetime import datetime
 from statistics import mean
 
-from sqlalchemy import case, func
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from backend.db.models import MissingPersonCase, MissingPersonCaseStatus
@@ -48,17 +48,22 @@ class MissingPersonCaseRepository:
         )
 
     def next_chatbot_sn(self) -> str:
-        """"C"+6자리 증가값 — 이미 있는 챗봇 케이스 sn 중 가장 큰 번호 다음값."""
-        latest = (
-            self.db.query(MissingPersonCase.sn)
-            .filter(MissingPersonCase.sn.like("C%"))
-            .order_by(MissingPersonCase.sn.desc())
-            .first()
-        )
-        next_seq = 1
-        if latest and latest[0][1:].isdigit():
-            next_seq = int(latest[0][1:]) + 1
-        return f"C{next_seq:06d}"
+        """"C"+5자리(총 6글자, 실제 sn 길이 6자리와 맞춤) 증가값.
+
+        99999건을 넘으면 자릿수가 자연스럽게 늘어난다("05d"는 최소 5자리
+        보장일 뿐 그 이상을 잘라내지 않음). 문자열로 정렬해서 최댓값을 찾으면
+        자릿수가 달라지는 경계("C99999" 다음 "C100000")에서 사전식 정렬이
+        숫자 크기와 안 맞아 틀리게 되므로, 값을 다 가져와 숫자로 비교한다.
+        """
+        sns = self.db.scalars(
+            select(MissingPersonCase.sn).where(MissingPersonCase.sn.like("C%"))
+        ).all()
+        max_seq = 0
+        for sn in sns:
+            suffix = sn[1:]
+            if suffix.isdigit():
+                max_seq = max(max_seq, int(suffix))
+        return f"C{max_seq + 1:05d}"
 
     def create(self, values: dict) -> MissingPersonCase:
         case = MissingPersonCase(**values)

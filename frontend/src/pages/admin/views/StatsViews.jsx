@@ -1,5 +1,6 @@
 /** 통계 뷰 — CCTV·검색·성별연령지역·발견해결결과·내보내기 (전부 연동) */
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import PageHead from '../components/PageHead';
 import { TableEmptyRow } from '../components/EmptyState';
@@ -7,15 +8,12 @@ import { SimpleBars } from '../components/SimpleBars';
 import { SimpleLineChart } from '../components/SimpleLineChart';
 import { StatsFilter } from '../components/StatsFilter';
 import {
-  assignMissingPersonCase,
   exportStats,
   fetchCctvStats,
   fetchDemographicStats,
   fetchExportLogs,
   fetchOutcomeStats,
   fetchSearchStats,
-  resolveMissingPersonCase,
-  unassignMissingPersonCase,
 } from '../../../api/client';
 
 const STAT_TYPE_LABELS = {
@@ -36,18 +34,26 @@ function recentDateRange(days) {
   const toDate = new Date();
   const fromDate = new Date();
   fromDate.setDate(toDate.getDate() - days + 1);
-  return { fromDate: formatDateInput(fromDate), toDate: formatDateInput(toDate) };
+  return {
+    fromDate: formatDateInput(fromDate),
+    toDate: formatDateInput(toDate),
+  };
 }
 
 function formatDateTime(value) {
-  return new Intl.DateTimeFormat('ko-KR', { dateStyle: 'short', timeStyle: 'short' }).format(
-    new Date(value),
-  );
+  return new Intl.DateTimeFormat('ko-KR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(new Date(value));
 }
 
 /** 통계 API 공통 조회 훅 — 로딩/에러 상태 + 요청 도중 화면이 바뀌면 취소(AbortController). */
 function useStatsQuery(loader, dependencies) {
-  const [state, setState] = useState({ data: null, loading: true, error: null });
+  const [state, setState] = useState({
+    data: null,
+    loading: true,
+    error: null,
+  });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -55,14 +61,18 @@ function useStatsQuery(loader, dependencies) {
 
     loader(controller.signal)
       .then((data) => {
-        if (!controller.signal.aborted) setState({ data, loading: false, error: null });
+        if (!controller.signal.aborted)
+          setState({ data, loading: false, error: null });
       })
       .catch((error) => {
         if (controller.signal.aborted) return;
         setState({
           data: null,
           loading: false,
-          error: error instanceof Error ? error.message : '통계 조회에 실패했습니다.',
+          error:
+            error instanceof Error
+              ? error.message
+              : '통계 조회에 실패했습니다.',
         });
       });
 
@@ -82,7 +92,14 @@ function formatSearchType(value) {
   return { 1: '안내문자', 2: '챗봇', 3: '자동 검색' }[value] ?? value;
 }
 
-function StatCard({ label, value, unit, loading, decimals = 0, className = '' }) {
+function StatCard({
+  label,
+  value,
+  unit,
+  loading,
+  decimals = 0,
+  className = '',
+}) {
   return (
     <div className={`admin-stat ${className}`.trim()}>
       <div className="admin-label">{label}</div>
@@ -100,7 +117,8 @@ export function CctvStatsView() {
   const range = useMemo(() => recentDateRange(days), [days]);
 
   const state = useStatsQuery(
-    (signal) => fetchCctvStats({ ...range, region: region || undefined }, signal),
+    (signal) =>
+      fetchCctvStats({ ...range, region: region || undefined }, signal),
     [range.fromDate, range.toDate, region],
   );
 
@@ -121,7 +139,12 @@ export function CctvStatsView() {
       {state.error && <div className="stats-error">{state.error}</div>}
 
       <div className="admin-stat-grid">
-        <StatCard label="등록 영상" value={state.data?.summary.registered_videos} unit="건" loading={state.loading} />
+        <StatCard
+          label="등록 영상"
+          value={state.data?.summary.registered_videos}
+          unit="건"
+          loading={state.loading}
+        />
         <StatCard
           label="인덱스 완료"
           value={state.data?.summary.indexed_videos}
@@ -129,7 +152,12 @@ export function CctvStatsView() {
           loading={state.loading}
           className="admin-stat--green"
         />
-        <StatCard label="감지 인원" value={state.data?.summary.detected_persons} unit="명" loading={state.loading} />
+        <StatCard
+          label="감지 인원"
+          value={state.data?.summary.detected_persons}
+          unit="명"
+          loading={state.loading}
+        />
         <StatCard
           label="커버 지역"
           value={state.data?.summary.covered_regions}
@@ -176,13 +204,20 @@ export function SearchStatsView() {
   const range = useMemo(() => recentDateRange(days), [days]);
 
   const state = useStatsQuery(
-    (signal) => fetchSearchStats({ ...range, searchType: searchType || undefined }, signal),
+    (signal) =>
+      fetchSearchStats(
+        { ...range, searchType: searchType || undefined },
+        signal,
+      ),
     [range.fromDate, range.toDate, searchType],
   );
 
   return (
     <>
-      <PageHead viewId="stats-search" desc="검색 요청과 매칭 성과를 기간별로 집계합니다." />
+      <PageHead
+        viewId="stats-search"
+        desc="검색 요청과 매칭 성과를 기간별로 집계합니다."
+      />
 
       <StatsFilter
         periodDays={days}
@@ -194,7 +229,12 @@ export function SearchStatsView() {
       {state.error && <div className="stats-error">{state.error}</div>}
 
       <div className="admin-stat-grid">
-        <StatCard label="총 검색 요청" value={state.data?.summary.total_searches} unit="건" loading={state.loading} />
+        <StatCard
+          label="총 검색 요청"
+          value={state.data?.summary.total_searches}
+          unit="건"
+          loading={state.loading}
+        />
         <StatCard
           label="성공 매칭"
           value={state.data?.summary.successful_matches}
@@ -272,7 +312,10 @@ export function DemographicStatsView() {
 
   return (
     <>
-      <PageHead viewId="stats-demographic" desc="성별, 연령, 지역별 검색과 처리 결과를 집계합니다." />
+      <PageHead
+        viewId="stats-demographic"
+        desc="성별, 연령, 지역별 검색과 처리 결과를 집계합니다."
+      />
 
       <StatsFilter periodDays={days} onPeriodDaysChange={setDays} />
 
@@ -328,29 +371,20 @@ export function DemographicStatsView() {
 export function OutcomeStatsView() {
   const [days, setDays] = useState(90);
   const [region, setRegion] = useState('');
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [actionError, setActionError] = useState('');
   const range = useMemo(() => recentDateRange(days), [days]);
 
   const state = useStatsQuery(
-    (signal) => fetchOutcomeStats({ ...range, region: region || undefined }, signal),
-    [range.fromDate, range.toDate, region, refreshKey],
+    (signal) =>
+      fetchOutcomeStats({ ...range, region: region || undefined }, signal),
+    [range.fromDate, range.toDate, region],
   );
-
-  async function runAction(action, caseId, confirmMessage) {
-    if (confirmMessage && !window.confirm(confirmMessage)) return;
-    setActionError('');
-    try {
-      await action(caseId);
-      setRefreshKey((value) => value + 1);
-    } catch (caughtError) {
-      setActionError(caughtError instanceof Error ? caughtError.message : '처리에 실패했습니다.');
-    }
-  }
 
   return (
     <>
-      <PageHead viewId="stats-outcomes" desc="실종자 관리 케이스의 담당·처리 현황과 결과 통계를 확인합니다." />
+      <PageHead
+        viewId="stats-outcomes"
+        desc="실종자 관리 케이스의 담당·처리 현황과 결과 통계를 확인합니다(조회 전용 — 담당 배정·완료 처리는 실종자 관리 페이지에서 합니다)."
+      />
 
       <StatsFilter
         periodDays={days}
@@ -360,10 +394,14 @@ export function OutcomeStatsView() {
       />
 
       {state.error && <div className="stats-error">{state.error}</div>}
-      {actionError && <div className="stats-error">{actionError}</div>}
 
       <div className="admin-stat-grid">
-        <StatCard label="총 케이스" value={state.data?.summary.total_cases} unit="건" loading={state.loading} />
+        <StatCard
+          label="총 케이스"
+          value={state.data?.summary.total_cases}
+          unit="건"
+          loading={state.loading}
+        />
         <StatCard
           label="완료"
           value={state.data?.summary.resolved_cases}
@@ -417,7 +455,12 @@ export function OutcomeStatsView() {
       </div>
 
       <div className="admin-card admin-table-wrap">
-        <div className="admin-card-h">최근 케이스</div>
+        <div className="admin-card-h">
+          최근 케이스
+          <Link to="/dashboard/cases" className="admin-card-h__link">
+            실종자 관리에서 담당·처리하기 →
+          </Link>
+        </div>
         <table>
           <thead>
             <tr>
@@ -430,7 +473,6 @@ export function OutcomeStatsView() {
               <th style={{ width: 90 }}>담당자</th>
               <th style={{ width: 130 }}>담당 시각</th>
               <th style={{ width: 130 }}>완료 시각</th>
-              <th style={{ width: 190 }} />
             </tr>
           </thead>
           <tbody>
@@ -439,7 +481,13 @@ export function OutcomeStatsView() {
                 <tr key={row.id}>
                   <td>{row.sn}</td>
                   <td>{row.missing_name ?? '-'}</td>
-                  <td>{row.gender === 'M' ? '남' : row.gender === 'F' ? '여' : '-'}</td>
+                  <td>
+                    {row.gender === 'M'
+                      ? '남'
+                      : row.gender === 'F'
+                        ? '여'
+                        : '-'}
+                  </td>
                   <td>{row.age ?? '-'}</td>
                   <td>{row.missing_location ?? '-'}</td>
                   <td>
@@ -452,51 +500,21 @@ export function OutcomeStatsView() {
                             : 'admin-pill--danger'
                       }`}
                     >
-                      {{ 1: '대기', 2: '진행중', 3: '완료' }[row.status] ?? row.status}
+                      {{ 1: '대기', 2: '진행중', 3: '완료' }[row.status] ??
+                        row.status}
                     </span>
                   </td>
                   <td>{row.assigned_investigator_name ?? '-'}</td>
-                  <td>{row.assigned_at ? formatDateTime(row.assigned_at) : '-'}</td>
-                  <td>{row.resolved_at ? formatDateTime(row.resolved_at) : '-'}</td>
                   <td>
-                    {row.status === '1' && (
-                      <button
-                        type="button"
-                        className="admin-btn admin-btn--sm"
-                        onClick={() => runAction(assignMissingPersonCase, row.id)}
-                      >
-                        담당하기
-                      </button>
-                    )}
-                    {row.status === '2' && (
-                      <>
-                        <button
-                          type="button"
-                          className="admin-btn admin-btn--sm"
-                          onClick={() => runAction(unassignMissingPersonCase, row.id)}
-                        >
-                          담당 취소
-                        </button>{' '}
-                        <button
-                          type="button"
-                          className="admin-btn admin-btn--sm admin-btn--primary"
-                          onClick={() =>
-                            runAction(
-                              resolveMissingPersonCase,
-                              row.id,
-                              '완료 처리하면 되돌릴 수 없습니다. 계속할까요?',
-                            )
-                          }
-                        >
-                          완료 처리
-                        </button>
-                      </>
-                    )}
+                    {row.assigned_at ? formatDateTime(row.assigned_at) : '-'}
+                  </td>
+                  <td>
+                    {row.resolved_at ? formatDateTime(row.resolved_at) : '-'}
                   </td>
                 </tr>
               ))
             ) : (
-              <TableEmptyRow colSpan={10} />
+              <TableEmptyRow colSpan={9} />
             )}
           </tbody>
         </table>
@@ -521,10 +539,18 @@ export function StatsExportView() {
     setError('');
 
     try {
-      await exportStats({ stat_type: statType, from_date: fromDate, to_date: toDate });
+      await exportStats({
+        stat_type: statType,
+        from_date: fromDate,
+        to_date: toDate,
+      });
       setRefreshKey((value) => value + 1);
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : '내보내기에 실패했습니다.');
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : '내보내기에 실패했습니다.',
+      );
     } finally {
       setExporting(false);
     }
@@ -532,7 +558,10 @@ export function StatsExportView() {
 
   return (
     <>
-      <PageHead viewId="stats-export" desc="통계 데이터를 CSV로 내보내고 이력을 확인합니다." />
+      <PageHead
+        viewId="stats-export"
+        desc="통계 데이터를 CSV로 내보내고 이력을 확인합니다."
+      />
 
       <div className="admin-card admin-mb">
         <div className="admin-card-h">내보내기</div>
@@ -540,7 +569,10 @@ export function StatsExportView() {
           <div className="admin-form-row">
             <div className="admin-fld">
               <label>통계 종류</label>
-              <select value={statType} onChange={(event) => setStatType(event.target.value)}>
+              <select
+                value={statType}
+                onChange={(event) => setStatType(event.target.value)}
+              >
                 <option value="cctv">CCTV 통계</option>
                 <option value="search">검색 통계</option>
                 <option value="demographic">인구 통계</option>
@@ -550,12 +582,20 @@ export function StatsExportView() {
 
             <div className="admin-fld">
               <label>시작일</label>
-              <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(event) => setFromDate(event.target.value)}
+              />
             </div>
 
             <div className="admin-fld">
               <label>종료일</label>
-              <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
+              <input
+                type="date"
+                value={toDate}
+                onChange={(event) => setToDate(event.target.value)}
+              />
             </div>
 
             <div className="admin-fld">
@@ -578,7 +618,9 @@ export function StatsExportView() {
             </div>
           </div>
 
-          {(error || logs.error) && <div className="stats-error">{error ?? logs.error}</div>}
+          {(error || logs.error) && (
+            <div className="stats-error">{error ?? logs.error}</div>
+          )}
         </div>
       </div>
 

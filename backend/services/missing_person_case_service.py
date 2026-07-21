@@ -179,8 +179,16 @@ class MissingPersonCaseService:
             raise HTTPException(status_code=404, detail="케이스를 찾을 수 없습니다.")
         return self._to_item(case)
 
-    def assign(self, case_id: int, *, actor_id: str) -> MissingPersonCaseItem:
-        """"담당하기" — 대기 상태에서만 가능. 담당자 배정과 동시에 진행중으로 넘어간다."""
+    def assign(
+        self, case_id: int, *, actor_id: str, investigator_id: str | None = None
+    ) -> MissingPersonCaseItem:
+        """"담당하기" — 대기 상태에서만 가능. 담당자 배정과 동시에 진행중으로 넘어간다.
+
+        investigator_id를 지정하면 그 사람을 담당자로 배정한다(관리자가 "담당자
+        지정" 드롭다운으로 수사관을 고르는 경우) — 없으면 actor_id(호출한 본인)를
+        담당자로 배정한다(수사관이 직접 "담당하기" 누르는 기존 흐름). 관리자만
+        investigator_id를 쓸 수 있는지는 라우터에서 역할 확인 후 넘겨준다.
+        """
         case = self.repository.get_by_id(case_id)
         if case is None:
             raise HTTPException(status_code=404, detail="케이스를 찾을 수 없습니다.")
@@ -190,7 +198,7 @@ class MissingPersonCaseService:
                 detail="대기 상태인 케이스만 담당을 시작할 수 있습니다.",
             )
 
-        case.assigned_investigator_id = actor_id
+        case.assigned_investigator_id = investigator_id or actor_id
         case.assigned_at = kst_now()
         case.status = MissingPersonCaseStatus.IN_PROGRESS
         self.db.commit()

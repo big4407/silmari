@@ -216,11 +216,15 @@ export const statusLabel = (code) => STATUS_LABELS[code] ?? '-';
  * @param {string} [approvalStatus] '0'(대기)/'1'(승인)/'2'(반려)/'3'(정지)
  * @returns {Promise<Array>} UserResponse[]
  */
-export const fetchUsers = (approvalStatus) => {
-  const params =
-    approvalStatus != null ? { approval_status: approvalStatus } : {};
+export const fetchUsers = (approvalStatus, role) => {
+  const params = {};
+  if (approvalStatus != null) params.approval_status = approvalStatus;
+  if (role != null) params.role = role;
   return client.get('/member/admin/users', { params }).then((r) => r.data);
 };
+
+/** 담당자 지정 드롭다운용 — 승인된 수사관 목록만. */
+export const fetchApprovedInvestigators = () => fetchUsers('1', '2');
 
 /**
  * 승인 상태 변경(승인/반려/정지).
@@ -268,6 +272,10 @@ export const getMessageList = ({
 /** 로그인 이력(감사 로그) 조회. */
 export const fetchLoginHistory = (params = {}) =>
   client.get('/member/admin/login-history', { params }).then((r) => r.data);
+
+/** 관리자 콘솔 대시보드 KPI 요약. */
+export const fetchAdminDashboardSummary = () =>
+  client.get('/member/admin/dashboard-summary').then((r) => r.data);
 
 /** 관리자 행동 이력(감사 로그) 조회. approval_only=true 면 승인·권한 변경만. */
 export const fetchAdminHistory = (params = {}) =>
@@ -720,8 +728,18 @@ async function transitionCase(caseId, action, fallback) {
   }
 }
 
-export const assignMissingPersonCase = (caseId) =>
-  transitionCase(caseId, 'assign', '담당 배정에 실패했습니다.');
+export const assignMissingPersonCase = async (caseId, investigatorId) => {
+  try {
+    const response = await client.post(`${CASES_BASE_URL}/${caseId}/assign`, {
+      investigator_id: investigatorId || null,
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      await readApiErrorMessage(error, '담당 배정에 실패했습니다.'),
+    );
+  }
+};
 export const unassignMissingPersonCase = (caseId) =>
   transitionCase(caseId, 'unassign', '담당 취소에 실패했습니다.');
 export const resolveMissingPersonCase = (caseId) =>

@@ -7,13 +7,14 @@
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from backend.db.database import get_db
-from backend.db.models import User, UserRole
+from backend.db.models import ApprovalStatus, User, UserRole
 from backend.deps import get_current_user, require_roles
 from backend.schemas.missing_person_case_schema import (
+    MissingPersonCaseAssignRequest,
     MissingPersonCaseItem,
     MissingPersonCaseListResponse,
     MissingPersonCaseManualCreate,
@@ -76,11 +77,32 @@ def create_manual_case(
 @router.post("/{case_id}/assign", response_model=MissingPersonCaseItem)
 def assign_case(
     case_id: int,
+    payload: MissingPersonCaseAssignRequest = MissingPersonCaseAssignRequest(),
     user: User = Depends(require_case_writer),
     db: Session = Depends(get_db),
 ):
-    """"담당하기" 버튼."""
-    return MissingPersonCaseService(db).assign(case_id, actor_id=user.id)
+    """"담당하기" 버튼(수사관 자기 배정) 또는 "담당자 지정"(관리자가 특정
+    수사관에게 배정) — investigator_id가 있으면 관리자만 쓸 수 있고, 대상은
+    실제 승인된 수사관 계정이어야 한다."""
+    investigator_id = payload.investigator_id
+    if investigator_id and investigator_id != user.id:
+        if user.role != UserRole.ADMIN:
+            raise HTTPException(
+                status_code=403, detail="다른 사람에게 담당을 배정할 권한이 없습니다."
+            )
+        target = db.get(User, investigator_id)
+        if (
+            target is None
+            or target.role != UserRole.INVESTIGATOR
+            or target.approval_status != ApprovalStatus.APPROVED
+        ):
+            raise HTTPException(
+                status_code=404, detail="배정할 수사관 계정을 찾을 수 없습니다."
+            )
+
+    return MissingPersonCaseService(db).assign(
+        case_id, actor_id=user.id, investigator_id=investigator_id
+    )
 
 
 @router.post("/{case_id}/enrich", response_model=MissingPersonCaseItem)
