@@ -13,8 +13,6 @@ from backend.db.database import get_db
 from backend.db.models import User, UserRole
 from backend.deps import require_roles
 from backend.schemas.stats_schema import (
-    CaseEventCreate,
-    CaseEventResponse,
     CctvStatsResponse,
     DemographicStatsResponse,
     ExportLogItem,
@@ -69,31 +67,6 @@ def get_outcome_stats(
     db: Session = Depends(get_db),
 ):
     return StatsService(db).get_outcomes(from_date, to_date, region)
-
-
-@router.post("/case-events", response_model=CaseEventResponse, status_code=201)
-def create_case_event(
-    payload: CaseEventCreate,
-    admin: User = Depends(require_roles(UserRole.ADMIN)),
-    db: Session = Depends(get_db),
-):
-    return StatsService(db).create_case_event(
-        payload,
-        actor_id=admin.id,
-        actor_name=admin.full_name or admin.username,
-    )
-
-
-@router.get("/case-events", response_model=list[CaseEventResponse])
-def list_case_events(
-    from_date: date | None = Query(default=None),
-    to_date: date | None = Query(default=None),
-    event_type: str | None = Query(default=None),
-    case_key: str | None = Query(default=None),
-    _: User = Depends(require_roles(UserRole.ADMIN)),
-    db: Session = Depends(get_db),
-):
-    return StatsService(db).list_events(from_date, to_date, event_type, case_key)
 
 
 @router.post("/export")

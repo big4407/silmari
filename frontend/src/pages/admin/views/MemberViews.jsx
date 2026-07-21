@@ -176,6 +176,7 @@ export function MembersPendingView() {
                 />
               </th>
               <th>이름</th>
+              <th>아이디</th>
               <th>이메일</th>
               <th>소속</th>
               <th>신청 역할</th>
@@ -185,12 +186,12 @@ export function MembersPendingView() {
           </thead>
           <tbody>
             {loading ? (
-              <TableEmptyRow colSpan={7} message="불러오는 중…" />
+              <TableEmptyRow colSpan={8} message="불러오는 중…" />
             ) : error ? (
-              <TableEmptyRow colSpan={7} message={error} />
+              <TableEmptyRow colSpan={8} message={error} />
             ) : filtered.length === 0 ? (
               <TableEmptyRow
-                colSpan={7}
+                colSpan={8}
                 message="승인 대기 중인 신청이 없습니다."
               />
             ) : (
@@ -205,6 +206,7 @@ export function MembersPendingView() {
                     />
                   </td>
                   <td>{u.full_name}</td>
+                  <td>{u.username}</td>
                   <td>{u.email}</td>
                   <td>{u.organization}</td>
                   <td>
@@ -358,6 +360,7 @@ export function MembersAllView() {
           <thead>
             <tr>
               <th>이름</th>
+              <th>아이디</th>
               <th>이메일</th>
               <th>소속</th>
               <th>역할</th>
@@ -368,15 +371,16 @@ export function MembersAllView() {
           </thead>
           <tbody>
             {loading ? (
-              <TableEmptyRow colSpan={7} message="불러오는 중…" />
+              <TableEmptyRow colSpan={8} message="불러오는 중…" />
             ) : error ? (
-              <TableEmptyRow colSpan={7} message={error} />
+              <TableEmptyRow colSpan={8} message={error} />
             ) : filtered.length === 0 ? (
-              <TableEmptyRow colSpan={7} message="회원이 없습니다." />
+              <TableEmptyRow colSpan={8} message="회원이 없습니다." />
             ) : (
               filtered.map((u) => (
                 <tr key={u.id}>
                   <td>{u.full_name}</td>
+                  <td>{u.username}</td>
                   <td>{u.email}</td>
                   <td>{u.organization}</td>
                   <td>{roleLabel(u.role)}</td>

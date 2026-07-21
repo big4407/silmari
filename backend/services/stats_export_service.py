@@ -64,14 +64,12 @@ class StatsExportService:
             ]
         elif stat_type == "demographic":
             data = self.service.get_demographic(request.from_date, request.to_date)
-            headers = ["지역", "검색 요청", "발견", "해결", "발견율", "해결율"]
+            headers = ["지역", "검색 요청", "해결", "해결율"]
             rows = [
                 [
                     item.region,
                     item.search_requests,
-                    item.found_cases,
                     item.resolved_cases,
-                    item.finding_rate,
                     item.resolution_rate,
                 ]
                 for item in data.by_region
@@ -81,26 +79,23 @@ class StatsExportService:
                 request.from_date, request.to_date, request.region
             )
             headers = [
-                "사건 키", "구분", "발생 시각", "신고 시각", "지역", "대상자",
-                "역할", "기록자", "장소", "검색 ID", "분석 ID", "분석 상세 ID", "비고",
+                "SN", "이름", "성별", "나이", "지역", "상태",
+                "담당자", "담당 시각", "완료 시각", "생성 시각",
             ]
             rows = [
                 [
-                    item.case_key,
-                    item.event_type,
-                    item.occurred_at.isoformat(),
-                    item.reported_at.isoformat() if item.reported_at else "",
-                    item.region or "",
-                    item.actor_name or "",
-                    item.actor_role or "",
-                    item.recorded_by_name,
-                    item.location_text or "",
-                    item.source_search_id or "",
-                    item.source_analysis_id or "",
-                    item.source_analysis_detail_id or "",
-                    item.note or "",
+                    item.sn,
+                    item.missing_name or "",
+                    item.gender or "",
+                    item.age or "",
+                    item.missing_location or "",
+                    item.status,
+                    item.assigned_investigator_name or "",
+                    item.assigned_at.isoformat() if item.assigned_at else "",
+                    item.resolved_at.isoformat() if item.resolved_at else "",
+                    item.created_at.isoformat(),
                 ]
-                for item in data.recent_records
+                for item in data.recent_cases
             ]
 
         filename = (

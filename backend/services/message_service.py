@@ -20,6 +20,7 @@ from backend.schemas.message_schema import (
     MessageListResponse,
 )
 from backend.services.llm_call_service import LlmCallService
+from backend.services.missing_person_case_service import MissingPersonCaseService
 from backend.utils.datetime_parser import parse_date, parse_datetime
 from backend.utils.message_filter import is_missing_person_message
 
@@ -35,6 +36,7 @@ class MessageService:
         # self.client = DisasterMessageClient()
         self.repository = MessageRepository(db)
         self.llm_call_service = LlmCallService(db)
+        self.missing_person_case_service = MissingPersonCaseService(db)
 
     def parse_alert(self, msg_cn: str, *, user_id: str | None = None) -> AlertParseResponse:
         """안내문자 본문에서 LLM으로 실종자 정보(이름·성별·나이·인상착의)를 뽑는다.
@@ -137,6 +139,21 @@ class MessageService:
                 self.repository.save(message)
                 saved_count += 1
 
+                # 실종자 관리 케이스 자동 생성 — sn 하나당 케이스 하나(멱등).
+                # 이름/성별/나이/인상착의는 여기서 LLM으로 안 뽑는다 — 수집은
+                # 문자를 한 번에 여러 건씩 배치로 가져오는데, 매번 LLM을
+                # 돌리면 비용이 커진다. 원문(msg_cn)과 수신지역명(이미 구조화된
+                # 값이라 LLM 불필요)만 저장해두고, 담당자가 실제로 케이스를
+                # 열 때 필요하면 그 1건만 파싱한다(missing_person_case_service.
+                # enrich_from_message).
+                self.missing_person_case_service.create_from_message(
+                    sn,
+                    msg_cn=msg_cn,
+                    missing_location=(
+                        item.get("RCPTN_RGN_NM")[:20] if item.get("RCPTN_RGN_NM") else None
+                    ),
+                )
+
             self.db.commit()
 
         except Exception:
@@ -169,7 +186,11 @@ class MessageService:
 
     def get_message(self, sn: str) -> MessageResponse:
         message = self._get_or_404(sn)
-        return MessageResponse.model_validate(message)
+        case = self.missing_person_case_service.repository.get_by_sn(sn)
+        response = MessageResponse.model_validate(message)
+        return response.model_copy(
+            update={"case_status": case.status.value if case else None}
+        )
 
     # services/message_service.py
 
@@ -194,8 +215,18 @@ class MessageService:
             order_by=order_by,
         )
 
+        status_by_sn = self.missing_person_case_service.repository.get_status_by_sns(
+            [m.sn for m in messages]
+        )
+        items = [
+            MessageResponse.model_validate(message).model_copy(
+                update={"case_status": status_by_sn.get(message.sn)}
+            )
+            for message in messages
+        ]
+
         return MessageListResponse(
-            items=[MessageResponse.model_validate(message) for message in messages],
+            items=items,
             total=total,
             page=page,
             size=per_page,

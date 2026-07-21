@@ -112,11 +112,16 @@ class AdminAction(str, enum.Enum):
     UPDATE = "6"  # 데이터 수정 (향후 확장)
 
 
-class CaseEventType(str, enum.Enum):
-    """통계 페이지의 사건 진행 기록 유형. value 는 DB 저장용 코드값(숫자)."""
+class MissingPersonCaseStatus(str, enum.Enum):
+    """실종자 관리 케이스 상태. value 는 DB 저장용 코드값(숫자).
 
-    FOUND = "1"  # 대상자 발견
-    RESOLVED = "2"  # 사건 해결
+    완료(RESOLVED)는 되돌릴 수 없다 — services/stats_service.py 통계가
+    조회 시점마다 달라지는 걸 막기 위한 정책 결정.
+    """
+
+    PENDING = "1"  # 대기 — 담당자 미배정
+    IN_PROGRESS = "2"  # 진행중 — 담당자 배정됨
+    RESOLVED = "3"  # 완료
 
 
 class User(Base):
@@ -740,76 +745,90 @@ class LlmCall(Base):
     )
 
 
-class CaseEvent(Base):
-    """실종자 발견·사건 해결 기록 — "발견/해결 결과" 통계 화면의 원천 데이터.
+class MissingPersonCase(Base):
+    """실종자 관리 케이스 — 안내문자 1건(sn) 또는 챗봇 상담 1건마다 하나씩 생성된다.
 
-    search 테이블과 달리 이 정보는 검색 자체가 아니라 그 검색이 실제로 어떤
-    결과(발견/해결)로 이어졌는지를 관리자가 수동으로 입력하는 기록이다.
+    sn은 실제 Message.sn 값(안내문자 기반) 또는 "C"+6자리 증가값(챗봇 기반)이다.
+    챗봇 케이스는 message 테이블에 대응하는 행이 없어서 FK로 강제하지 않는다
+    (services/missing_person_case_service.py에서 message.sn과 조인해 안내문자
+    본문을 보여줄 때는 매칭 안 되면 그냥 없는 것으로 처리).
+
+    이름/성별/나이/인상착의 채우는 방식이 케이스 출처에 따라 다르다:
+      - 챗봇 기반: 상담 중 이미 얻은 값이라 바로 채움(추가 비용 없음)
+      - 안내문자 기반: 생성 시점엔 안 채운다. LLM 파싱(parse_alert)이 문자
+        1건당 1번 호출인데, 안내문자는 스케줄러가 여러 건을 한 번에
+        수집하므로 그때마다 다 돌리면 비용이 커진다. 대신 msg_cn(원문)만
+        저장해두고, 담당자가 케이스를 열 때 필요하면 그 1건만 파싱한다.
+
+    상태 전이: 대기 →(담당하기) 진행중 →(완료 처리, 되돌리기 불가) 완료
+                              ↳(담당 취소) 대기로 복귀
+    완료는 취소할 수 없다 — 조회 시점마다 통계값이 달라지는 걸 막기 위함
+    (services/stats_service.py 참고).
     """
 
-    __tablename__ = "case_event"
+    __tablename__ = "missing_person_case"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    case_key: Mapped[str] = mapped_column(
-        String(100),
+    sn: Mapped[str] = mapped_column(
+        String(22),
+        unique=True,
         nullable=False,
         index=True,
-        comment="사건 식별값 (없으면 SEARCH-{search_id}로 채움)",
+        comment="케이스 식별값 — 안내문자 기반은 message.sn 값 그대로, 챗봇 기반은 C+6자리",
     )
-    event_type: Mapped[CaseEventType] = mapped_column(
+
+    missing_name: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    gender: Mapped[Gender | None] = mapped_column(
         Enum(
-            CaseEventType,
+            Gender,
+            native_enum=False,
+            length=1,
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        nullable=True,
+    )
+    age: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    clothing: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    missing_location: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    missing_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    msg_cn: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "안내문자 원문(안내문자 기반 케이스만). 수집 시점엔 LLM으로 이름/성별/"
+            "나이/인상착의를 안 뽑는다(문자 여러 건을 한 번에 수집하는 배치라 비용이"
+            " 커짐) — 원문만 저장해두고, 담당자가 케이스를 열 때 필요하면 그때 1건만"
+            " parse_alert()로 채운다(services/missing_person_case_service.py)."
+        ),
+    )
+
+    status: Mapped[MissingPersonCaseStatus] = mapped_column(
+        Enum(
+            MissingPersonCaseStatus,
             native_enum=False,
             length=1,
             values_callable=lambda e: [m.value for m in e],
         ),
         nullable=False,
+        default=MissingPersonCaseStatus.PENDING,
         index=True,
-        comment="1: 발견, 2: 해결",
-    )
-    occurred_at: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, index=True, comment="발견/해결이 실제로 일어난 시각"
-    )
-    reported_at_snapshot: Mapped[datetime | None] = mapped_column(
-        DateTime, nullable=True, comment="연결된 검색의 신고 시각 스냅샷"
-    )
-    region_snapshot: Mapped[str | None] = mapped_column(
-        String(255), nullable=True, index=True, comment="연결된 검색의 지역 스냅샷"
+        comment="1: 대기, 2: 진행중, 3: 완료",
     )
 
-    actor_id: Mapped[int | None] = mapped_column(
-        Integer, nullable=True, comment="대상자(발견자 등) ID — 시스템 사용자 아님"
+    assigned_investigator_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("user.id"), nullable=True, comment="담당 수사관"
     )
-    actor_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    actor_role: Mapped[str | None] = mapped_column(
-        String(50), nullable=True, comment="보호자, 발견자 등"
-    )
+    assigned_investigator: Mapped["User | None"] = relationship()
+    assigned_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
-    recorded_by_id: Mapped[str | None] = mapped_column(
-        String(36),
-        ForeignKey("user.id"),
-        nullable=True,
-        comment="이 기록을 입력한 관리자",
-    )
-    recorded_by_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    location_text: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
-    longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
-
-    source_search_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("search.id"), nullable=True, index=True
-    )
-    source_analysis_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("analysis.id"), nullable=True
-    )
-    source_analysis_detail_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("analysis_detail.id"), nullable=True
-    )
-
-    note: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=kst_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=kst_now, onupdate=kst_now
     )
 
 

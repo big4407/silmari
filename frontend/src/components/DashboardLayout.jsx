@@ -4,20 +4,15 @@
  * 하위: Dashboard, ChatbotPage, SearchHistory, SearchResults
  */
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { isAuthenticated, isAdmin } from '../api/client';
+import { isAuthenticated, isAdmin, getRole } from '../api/client';
+import { getVisibleNavTabs } from '../navTabs';
 import useLogout from '../hooks/useLogout';
 import './DashboardLayout.css';
-
-const TABS = [
-  { to: '/dashboard', label: '실종자 검색', end: true },
-  { to: '/dashboard/chatbot', label: '챗봇 검색' },
-  { to: '/search-results', label: '검색 결과' },
-  { to: '/dashboard/history', label: '검색 이력' },
-];
 
 export default function DashboardLayout() {
   const authed = isAuthenticated();
   const admin = isAdmin();
+  const visibleTabs = getVisibleNavTabs(getRole());
   const { doLogout } = useLogout();
   return (
     <div className="dashboard-layout">
@@ -59,7 +54,7 @@ export default function DashboardLayout() {
         </div>
         <div className="dashboard-layout__nav-wrap">
           <nav className="dashboard-layout__nav" aria-label="주요 메뉴">
-            {TABS.map((tab) => (
+            {visibleTabs.map((tab) => (
               <NavLink
                 key={tab.to}
                 to={tab.to}
