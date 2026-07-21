@@ -12,6 +12,7 @@ import AlertMessageCard from '../components/AlertMessageCard';
 import SearchProgressBar from '../components/SearchProgressBar';
 import {
   collectMessages,
+  createCaseForMessage,
   createSearch,
   fetchMessages,
   getUserId,
@@ -146,6 +147,7 @@ export default function Dashboard() {
   } = useDetectionStore();
 
   const [apiError, setApiError] = useState(null);
+  const [addingCaseKey, setAddingCaseKey] = useState(null);
   const [searchError, setSearchError] = useState(null);
   const [searchRunning, setSearchRunning] = useState(false);
   const [dateWarning, setDateWarning] = useState(null);
@@ -284,6 +286,30 @@ export default function Dashboard() {
     const focus = resolveAlertMapFocus(normalized.rcptn_rgn_nm);
     if (focus) {
       setMapFocus({ ...focus, key: Date.now(), applyFilter: false });
+    }
+  };
+
+  // 케이스가 없는 문자(case_status == null)를 실종자관리로 등록 — 관리자·수사관 전용.
+  // 반환된 문자로 목록·세션 캐시를 갱신해 버튼이 사라지고 카드가 케이스 보유
+  // 상태로 바뀐다. 백엔드가 sn 기준 멱등이라 중복 클릭도 안전.
+  const handleAddCase = async (alert) => {
+    const key = alertKey(alert);
+    if (!key || addingCaseKey) return;
+    setAddingCaseKey(key);
+    setApiError(null);
+    try {
+      const updated = await createCaseForMessage(alert.sn ?? alert.id);
+      const nextList = alertList.map((a) =>
+        alertKey(a) === key ? { ...a, case_status: updated.case_status } : a,
+      );
+      setAlertList(nextList);
+      saveAlertsToSession(nextList);
+    } catch (err) {
+      setApiError(
+        err?.response?.data?.detail || '실종자관리 추가에 실패했습니다.',
+      );
+    } finally {
+      setAddingCaseKey(null);
     }
   };
 
@@ -527,6 +553,8 @@ export default function Dashboard() {
                   alertKey(selectedAlert) === alertKey(alert)
                 }
                 onClick={handleSelectAlert}
+                onAddCase={handleAddCase}
+                addingCase={addingCaseKey === alertKey(alert)}
               />
             ))}
           </div>

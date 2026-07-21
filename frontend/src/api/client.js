@@ -210,6 +210,9 @@ export const getRole = () => decodeAccessToken()?.role ?? null;
 /** 현재 사용자가 관리자('1')인지 */
 export const isAdmin = () => getRole() === '1';
 
+/** 현재 사용자가 케이스 작성 권한(관리자'1'/수사관'2')인지 */
+export const isCaseWriter = () => ['1', '2'].includes(getRole());
+
 // ══════════════════════════════════════════════════════════
 // 관리자 (admin) — /member/admin/*
 // ══════════════════════════════════════════════════════════
@@ -517,6 +520,13 @@ export const parseAlertMessage = (msgCn) =>
 export const collectMessages = (params = {}) =>
   client.post('/message/collect', null, { params }).then((r) => r.data);
 
+/**
+ * 안내문자(sn)를 실종자관리 케이스로 등록 — 관리자·수사관 전용.
+ * 대기·미배정으로 생성되며, case_status가 갱신된 문자 객체를 반환한다.
+ */
+export const createCaseForMessage = (sn) =>
+  client.post(`/message/${encodeURIComponent(sn)}/case`).then((r) => r.data);
+
 // ══════════════════════════════════════════════════════════
 // 검색 요청 — /search/*
 // ══════════════════════════════════════════════════════════
@@ -536,6 +546,7 @@ export const deleteSearch = (id) => client.delete(`/search/${id}`);
 function mapSearchItemToHistory(item) {
   return {
     id: item.id,
+    search_type: item.search_type,
     person_name: item.missing_name || '미상',
     person_age: item.age,
     region: item.missing_location || '-',
@@ -570,6 +581,7 @@ function mapSearchItemToResult(item) {
 
   return {
     id: item.id,
+    search_type: item.search_type,
     person_name: item.missing_name || '미상',
     person_age: item.age,
     region: item.missing_location || '-',

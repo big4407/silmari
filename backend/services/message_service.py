@@ -192,6 +192,29 @@ class MessageService:
             update={"case_status": case.status.value if case else None}
         )
 
+    def create_case_for_message(self, sn: str) -> MessageResponse:
+        """안내문자(sn)를 실종자관리 케이스로 등록한다 — 대기·미배정으로 생성.
+
+        자동수집이 놓친 문자(수동 입력·레거시 등 case_status=None)를 실종자
+        검색 화면에서 관리자·수사관이 직접 실종자관리로 올릴 때 쓰는 backfill
+        창구다. create_from_message가 sn 기준 멱등이라 이미 케이스가 있으면
+        기존 케이스 상태를 그대로 돌려준다(중복 클릭·동시 요청 안전). 담당자
+        배정과 이름/인상착의 파싱(enrich)은 자동 케이스와 동일하게 실종자관리
+        보드에서 처리한다 — 여기선 지역·원문만 채운 대기 케이스를 만든다.
+        """
+        message = self._get_or_404(sn)
+        case = self.missing_person_case_service.create_from_message(
+            sn,
+            msg_cn=message.msg_cn,
+            missing_location=(
+                message.rcptn_rgn_nm[:20] if message.rcptn_rgn_nm else None
+            ),
+        )
+        self.db.commit()
+        return MessageResponse.model_validate(message).model_copy(
+            update={"case_status": case.status.value}
+        )
+
     # services/message_service.py
 
     def get_message_list(
