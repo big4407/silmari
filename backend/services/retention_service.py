@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from backend.core.config import get_settings
+from backend.db.database import delete_video_embeddings
 from backend.db.models import (
     Analysis,
     LoginHistory,
@@ -409,6 +410,16 @@ class RetentionService:
                     Path(v.file_path).unlink(missing_ok=True)
                 except OSError:
                     pass
+                # video 행을 지우기 전에 Chroma 임베딩도 같이 지운다 —
+                # 안 그러면 video.id(AUTO_INCREMENT)가 나중에 재사용될 때
+                # 남아있던 옛 임베딩이 엉뚱한 새 영상으로 잘못 매칭된다
+                # (delete_video_embeddings 설명 참고). Chroma 쪽 오류로
+                # 보존정책 삭제 작업 전체가 막히면 안 되므로 실패해도 계속
+                # 진행한다 — 다만 나중에 원인 추적할 수 있게 남겨둔다.
+                try:
+                    delete_video_embeddings(v.id)
+                except Exception as exc:  # noqa: BLE001
+                    print(f"[retention] Chroma 임베딩 삭제 실패 video_id={v.id}: {exc}")
                 self.db.delete(v)
             self.db.flush()
             return len(videos)

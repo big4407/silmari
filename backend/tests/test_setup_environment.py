@@ -27,6 +27,10 @@
   python -m backend.tests.test_setup_environment
   python -m backend.tests.test_setup_environment --message-count 5 --max-videos 3
   python -m backend.tests.test_setup_environment --region "대전광역시 동구 가양동" --clear-existing-messages
+  python -m backend.tests.test_setup_environment --clear-existing-videos
+      # video 관련 데이터 + Chroma 임베딩을 싹 지우고 재세팅(운영 데이터 없는
+      # 로컬 개발 DB에서만 사용). 안 지우고 재실행하면 video.id가 나중에
+      # 재사용될 때 Chroma에 남은 옛 임베딩이 새 영상과 잘못 매칭될 수 있다.
 """
 from __future__ import annotations
 
@@ -34,7 +38,8 @@ import argparse
 from pathlib import Path
 
 from backend.core.config import settings
-from backend.db.database import SessionLocal
+from backend.db.database import SessionLocal, delete_video_embeddings
+from backend.db.models import AnalysisDetail, Video
 from backend.services.video_service import VideoService
 from backend.tests.test_Message import insert_test_messages
 from backend.tests.test_place_videos import setup_test_video_data_from_messages
@@ -73,15 +78,81 @@ def _select_videos_balanced(placed_paths: list[str], max_videos: int) -> list[st
     return selected
 
 
+def _clear_existing_video_data(db) -> dict:
+    """video/video_detail/analysis_detail/Chroma 임베딩을 모두 지운다.
+
+    test_Message처럼 sn에 T 접두어를 붙여 테스트 데이터만 안전하게 골라
+    지우는 방식이 video에는 없다 — 영상은 실제 CCTV 데이터와 같은 폴더
+    구조(cctv_data_dir/{region_code}/{YYYYMMDD}/{cctv})에 배치되고, video
+    행에 테스트 전용 마커가 없기 때문이다. 그래서 이 함수는 video 테이블
+    전체를 지운다 — 운영 데이터가 섞인 환경에서는 절대 쓰지 말 것
+    (--clear-existing-videos 플래그로만 opt-in, 기본은 항상 꺼짐).
+
+    반드시 video 행을 지우기 전에 Chroma 임베딩부터 지운다 — 안 그러면
+    video.id(AUTO_INCREMENT)가 재인덱싱 때 재사용될 경우, Chroma에 남은
+    옛 임베딩이 새로 들어온 영상과 잘못 매칭되어 "엉뚱한 영상이 재생되는"
+    버그로 이어진다(delete_video_embeddings 문서 참고).
+
+    analysis_detail.video_id는 FK인데 Video → AnalysisDetail로의 ORM
+    cascade가 없어서(Analysis → AnalysisDetail cascade만 있음), video를
+    지우기 전에 그 video를 참조하는 analysis_detail 행을 먼저 지워야
+    FK 제약 위반이 안 난다.
+    """
+    videos = db.query(Video).all()
+    video_ids = [v.id for v in videos]
+
+    if not video_ids:
+        return {"videos_deleted": 0, "analysis_details_deleted": 0}
+
+    deleted_details = (
+        db.query(AnalysisDetail)
+        .filter(AnalysisDetail.video_id.in_(video_ids))
+        .delete(synchronize_session=False)
+    )
+
+    for video_id in video_ids:
+        try:
+            delete_video_embeddings(video_id)
+        except Exception as exc:  # noqa: BLE001
+            print(
+                f"[테스트 환경 초기화] Chroma 임베딩 삭제 실패 "
+                f"video_id={video_id}: {exc}"
+            )
+
+    for video in videos:
+        db.delete(video)  # video_detail은 cascade="all, delete-orphan"으로 같이 지워짐
+
+    db.commit()
+
+    print(
+        f"[테스트 환경 초기화] video {len(video_ids)}건, "
+        f"analysis_detail {deleted_details}건 삭제 + Chroma 임베딩 정리 완료"
+    )
+
+    return {
+        "videos_deleted": len(video_ids),
+        "analysis_details_deleted": deleted_details,
+    }
+
+
 def setup_test_environment(
     message_count: int = 10,
     regions: list[str] | None = None,
     clear_existing_messages: bool = False,
+    clear_existing_videos: bool = False,
     max_videos: int = 5,
     max_pairs: int = 20,
     seed: int | None = None,
 ) -> dict:
     source_dir = Path(settings.upload_dir)
+
+    if clear_existing_videos:
+        print("[0/3] 기존 영상 데이터 초기화 (video/video_detail/analysis_detail/Chroma)")
+        db = SessionLocal()
+        try:
+            _clear_existing_video_data(db)
+        finally:
+            db.close()
 
     print("[1/3] 테스트용 실종 안내문자 삽입 (test_Message)")
     message_result = insert_test_messages(
@@ -160,6 +231,13 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="넣기 전에 SN이 T로 시작하는 기존 테스트 안내문자를 먼저 삭제",
     )
     parser.add_argument(
+        "--clear-existing-videos",
+        action="store_true",
+        help="넣기 전에 video/video_detail/analysis_detail과 그 Chroma 임베딩을 "
+        "모두 삭제한다. video엔 테스트/운영 구분 마커가 없어 테이블 전체를 "
+        "지운다 — 운영 데이터가 섞인 환경에서는 쓰지 말 것. 기본은 꺼짐",
+    )
+    parser.add_argument(
         "--max-videos",
         type=int,
         default=5,
@@ -186,6 +264,7 @@ if __name__ == "__main__":
         message_count=args.message_count,
         regions=args.regions,
         clear_existing_messages=args.clear_existing_messages,
+        clear_existing_videos=args.clear_existing_videos,
         max_videos=args.max_videos,
         max_pairs=args.max_pairs,
         seed=args.seed,
