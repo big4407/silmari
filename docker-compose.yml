@@ -22,6 +22,11 @@ services:
       DB_HOST: db
     volumes:
       - ./data:/app/data
+      # FashionCLIP(HuggingFace) 모델 캐시 — 볼륨 없이는 컨테이너를 재생성할
+      # 때마다(docker compose down/up --build 등) 이 캐시가 사라져서, 매번
+      # HF_HUB_OFFLINE=false로 다시 다운로드해야 하는 문제가 반복된다.
+      # 이름 있는 볼륨이라 down -v 로 명시적으로 지우기 전까진 유지된다.
+      - hf_cache:/root/.cache/huggingface
     env_file: [.env]
     depends_on:
       db:
@@ -34,3 +39,4 @@ services:
 
 volumes:
   mysql_data:
+  hf_cache:

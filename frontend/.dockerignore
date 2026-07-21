@@ -1,0 +1,12 @@
+# frontend/ 가 이 이미지의 빌드 컨텍스트라(docker-compose.yml: context: ./frontend),
+# 루트 .dockerignore의 node_modules 제외 규칙은 여기 적용되지 않는다
+# (Docker는 컨텍스트 루트의 .dockerignore만 봄) — 그래서 따로 둔다.
+#
+# 이게 없으면: 호스트에 frontend/node_modules가 이미 있을 때(로컬에서 npm
+# install을 먼저 돌려본 경우) COPY . . 가 그걸 그대로 이미지에 복사해서,
+# Dockerfile이 컨테이너 안에서(musl) 방금 새로 설치한 올바른 node_modules를
+# 호스트 플랫폼(Windows/glibc 등) 버전으로 덮어써버린다 — rollup 네이티브
+# 바이너리 플랫폼 불일치 문제가 그대로 재발한다.
+node_modules/
+dist/
+.env
