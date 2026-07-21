@@ -40,6 +40,8 @@ from pathlib import Path
 from backend.core.config import settings
 from backend.db.database import SessionLocal, delete_video_embeddings
 from backend.db.models import AnalysisDetail, Video
+from backend.repositories.region_repository import RegionRepository
+from backend.services.region_admin_service import RegionAdminService
 from backend.services.video_service import VideoService
 from backend.tests.test_Message import insert_test_messages
 from backend.tests.test_place_videos import setup_test_video_data_from_messages
@@ -76,6 +78,38 @@ def _select_videos_balanced(placed_paths: list[str], max_videos: int) -> list[st
         for key in empty_keys:
             del groups[key]
     return selected
+
+
+def _ensure_region_data(db, csv_path: Path | None = None) -> None:
+    """region 테이블이 비어있으면 administrative_dong.csv로 채운다.
+
+    지역명 → region_code 해석(챗봇 validate_region_node, CCTV 폴더 배치의
+    region_code 기준 등) 전체가 region 테이블을 전제로 한다. 빈 DB에서
+    이 스크립트를 그대로 돌리면 region이 비어있어 지역 해석이 전부 실패해
+    문자 삽입은 되어도 영상 배치·검색이 제대로 안 됐다.
+
+    RegionAdminService.import_administrative_dong_csv()를 그대로 재사용한다
+    (admin 콘솔의 CSV 업로드 적재 로직과 동일 — 새로 만들 이유가 없다).
+    이미 데이터가 있으면 손대지 않는다 — 파괴적 동작이 아니라서 opt-in
+    플래그 없이 항상 실행한다(비어있을 때만 실제로 적재가 일어남).
+    """
+    existing = RegionRepository(db).count()
+    if existing > 0:
+        print(f"[지역 데이터] region 테이블에 이미 {existing}건 있어 건너뜀")
+        return
+
+    path = csv_path or settings.administrative_dong_csv
+    print(f"[지역 데이터] region 테이블이 비어있어 {path} 로 채웁니다")
+
+    result = RegionAdminService(db).import_administrative_dong_csv(path)
+    if result.errors:
+        print(f"[지역 데이터] 적재 실패: {'; '.join(result.errors)}")
+        return
+
+    print(
+        f"[지역 데이터] 시도 {result.sido_count}, 시군구 {result.sigungu_count}, "
+        f"행정동 {result.admin_dong_count}, 법정동 매핑 {result.legal_dong_count}건 적재 완료"
+    )
 
 
 def _clear_existing_video_data(db) -> dict:
@@ -143,8 +177,15 @@ def setup_test_environment(
     max_videos: int = 5,
     max_pairs: int = 20,
     seed: int | None = None,
+    administrative_dong_csv: Path | None = None,
 ) -> dict:
     source_dir = Path(settings.upload_dir)
+
+    db = SessionLocal()
+    try:
+        _ensure_region_data(db, administrative_dong_csv)
+    finally:
+        db.close()
 
     if clear_existing_videos:
         print("[0/3] 기존 영상 데이터 초기화 (video/video_detail/analysis_detail/Chroma)")
@@ -255,6 +296,13 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--seed", type=int, default=None, help="영상 배치 재현 가능한 결과가 필요하면 지정"
     )
+    parser.add_argument(
+        "--administrative-dong-csv",
+        type=Path,
+        default=None,
+        help="region 테이블이 비어있을 때 채울 administrative_dong.csv 경로 "
+        "(기본: settings.administrative_dong_csv, 보통 data/raw/administrative_dong.csv)",
+    )
     return parser
 
 
@@ -268,4 +316,5 @@ if __name__ == "__main__":
         max_videos=args.max_videos,
         max_pairs=args.max_pairs,
         seed=args.seed,
+        administrative_dong_csv=args.administrative_dong_csv,
     )
