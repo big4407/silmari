@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import LandingHeader from '../components/LandingHeader';
-import { findUsername, resetPassword } from '../api/client';
+import { findUsername, resetPassword, verifyIdentity } from '../api/client';
 import './AuthPage.css';
 
 function FindUsernameForm() {
@@ -89,9 +89,37 @@ function ResetPasswordForm() {
   const [email, setEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
+  const [verified, setVerified] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
+
+  const handleVerify = async (e) => {
+    e.preventDefault();
+    setError('');
+    setVerifying(true);
+    try {
+      await verifyIdentity({ username, full_name: fullName, email });
+      setVerified(true);
+    } catch (err) {
+      const status = err?.response?.status;
+      setError(
+        status === 404
+          ? '입력하신 정보와 일치하는 계정을 찾을 수 없습니다.'
+          : '본인확인에 실패했습니다. 잠시 후 다시 시도해 주세요.',
+      );
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const handleReVerify = () => {
+    setVerified(false);
+    setNewPassword('');
+    setNewPasswordConfirm('');
+    setError('');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -139,9 +167,15 @@ function ResetPasswordForm() {
   }
 
   return (
-    <form className="auth-form" onSubmit={handleSubmit}>
+    <form
+      className="auth-form"
+      onSubmit={verified ? handleSubmit : handleVerify}
+    >
       <div className="auth-form__section">
-        <h3 className="auth-form__section-title">본인확인</h3>
+        <h3 className="auth-form__section-title">
+          본인확인
+          {verified && <span className="auth-form__section-badge">확인됨</span>}
+        </h3>
         <div className="auth-form__grid">
           <div className="auth-form__field">
             <label className="auth-form__label" htmlFor="reset-username">
@@ -153,6 +187,7 @@ function ResetPasswordForm() {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              disabled={verified}
               required
             />
           </div>
@@ -166,6 +201,7 @@ function ResetPasswordForm() {
               type="text"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
+              disabled={verified}
               required
             />
           </div>
@@ -179,52 +215,75 @@ function ResetPasswordForm() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              disabled={verified}
               required
             />
           </div>
         </div>
+
+        {!verified && (
+          <button type="submit" className="auth-form__btn" disabled={verifying}>
+            {verifying ? '확인 중…' : '본인확인'}
+          </button>
+        )}
+        {verified && (
+          <button
+            type="button"
+            className="auth-form__btn auth-form__btn--link"
+            onClick={handleReVerify}
+          >
+            다른 계정으로 확인하기
+          </button>
+        )}
       </div>
 
-      <div className="auth-form__section">
-        <h3 className="auth-form__section-title">새 비밀번호</h3>
-        <div className="auth-form__grid">
-          <div className="auth-form__field">
-            <label className="auth-form__label" htmlFor="reset-new-password">
-              새 비밀번호
-            </label>
-            <input
-              id="reset-new-password"
-              className="auth-form__input"
-              type="password"
-              placeholder="12자 이상"
-              autoComplete="new-password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              required
-            />
+      {verified && (
+        <div className="auth-form__section">
+          <h3 className="auth-form__section-title">새 비밀번호</h3>
+          <div className="auth-form__grid">
+            <div className="auth-form__field">
+              <label className="auth-form__label" htmlFor="reset-new-password">
+                새 비밀번호
+              </label>
+              <input
+                id="reset-new-password"
+                className="auth-form__input"
+                type="password"
+                placeholder="12자 이상"
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+              />
+            </div>
+            <div className="auth-form__field">
+              <label
+                className="auth-form__label"
+                htmlFor="reset-new-password-confirm"
+              >
+                새 비밀번호 확인
+              </label>
+              <input
+                id="reset-new-password-confirm"
+                className="auth-form__input"
+                type="password"
+                autoComplete="new-password"
+                value={newPasswordConfirm}
+                onChange={(e) => setNewPasswordConfirm(e.target.value)}
+                required
+              />
+            </div>
           </div>
-          <div className="auth-form__field">
-            <label className="auth-form__label" htmlFor="reset-new-password-confirm">
-              새 비밀번호 확인
-            </label>
-            <input
-              id="reset-new-password-confirm"
-              className="auth-form__input"
-              type="password"
-              autoComplete="new-password"
-              value={newPasswordConfirm}
-              onChange={(e) => setNewPasswordConfirm(e.target.value)}
-              required
-            />
-          </div>
+
+          {error && <p className="auth-form__error">{error}</p>}
+
+          <button type="submit" className="auth-form__btn" disabled={loading}>
+            {loading ? '변경 중…' : '비밀번호 변경'}
+          </button>
         </div>
-      </div>
+      )}
 
-      {error && <p className="auth-form__error">{error}</p>}
-
-      <button type="submit" className="auth-form__btn" disabled={loading}>
-        {loading ? '변경 중…' : '비밀번호 변경'}
-      </button>
+      {!verified && error && <p className="auth-form__error">{error}</p>}
     </form>
   );
 }
@@ -242,8 +301,8 @@ export default function FindAccountPage() {
             <p className="auth-panel__eyebrow">Find Account</p>
             <h2 className="auth-panel__title">아이디·비밀번호 찾기</h2>
             <p className="auth-panel__desc">
-              가입 시 등록한 이름과 이메일로 본인확인 후 바로 처리됩니다. 이메일로
-              인증 링크가 발송되지는 않습니다.
+              가입 시 등록한 이름과 이메일로 본인확인 후 바로 처리됩니다.
+              이메일로 인증 링크가 발송되지는 않습니다.
             </p>
             <p className="auth-panel__notice">
               본인확인 정보가 정확히 일치해야 처리됩니다. 정보가 기억나지 않으면

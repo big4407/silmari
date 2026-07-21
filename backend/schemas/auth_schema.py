@@ -67,6 +67,15 @@ class FindUsernameResponse(BaseModel):
     username: str
 
 
+class VerifyIdentityRequest(BaseModel):
+    """비밀번호 재설정 1단계 — 아이디+이름+이메일만 확인하고 비밀번호는 안 바꾼다.
+    성공하면 프론트가 새 비밀번호 입력란을 열어준다."""
+
+    username: str = Field(min_length=3, max_length=50)
+    full_name: str = Field(min_length=2, max_length=100)
+    email: EmailStr
+
+
 class ResetPasswordRequest(BaseModel):
     """본인확인(아이디+이름+이메일) 후 바로 새 비밀번호로 바꾼다 — 이메일 인증
     링크 없이 처리한다(내부 소규모 시스템이라 관리자 승인 계정 전제, 사내

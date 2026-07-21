@@ -208,6 +208,17 @@ class AuthService:
             raise IdentityNotFoundError("입력하신 정보와 일치하는 계정을 찾을 수 없습니다.")
         return user.username
 
+    def verify_identity(self, *, username: str, full_name: str, email: str) -> None:
+        """비밀번호 재설정 1단계 — 본인확인만 하고 아무것도 안 바꾼다.
+
+        reset_password도 같은 조회로 다시 한번 확인하므로(아래), 이 단계를
+        건너뛰고 바로 reset_password를 호출해도 안전하다 — 이건 순전히
+        프론트에서 "새 비밀번호 입력란을 열어도 되는지" 판단하기 위한 것.
+        """
+        user = self.repository.find_by_identity(username, full_name, email)
+        if user is None:
+            raise IdentityNotFoundError("입력하신 정보와 일치하는 계정을 찾을 수 없습니다.")
+
     def reset_password(
         self, *, username: str, full_name: str, email: str, new_password: str
     ) -> None:

@@ -49,6 +49,7 @@ const isAuthBypassCall = (url = '') =>
   url.includes('/member/auth/logout') ||
   url.includes('/member/auth/login') ||
   url.includes('/member/auth/find-username') ||
+  url.includes('/member/auth/verify-identity') ||
   url.includes('/member/auth/reset-password');
 
 const doRefresh = async () => {
@@ -118,6 +119,14 @@ export const signup = (payload) =>
  */
 export const findUsername = (payload) =>
   client.post('/member/auth/find-username', payload).then((r) => r.data);
+
+/**
+ * 비밀번호 재설정 1단계 — 아이디+이름+이메일 본인확인만(비밀번호는 안 바꿈).
+ * 성공하면 새 비밀번호 입력란을 열어도 된다는 뜻.
+ * @param {{username: string, full_name: string, email: string}} payload
+ */
+export const verifyIdentity = (payload) =>
+  client.post('/member/auth/verify-identity', payload).then((r) => r.data);
 
 /**
  * 비밀번호 재설정 — 아이디+이름+이메일 본인확인 후 즉시 새 비밀번호로 변경.

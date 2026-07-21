@@ -23,6 +23,7 @@ from backend.schemas.auth_schema import (
     SignUpRequest,
     SignUpResponse,
     TokenResponse,
+    VerifyIdentityRequest,
 )
 from backend.services.auth_service import (
     AdminRoleRequestNotAllowedError,
@@ -78,6 +79,22 @@ def find_username(
         ) from exc
 
     return FindUsernameResponse(username=username)
+
+
+@router.post("/verify-identity", status_code=status.HTTP_204_NO_CONTENT)
+def verify_identity(payload: VerifyIdentityRequest, db: Session = Depends(get_db)):
+    """비밀번호 재설정 1단계 — 아이디+이름+이메일만 확인, 비밀번호는 안 바꾼다.
+    프론트가 이 호출이 성공하면 새 비밀번호 입력란을 열어준다."""
+    try:
+        AuthService(db).verify_identity(
+            username=payload.username,
+            full_name=payload.full_name,
+            email=str(payload.email),
+        )
+    except IdentityNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
 
 
 @router.post("/reset-password", status_code=status.HTTP_204_NO_CONTENT)
