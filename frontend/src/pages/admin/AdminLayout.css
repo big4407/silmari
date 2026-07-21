@@ -305,6 +305,17 @@
   justify-content: space-between;
 }
 
+.admin-card-h__link {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--admin-blue);
+  text-decoration: none;
+}
+
+.admin-card-h__link:hover {
+  text-decoration: underline;
+}
+
 .admin-card-b {
   padding: 18px;
 }
@@ -317,12 +328,23 @@
 }
 
 .admin-stat {
+  display: block;
   background: #fff;
   border: 1px solid var(--admin-line);
   border-radius: var(--admin-radius);
   padding: 16px 18px;
   position: relative;
   overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  transition:
+    box-shadow 0.15s,
+    border-color 0.15s;
+}
+
+.admin-stat:hover {
+  border-color: var(--admin-blue);
+  box-shadow: 0 2px 8px rgba(31, 79, 158, 0.12);
 }
 
 .admin-stat::before {
@@ -382,6 +404,40 @@
 
 .admin-table-wrap {
   overflow-x: auto;
+}
+
+.admin-activity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-activity-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--admin-line-soft);
+  font-size: 13px;
+}
+
+.admin-activity-list li:last-child {
+  border-bottom: none;
+}
+
+.admin-activity-list__actor {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--admin-ink);
+}
+
+.admin-activity-list__time {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--admin-ink-3);
 }
 
 .admin-console table {

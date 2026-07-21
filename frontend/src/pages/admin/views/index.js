@@ -2,6 +2,7 @@
 import { DashboardView } from './DashboardView';
 import { MembersPendingView, MembersAllView } from './MemberViews';
 import { ReportsView } from './MessageViews';
+import { CaseAssignmentView } from './CaseAssignmentView';
 import { CctvSourceView, SearchRequestsView } from './SearchOpsViews';
 import { LlmUsageView } from './LlmViews';
 import {
@@ -27,6 +28,7 @@ export const ADMIN_VIEWS = {
   'members-pending': MembersPendingView,
   'members-all': MembersAllView,
   reports: ReportsView,
+  'case-assignment': CaseAssignmentView,
   'cctv-source': CctvSourceView,
   'search-requests': SearchRequestsView,
   'llm-usage': LlmUsageView,

@@ -28,6 +28,7 @@ from backend.routers import (
     chatbot,
     llm_call,
     messages,
+    missing_person_cases,
     operations,
     search,
     stats,
@@ -144,6 +145,11 @@ app.include_router(
     tags=["llm_call"],
 )
 app.include_router(video.router, prefix="/video", tags=["video"])
+app.include_router(
+    missing_person_cases.router,
+    prefix="/missing-person-cases",
+    tags=["missing-person-cases"],
+)
 app.include_router(stats.router, prefix="/member", tags=["member"])
 
 

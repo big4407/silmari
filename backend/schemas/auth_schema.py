@@ -56,3 +56,32 @@ class UserResponse(BaseModel):
 class SignUpResponse(BaseModel):
     message: str
     user: UserResponse
+
+
+class FindUsernameRequest(BaseModel):
+    full_name: str = Field(min_length=2, max_length=100)
+    email: EmailStr
+
+
+class FindUsernameResponse(BaseModel):
+    username: str
+
+
+class VerifyIdentityRequest(BaseModel):
+    """비밀번호 재설정 1단계 — 아이디+이름+이메일만 확인하고 비밀번호는 안 바꾼다.
+    성공하면 프론트가 새 비밀번호 입력란을 열어준다."""
+
+    username: str = Field(min_length=3, max_length=50)
+    full_name: str = Field(min_length=2, max_length=100)
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    """본인확인(아이디+이름+이메일) 후 바로 새 비밀번호로 바꾼다 — 이메일 인증
+    링크 없이 처리한다(내부 소규모 시스템이라 관리자 승인 계정 전제, 사내
+    도구 수준의 보안으로 충분하다고 판단 — 필요시 추후 이메일 인증으로 강화 가능)."""
+
+    username: str = Field(min_length=3, max_length=50)
+    full_name: str = Field(min_length=2, max_length=100)
+    email: EmailStr
+    new_password: str = Field(min_length=12, max_length=128)

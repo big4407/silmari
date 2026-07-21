@@ -1,30 +1,29 @@
 """
 관리자 통계 비즈니스 로직 — CCTV·검색·인구통계·발견해결결과.
 
-[흐름] routers/stats.py → StatsService → StatsRepository (Video/Search/
-Analysis/AnalysisDetail/CaseEvent ORM 모델 직접 조회)
+[흐름] routers/stats.py → StatsService → StatsRepository(Video/Search/
+Analysis/AnalysisDetail) + MissingPersonCaseRepository(발견/해결 결과)
 """
 from __future__ import annotations
 
-from collections import defaultdict
 from datetime import date, datetime, time, timedelta
-from statistics import mean
 from typing import Any
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from backend.db.models import CaseEvent, CaseEventType
+from backend.repositories.missing_person_case_repository import (
+    MissingPersonCaseRepository,
+)
 from backend.repositories.stats_repository import StatsRepository
 from backend.schemas.stats_schema import (
-    CaseEventCreate,
-    CaseEventResponse,
     CctvRegionItem,
     CctvStatsResponse,
     CctvSummary,
     DailySearchItem,
     DemographicStatsResponse,
     DistributionItem,
+    MissingPersonCaseSummaryItem,
     OutcomeRegionItem,
     OutcomeStatsResponse,
     OutcomeSummary,
@@ -34,7 +33,6 @@ from backend.schemas.stats_schema import (
     SearchSummary,
     SearchTypeItem,
 )
-from backend.utils.timeutils import kst_now
 
 UNCLASSIFIED_REGION = "미분류"
 
@@ -48,9 +46,15 @@ SIMILARITY_MULTIPLIER = 100.0
 
 
 class StatsService:
-    def __init__(self, db: Session, repository: StatsRepository | None = None):
+    def __init__(
+        self,
+        db: Session,
+        repository: StatsRepository | None = None,
+        case_repository: MissingPersonCaseRepository | None = None,
+    ):
         self.db = db
         self.repository = repository or StatsRepository(db)
+        self.case_repository = case_repository or MissingPersonCaseRepository(db)
 
     @staticmethod
     def resolve_period(
@@ -78,21 +82,6 @@ class StatsService:
         if denominator <= 0:
             return 0.0
         return round(numerator / denominator * 100, 1)
-
-    @staticmethod
-    def elapsed_hours(start: datetime | None, end: datetime | None) -> float | None:
-        if start is None or end is None:
-            return None
-
-        if start.tzinfo is None and end.tzinfo is not None:
-            start = start.replace(tzinfo=end.tzinfo)
-        elif start.tzinfo is not None and end.tzinfo is None:
-            end = end.replace(tzinfo=start.tzinfo)
-
-        seconds = (end - start).total_seconds()
-        if seconds < 0:
-            return None
-        return round(seconds / 3600, 1)
 
     # ── CCTV ─────────────────────────────────────────────────────────────
     def get_cctv(
@@ -167,23 +156,20 @@ class StatsService:
     ) -> DemographicStatsResponse:
         period, start_at, end_at = self.resolve_period(from_date, to_date)
         raw = self.repository.get_demographic_stats(start_at, end_at)
-        outcome = self._build_outcome_aggregates(
-            self.repository.list_case_events(start_at, end_at, limit=10000)
+        resolved_by_region = self.case_repository.get_resolved_counts_by_region(
+            start_at, end_at
         )
 
         by_region = []
         for row in raw["regions"]:
             region = str(row["region"])
-            found = outcome["region_found"].get(region, 0)
-            resolved = outcome["region_resolved"].get(region, 0)
             searches = int(row["search_requests"] or 0)
+            resolved = resolved_by_region.get(region, 0)
             by_region.append(
                 RegionDemographicItem(
                     region=region,
                     search_requests=searches,
-                    found_cases=found,
                     resolved_cases=resolved,
-                    finding_rate=self.rate(found, searches),
                     resolution_rate=self.rate(resolved, searches),
                 )
             )
@@ -195,190 +181,68 @@ class StatsService:
             by_region=by_region,
         )
 
-    # ── 발견/해결 결과 기록 ──────────────────────────────────────────────
-    def create_case_event(
-        self, payload: CaseEventCreate, *, actor_id: str | None, actor_name: str
-    ) -> CaseEventResponse:
-        snapshot = None
-        if payload.source_search_id is not None:
-            snapshot = self.repository.get_search_snapshot(payload.source_search_id)
-            if snapshot is None:
-                raise HTTPException(status_code=404, detail="연결된 검색 기록을 찾을 수 없습니다.")
-
-        case_key = payload.case_key
-        if not case_key and snapshot:
-            case_key = str(snapshot.get("case_key") or f"SEARCH-{snapshot['search_id']}")
-        if not case_key:
-            raise HTTPException(status_code=400, detail="사건 식별값을 만들 수 없습니다.")
-
-        if self.repository.find_case_event(case_key, payload.event_type):
-            raise HTTPException(
-                status_code=409,
-                detail=f"{case_key} 사건의 {payload.event_type} 기록이 이미 존재합니다.",
-            )
-
-        if payload.event_type == CaseEventType.RESOLVED.value:
-            found = self.repository.find_case_event(case_key, CaseEventType.FOUND.value)
-            if found is None:
-                raise HTTPException(
-                    status_code=409,
-                    detail="발견(FOUND) 기록이 먼저 등록되어야 해결(RESOLVED) 기록을 추가할 수 있습니다.",
-                )
-            if payload.occurred_at < found.occurred_at:
-                raise HTTPException(
-                    status_code=400, detail="해결 시각은 발견 시각보다 이를 수 없습니다."
-                )
-
-        reported_at = payload.reported_at or (snapshot or {}).get("reported_at")
-        region = payload.region or (snapshot or {}).get("region")
-
-        values = {
-            "case_key": case_key,
-            "event_type": payload.event_type,
-            "occurred_at": payload.occurred_at,
-            "reported_at_snapshot": reported_at,
-            "region_snapshot": region,
-            "actor_id": payload.actor_id,
-            "actor_name": payload.actor_name,
-            "actor_role": payload.actor_role,
-            "recorded_by_id": actor_id,
-            "recorded_by_name": actor_name,
-            "location_text": payload.location_text,
-            "latitude": payload.latitude,
-            "longitude": payload.longitude,
-            "source_search_id": payload.source_search_id,
-            "source_analysis_id": payload.source_analysis_id,
-            "source_analysis_detail_id": payload.source_analysis_detail_id,
-            "note": payload.note,
-            "created_at": kst_now(),
-        }
-
-        try:
-            event = self.repository.create_case_event(values)
-            self.db.commit()
-        except Exception:
-            self.db.rollback()
-            raise
-
-        return self._event_response(event)
-
-    @staticmethod
-    def _event_response(event: CaseEvent) -> CaseEventResponse:
-        return CaseEventResponse(
-            id=event.id,
-            case_key=event.case_key,
-            event_type=event.event_type,
-            occurred_at=event.occurred_at,
-            reported_at=event.reported_at_snapshot,
-            region=event.region_snapshot,
-            actor_name=event.actor_name,
-            actor_role=event.actor_role,
-            recorded_by_name=event.recorded_by_name,
-            location_text=event.location_text,
-            source_search_id=event.source_search_id,
-            source_analysis_id=event.source_analysis_id,
-            source_analysis_detail_id=event.source_analysis_detail_id,
-            note=event.note,
-            created_at=event.created_at,
-        )
-
-    @staticmethod
-    def _build_outcome_aggregates(events: list[CaseEvent]) -> dict[str, Any]:
-        found_by_case: dict[str, CaseEvent] = {}
-        resolved_by_case: dict[str, CaseEvent] = {}
-
-        for event in sorted(events, key=lambda item: item.occurred_at):
-            case_key = str(event.case_key)
-            if event.event_type == CaseEventType.FOUND.value:
-                found_by_case.setdefault(case_key, event)
-            elif event.event_type == CaseEventType.RESOLVED.value:
-                resolved_by_case.setdefault(case_key, event)
-
-        region_found: dict[str, int] = defaultdict(int)
-        region_resolved: dict[str, int] = defaultdict(int)
-
-        for event in found_by_case.values():
-            region_found[event.region_snapshot or UNCLASSIFIED_REGION] += 1
-        for event in resolved_by_case.values():
-            region_resolved[event.region_snapshot or UNCLASSIFIED_REGION] += 1
-
-        return {
-            "found_by_case": found_by_case,
-            "resolved_by_case": resolved_by_case,
-            "region_found": region_found,
-            "region_resolved": region_resolved,
-        }
-
+    # ── 발견/해결 결과(실종자 관리 케이스 기준) ────────────────────────────
     def get_outcomes(
         self, from_date: date | None, to_date: date | None, region: str | None
     ) -> OutcomeStatsResponse:
         period, start_at, end_at = self.resolve_period(from_date, to_date)
-        events = self.repository.list_case_events(start_at, end_at, limit=10000)
+
+        summary_raw = self.case_repository.get_outcome_summary(start_at, end_at)
+        summary = OutcomeSummary(
+            total_cases=summary_raw["total_cases"],
+            resolved_cases=summary_raw["resolved_cases"],
+            pending_cases=summary_raw["pending_cases"],
+            resolution_rate=self.rate(
+                summary_raw["resolved_cases"], summary_raw["total_cases"]
+            ),
+            average_resolution_hours=summary_raw["average_resolution_hours"],
+        )
+
+        region_rows = self.case_repository.get_outcome_by_region(start_at, end_at)
         if region:
-            events = [
-                e for e in events if (e.region_snapshot or UNCLASSIFIED_REGION) == region
-            ]
-
-        agg = self._build_outcome_aggregates(events)
-        found_by_case = agg["found_by_case"]
-        resolved_by_case = agg["resolved_by_case"]
-
-        find_hours = [
-            value
-            for event in found_by_case.values()
-            if (value := self.elapsed_hours(event.reported_at_snapshot, event.occurred_at))
-            is not None
-        ]
-        resolve_hours = [
-            value
-            for event in resolved_by_case.values()
-            if (value := self.elapsed_hours(event.reported_at_snapshot, event.occurred_at))
-            is not None
-        ]
-
-        regions = sorted(set(agg["region_found"]) | set(agg["region_resolved"]))
+            region_rows = [row for row in region_rows if row["region"] == region]
         by_region = [
             OutcomeRegionItem(
-                region=region_name,
-                found_cases=agg["region_found"].get(region_name, 0),
-                resolved_cases=agg["region_resolved"].get(region_name, 0),
+                region=str(row["region"]),
+                total_cases=int(row["total_cases"] or 0),
+                resolved_cases=int(row["resolved_cases"] or 0),
                 resolution_rate=self.rate(
-                    agg["region_resolved"].get(region_name, 0),
-                    agg["region_found"].get(region_name, 0),
+                    int(row["resolved_cases"] or 0), int(row["total_cases"] or 0)
                 ),
             )
-            for region_name in regions
+            for row in region_rows
+        ]
+
+        cases, _ = self.case_repository.find_all(page=1, per_page=200)
+        recent_cases = [
+            MissingPersonCaseSummaryItem(
+                id=c.id,
+                sn=c.sn,
+                missing_name=c.missing_name,
+                gender=c.gender.value if c.gender else None,
+                age=c.age,
+                missing_location=c.missing_location,
+                status=c.status.value,
+                assigned_investigator_name=(
+                    c.assigned_investigator.full_name or c.assigned_investigator.username
+                    if c.assigned_investigator
+                    else None
+                ),
+                assigned_at=c.assigned_at,
+                resolved_at=c.resolved_at,
+                created_at=c.created_at,
+            )
+            for c in cases
+            if start_at <= c.created_at < end_at
+            and (not region or (c.missing_location or UNCLASSIFIED_REGION) == region)
         ]
 
         return OutcomeStatsResponse(
             period=period,
-            summary=OutcomeSummary(
-                found_cases=len(found_by_case),
-                resolved_cases=len(resolved_by_case),
-                resolution_after_found_rate=self.rate(
-                    len(resolved_by_case), len(found_by_case)
-                ),
-                average_hours_to_find=round(mean(find_hours), 1) if find_hours else None,
-                average_hours_to_resolve=(
-                    round(mean(resolve_hours), 1) if resolve_hours else None
-                ),
-            ),
+            summary=summary,
             by_region=by_region,
-            recent_records=[self._event_response(e) for e in events[:100]],
+            recent_cases=recent_cases,
         )
-
-    def list_events(
-        self,
-        from_date: date | None,
-        to_date: date | None,
-        event_type: str | None,
-        case_key: str | None,
-    ) -> list[CaseEventResponse]:
-        _, start_at, end_at = self.resolve_period(from_date, to_date)
-        events = self.repository.list_case_events(
-            start_at, end_at, event_type=event_type, case_key=case_key
-        )
-        return [self._event_response(e) for e in events]
 
     def list_exports(self, limit: int = 50):
         return self.repository.list_export_logs(limit)

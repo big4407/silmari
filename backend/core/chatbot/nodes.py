@@ -69,7 +69,10 @@ def create_search_node(state, config):
 
     return {
         "search_id": search.id,
-        "response": "영상 검색을 완료했습니다. 곧 검색 결과 페이지로 이동합니다.",
+        "response": (
+            "영상 검색을 완료했습니다. "
+            "이 실종자를 실종자 관리 시스템에 케이스로 추가하시겠습니까?"
+        ),
         "search_inserted": True,
     }
 

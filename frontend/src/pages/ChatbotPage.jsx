@@ -15,6 +15,7 @@ export default function ChatbotPage() {
   const [messages, setMessages] = useState([]);
   const [sending, setSending] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [casePrompt, setCasePrompt] = useState(null); // 검색 완료 후 "케이스 추가?" 응답 대기 중이면 prefill 객체
   const [sessionId, setSessionId] = useState(() =>
     localStorage.getItem('chatbot_session_id'),
   );
@@ -52,7 +53,13 @@ export default function ChatbotPage() {
         setActiveSearch({
           searchResultId: data.search_id,
         });
-        setSearched(true);
+        if (data.offer_case_registration) {
+          // "케이스로 추가할까요?" 응답 대기 — 사용자가 버튼을 고를 때까지
+          // 자동으로 검색결과 페이지로 넘어가지 않는다.
+          setCasePrompt(data.case_prefill ?? {});
+        } else {
+          setSearched(true);
+        }
       }
       setMessages((prev) => [...prev, { role: 'bot', text: data.response }]);
     } catch (error) {
@@ -109,10 +116,29 @@ export default function ChatbotPage() {
 
   // 챗봇으로부터 메시지를 받으면 바로 채팅창에 focus하도록
   useEffect(() => {
-    if (!sending&&!searched) {
+    if (!sending && !searched && !casePrompt) {
       inputRef.current?.focus();
     }
   }, [sending]);
+
+  // "케이스로 추가할까요?" 응답 버튼 — 추가하기: 미리 채운 등록 폼으로 이동.
+  const handleAddCase = () => {
+    const params = new URLSearchParams();
+    if (casePrompt?.missing_name)
+      params.set('missing_name', casePrompt.missing_name);
+    if (casePrompt?.gender) params.set('gender', casePrompt.gender);
+    if (casePrompt?.age != null) params.set('age', String(casePrompt.age));
+    if (casePrompt?.clothing) params.set('clothing', casePrompt.clothing);
+    if (casePrompt?.missing_location)
+      params.set('missing_location', casePrompt.missing_location);
+    navigate(`/dashboard/cases/new?${params.toString()}`);
+  };
+
+  // "조회만" — 케이스 등록 없이 그냥 검색 결과로 이동.
+  const handleViewOnly = () => {
+    setCasePrompt(null);
+    navigate('/search-results');
+  };
 
   // 챗봇 세션 초기화 버튼을 눌렀을 때 실행
   const handleResetSession = async () => {
@@ -145,7 +171,7 @@ export default function ChatbotPage() {
         </div>
         <button
           type="button"
-          className="admin-btn"
+          className="chatbot-page__case-btn"
           onClick={handleResetSession}
         >
           세션 초기화
@@ -162,6 +188,25 @@ export default function ChatbotPage() {
             ))}
           </div>
 
+          {casePrompt && (
+            <div className="chatbot-page__case-actions">
+              <button
+                type="button"
+                className="chatbot-page__case-btn chatbot-page__case-btn--primary"
+                onClick={handleAddCase}
+              >
+                추가하기
+              </button>
+              <button
+                type="button"
+                className="chatbot-page__case-btn"
+                onClick={handleViewOnly}
+              >
+                조회만
+              </button>
+            </div>
+          )}
+
           <div className="chatbot-page__progress">
             <SearchProgressBar
               visible={sending}
@@ -177,7 +222,7 @@ export default function ChatbotPage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-              disabled={sending||searched}
+              disabled={sending || searched || Boolean(casePrompt)}
             />
             <button
               type="button"

@@ -1,10 +1,12 @@
 """
 관리자 통계 조회용 리포지토리.
 
-기존 ORM 모델(Video, VideoDetail, Search, Analysis, AnalysisDetail, CaseEvent,
-StatsExportLog)을 직접 쿼리한다. 집계 결과(요약·지역별·유형별·일별 등)는
-video_repository.get_daily_summary()와 같은 기존 패턴대로 dict로 반환하고,
-CaseEvent/StatsExportLog처럼 실제 엔티티가 있는 건 ORM 객체를 그대로 반환한다.
+기존 ORM 모델(Video, VideoDetail, Search, Analysis, AnalysisDetail,
+StatsExportLog)을 직접 쿼리한다. 실종자 관리 케이스(MissingPersonCase)
+관련 통계는 repositories/missing_person_case_repository.py가 따로 맡는다
+— 발견/해결 결과 통계가 이제 그 테이블 기준이라 이 파일과 도메인이 다르다.
+집계 결과(요약·지역별·유형별·일별 등)는 video_repository.get_daily_summary()와
+같은 기존 패턴대로 dict로 반환한다.
 """
 from __future__ import annotations
 
@@ -16,7 +18,6 @@ from sqlalchemy.orm import Session
 from backend.db.models import (
     Analysis,
     AnalysisDetail,
-    CaseEvent,
     Search,
     StatsExportLog,
     Video,
@@ -200,52 +201,6 @@ class StatsRepository:
             "age": [dict(row._mapping) for row in self.db.execute(age_stmt).all()],
             "regions": [dict(row._mapping) for row in self.db.execute(region_stmt).all()],
         }
-
-    def get_search_snapshot(self, search_id: int) -> dict | None:
-        stmt = select(
-            Search.id.label("search_id"),
-            Search.searched_at.label("reported_at"),
-            Search.missing_location.label("region"),
-        ).where(Search.id == search_id)
-        row = self.db.execute(stmt).first()
-        if row is None:
-            return None
-        snapshot = dict(row._mapping)
-        snapshot["case_key"] = f"SEARCH-{snapshot['search_id']}"  # search에 별도 사건 식별 컬럼 없음
-        return snapshot
-
-    # ── 사건 진행(발견/해결) 기록 ────────────────────────────────────────
-    def find_case_event(self, case_key: str, event_type: str) -> CaseEvent | None:
-        return (
-            self.db.query(CaseEvent)
-            .filter(CaseEvent.case_key == case_key, CaseEvent.event_type == event_type)
-            .order_by(CaseEvent.occurred_at.asc())
-            .first()
-        )
-
-    def create_case_event(self, values: dict) -> CaseEvent:
-        event = CaseEvent(**values)
-        self.db.add(event)
-        self.db.flush()
-        return event
-
-    def list_case_events(
-        self,
-        start_at: datetime,
-        end_at: datetime,
-        *,
-        event_type: str | None = None,
-        case_key: str | None = None,
-        limit: int = 200,
-    ) -> list[CaseEvent]:
-        query = self.db.query(CaseEvent).filter(
-            CaseEvent.occurred_at >= start_at, CaseEvent.occurred_at < end_at
-        )
-        if event_type:
-            query = query.filter(CaseEvent.event_type == event_type)
-        if case_key:
-            query = query.filter(CaseEvent.case_key == case_key)
-        return query.order_by(CaseEvent.occurred_at.desc()).limit(limit).all()
 
     # ── 내보내기 이력 ────────────────────────────────────────────────────
     def create_export_log(self, values: dict) -> StatsExportLog:

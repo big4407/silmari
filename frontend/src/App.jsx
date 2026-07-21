@@ -14,10 +14,13 @@ import DashboardLayout from './components/DashboardLayout';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import FindAccountPage from './pages/FindAccountPage';
 import Dashboard from './pages/Dashboard';
 import ChatbotPage from './pages/ChatbotPage';
 import SearchHistory from './pages/SearchHistory';
 import SearchResults from './pages/SearchResults';
+import CasesPage from './pages/CasesPage';
+import CaseCreatePage from './pages/CaseCreatePage';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminViewPage from './pages/admin/AdminViewPage';
 import RequireAuth from './components/RequireAuth';
@@ -36,12 +39,15 @@ export default function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/find-account" element={<FindAccountPage />} />
 
         <Route element={<RequireAuth />}>
           <Route element={<DashboardLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/dashboard/chatbot" element={<ChatbotPage />} />
             <Route path="/dashboard/history" element={<SearchHistory />} />
+            <Route path="/dashboard/cases" element={<CasesPage />} />
+            <Route path="/dashboard/cases/new" element={<CaseCreatePage />} />
             <Route path="/search-results" element={<SearchResults />} />
           </Route>
         </Route>

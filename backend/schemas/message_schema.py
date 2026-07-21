@@ -46,6 +46,7 @@ class MessageResponse(BaseModel):
     dst_se_nm: str | None
     reg_ymd: date | None
     mdfcn_ymd: date | None
+    case_status: str | None = None  # 1:대기, 2:진행중, 3:완료 — missing_person_case.status
 
     class Config:
         from_attributes = True

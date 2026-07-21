@@ -108,13 +108,28 @@ class ChatbotService:
 
         self.db.commit()
 
+        search_inserted = result.get("search_inserted", False) if result else False
+
         return {
             "response": response,
             "session_id": session_id,
             "search_id": result.get("search_id") if result else None,
-            "search_inserted": result.get("search_inserted", False)
-            if result
-            else False,
+            "search_inserted": search_inserted,
+            # 검색이 막 완료된 경우에만 "케이스로 추가할까요?" 선택지를 보여준다.
+            # 프론트가 이 값이 True일 때만 두 버튼(추가하기/조회만)을 렌더링하고,
+            # False면 기존처럼 그냥 검색 결과로 넘어간다.
+            "offer_case_registration": search_inserted,
+            "case_prefill": (
+                {
+                    "missing_name": result.get("missing_name"),
+                    "gender": result.get("gender"),
+                    "age": result.get("age"),
+                    "clothing": result.get("appearance"),
+                    "missing_location": result.get("region"),
+                }
+                if search_inserted
+                else None
+            ),
         }
 
     def get_or_create_session(self, session_id: str, user_id: str) -> ChatbotSession:

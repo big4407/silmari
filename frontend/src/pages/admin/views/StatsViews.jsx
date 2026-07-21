@@ -1,9 +1,9 @@
 /** 통계 뷰 — CCTV·검색·성별연령지역·발견해결결과·내보내기 (전부 연동) */
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import PageHead from '../components/PageHead';
 import { TableEmptyRow } from '../components/EmptyState';
-import { CaseEventForm } from '../components/CaseEventForm';
 import { SimpleBars } from '../components/SimpleBars';
 import { SimpleLineChart } from '../components/SimpleLineChart';
 import { StatsFilter } from '../components/StatsFilter';
@@ -344,9 +344,7 @@ export function DemographicStatsView() {
             <tr>
               <th>지역</th>
               <th>검색 요청</th>
-              <th>발견</th>
               <th>해결</th>
-              <th>발견율</th>
               <th>해결율</th>
             </tr>
           </thead>
@@ -356,14 +354,12 @@ export function DemographicStatsView() {
                 <tr key={row.region}>
                   <td>{row.region}</td>
                   <td>{row.search_requests.toLocaleString()}</td>
-                  <td>{row.found_cases.toLocaleString()}</td>
                   <td>{row.resolved_cases.toLocaleString()}</td>
-                  <td>{row.finding_rate.toFixed(1)}%</td>
                   <td>{row.resolution_rate.toFixed(1)}%</td>
                 </tr>
               ))
             ) : (
-              <TableEmptyRow colSpan={6} />
+              <TableEmptyRow colSpan={4} />
             )}
           </tbody>
         </table>
@@ -375,24 +371,19 @@ export function DemographicStatsView() {
 export function OutcomeStatsView() {
   const [days, setDays] = useState(90);
   const [region, setRegion] = useState('');
-  const [refreshKey, setRefreshKey] = useState(0);
   const range = useMemo(() => recentDateRange(days), [days]);
 
   const state = useStatsQuery(
     (signal) =>
       fetchOutcomeStats({ ...range, region: region || undefined }, signal),
-    [range.fromDate, range.toDate, region, refreshKey],
+    [range.fromDate, range.toDate, region],
   );
-
-  function handleCreated() {
-    setRefreshKey((value) => value + 1);
-  }
 
   return (
     <>
       <PageHead
         viewId="stats-outcomes"
-        desc="발견 및 해결 이벤트를 기록하고 처리 결과 통계를 확인합니다."
+        desc="실종자 관리 케이스의 담당·처리 현황과 결과 통계를 확인합니다(조회 전용 — 담당 배정·완료 처리는 실종자 관리 페이지에서 합니다)."
       />
 
       <StatsFilter
@@ -402,39 +393,32 @@ export function OutcomeStatsView() {
         onRegionChange={setRegion}
       />
 
-      <div className="admin-card admin-mb">
-        <div className="admin-card-h">이벤트 기록 추가</div>
-        <div className="admin-card-b">
-          <CaseEventForm onCreated={handleCreated} />
-        </div>
-      </div>
-
       {state.error && <div className="stats-error">{state.error}</div>}
 
       <div className="admin-stat-grid">
         <StatCard
-          label="발견 사건"
-          value={state.data?.summary.found_cases}
+          label="총 케이스"
+          value={state.data?.summary.total_cases}
+          unit="건"
+          loading={state.loading}
+        />
+        <StatCard
+          label="완료"
+          value={state.data?.summary.resolved_cases}
           unit="건"
           loading={state.loading}
           className="admin-stat--green"
         />
         <StatCard
-          label="해결 사건"
-          value={state.data?.summary.resolved_cases}
-          unit="건"
-          loading={state.loading}
-        />
-        <StatCard
-          label="발견 대비 해결률"
-          value={state.data?.summary.resolution_after_found_rate}
+          label="해결률"
+          value={state.data?.summary.resolution_rate}
           unit="%"
           decimals={1}
           loading={state.loading}
         />
         <StatCard
-          label="평균 발견 시간"
-          value={state.data?.summary.average_hours_to_find}
+          label="평균 처리 시간(담당~완료)"
+          value={state.data?.summary.average_resolution_hours}
           unit="시간"
           decimals={1}
           loading={state.loading}
@@ -443,13 +427,13 @@ export function OutcomeStatsView() {
       </div>
 
       <div className="admin-card admin-table-wrap admin-mb">
-        <div className="admin-card-h">지역별 발견/해결 현황</div>
+        <div className="admin-card-h">지역별 처리 현황</div>
         <table>
           <thead>
             <tr>
               <th>지역</th>
-              <th>발견</th>
-              <th>해결</th>
+              <th>총 케이스</th>
+              <th>완료</th>
               <th>해결률</th>
             </tr>
           </thead>
@@ -458,7 +442,7 @@ export function OutcomeStatsView() {
               state.data.by_region.map((row) => (
                 <tr key={row.region}>
                   <td>{row.region}</td>
-                  <td>{row.found_cases.toLocaleString()}</td>
+                  <td>{row.total_cases.toLocaleString()}</td>
                   <td>{row.resolved_cases.toLocaleString()}</td>
                   <td>{row.resolution_rate.toFixed(1)}%</td>
                 </tr>
@@ -471,36 +455,62 @@ export function OutcomeStatsView() {
       </div>
 
       <div className="admin-card admin-table-wrap">
-        <div className="admin-card-h">최근 이벤트 기록</div>
+        <div className="admin-card-h">
+          최근 케이스
+          <Link to="/dashboard/cases" className="admin-card-h__link">
+            실종자 관리에서 담당·처리하기 →
+          </Link>
+        </div>
         <table>
           <thead>
             <tr>
-              <th style={{ width: 130 }}>일시</th>
-              <th style={{ width: 110 }}>사건 키</th>
-              <th style={{ width: 60 }}>구분</th>
-              <th style={{ width: 90 }}>대상자</th>
-              <th style={{ width: 80 }}>역할</th>
+              <th style={{ width: 100 }}>SN</th>
+              <th style={{ width: 90 }}>이름</th>
+              <th style={{ width: 60 }}>성별</th>
+              <th style={{ width: 50 }}>나이</th>
               <th style={{ width: 110 }}>지역</th>
-              <th>장소</th>
-              <th style={{ width: 90 }}>기록자</th>
-              <th style={{ width: 80 }}>검색 ID</th>
+              <th style={{ width: 70 }}>상태</th>
+              <th style={{ width: 90 }}>담당자</th>
+              <th style={{ width: 130 }}>담당 시각</th>
+              <th style={{ width: 130 }}>완료 시각</th>
             </tr>
           </thead>
           <tbody>
-            {state.data?.recent_records.length ? (
-              state.data.recent_records.map((row) => (
+            {state.data?.recent_cases.length ? (
+              state.data.recent_cases.map((row) => (
                 <tr key={row.id}>
-                  <td>{formatDateTime(row.occurred_at)}</td>
-                  <td title={row.case_key}>{row.case_key}</td>
-                  <td>{row.event_type === '1' ? '발견' : '해결'}</td>
-                  <td>{row.actor_name ?? '-'}</td>
-                  <td>{row.actor_role ?? '-'}</td>
-                  <td>{row.region ?? '-'}</td>
-                  <td title={row.location_text ?? undefined}>
-                    {row.location_text ?? '-'}
+                  <td>{row.sn}</td>
+                  <td>{row.missing_name ?? '-'}</td>
+                  <td>
+                    {row.gender === 'M'
+                      ? '남'
+                      : row.gender === 'F'
+                        ? '여'
+                        : '-'}
                   </td>
-                  <td>{row.recorded_by_name}</td>
-                  <td>{row.source_search_id ?? '-'}</td>
+                  <td>{row.age ?? '-'}</td>
+                  <td>{row.missing_location ?? '-'}</td>
+                  <td>
+                    <span
+                      className={`admin-pill ${
+                        row.status === '3'
+                          ? 'admin-pill--ok'
+                          : row.status === '2'
+                            ? 'admin-pill--muted'
+                            : 'admin-pill--danger'
+                      }`}
+                    >
+                      {{ 1: '대기', 2: '진행중', 3: '완료' }[row.status] ??
+                        row.status}
+                    </span>
+                  </td>
+                  <td>{row.assigned_investigator_name ?? '-'}</td>
+                  <td>
+                    {row.assigned_at ? formatDateTime(row.assigned_at) : '-'}
+                  </td>
+                  <td>
+                    {row.resolved_at ? formatDateTime(row.resolved_at) : '-'}
+                  </td>
                 </tr>
               ))
             ) : (

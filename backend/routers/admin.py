@@ -29,6 +29,7 @@ from backend.db.models import (
     Video,
 )
 from backend.schemas.auth_schema import UserResponse
+from backend.schemas.admin_dashboard_schema import AdminDashboardSummary
 from backend.schemas.user_schema import ApprovalRequest
 from backend.schemas.login_history_schema import (
     LoginHistoryItem,
@@ -36,6 +37,7 @@ from backend.schemas.login_history_schema import (
 )
 from backend.utils.timeutils import kst_now
 from backend.services.audit_service import AuditService
+from backend.services.admin_dashboard_service import AdminDashboardService
 from backend.schemas.admin_history_schema import (
     AdminHistoryItem,
     AdminHistoryListResponse,
@@ -78,15 +80,26 @@ from backend.schemas.video_schema import (
 router = APIRouter(prefix="/admin")
 
 
+@router.get("/dashboard-summary", response_model=AdminDashboardSummary)
+def get_dashboard_summary(
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+    db: Session = Depends(get_db),
+) -> AdminDashboardSummary:
+    return AdminDashboardSummary(**AdminDashboardService(db).get_summary())
+
+
 @router.get("/users", response_model=list[UserResponse])
 def list_users(
     approval_status: ApprovalStatus | None = Query(default=None),
+    role: UserRole | None = Query(default=None, description="담당자 지정 드롭다운 등에서 특정 역할만 조회할 때 사용"),
     _: User = Depends(require_roles(UserRole.ADMIN)),
     db: Session = Depends(get_db),
 ) -> list[User]:
     stmt = select(User).order_by(User.created_at.desc())
     if approval_status is not None:
         stmt = stmt.where(User.approval_status == approval_status)
+    if role is not None:
+        stmt = stmt.where(User.role == role)
     return list(db.scalars(stmt).all())
 
 

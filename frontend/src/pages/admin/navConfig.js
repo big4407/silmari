@@ -13,6 +13,10 @@ export const NAV = [
     items: [{ id: 'reports', label: '안내문자 목록' }],
   },
   {
+    group: '실종자 관리',
+    items: [{ id: 'case-assignment', label: '실종사건 관리' }],
+  },
+  {
     group: 'CCTV·검색 운영',
     items: [
       { id: 'cctv-source', label: 'CCTV 영상 수집 현황' },

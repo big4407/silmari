@@ -45,7 +45,12 @@ let _refreshing = null;
 let _loggingOut = false;
 
 const isAuthBypassCall = (url = '') =>
-  url.includes('/member/auth/refresh') || url.includes('/member/auth/logout');
+  url.includes('/member/auth/refresh') ||
+  url.includes('/member/auth/logout') ||
+  url.includes('/member/auth/login') ||
+  url.includes('/member/auth/find-username') ||
+  url.includes('/member/auth/verify-identity') ||
+  url.includes('/member/auth/reset-password');
 
 const doRefresh = async () => {
   if (_loggingOut) throw new Error('logging out');
@@ -106,6 +111,29 @@ client.interceptors.response.use(
  */
 export const signup = (payload) =>
   client.post('/member/auth/signup', payload).then((r) => r.data);
+
+/**
+ * 아이디 찾기 — 이름+이메일 본인확인. 이메일 인증 없이 즉시 처리한다.
+ * @param {{full_name: string, email: string}} payload
+ * @returns {Promise<{username: string}>}
+ */
+export const findUsername = (payload) =>
+  client.post('/member/auth/find-username', payload).then((r) => r.data);
+
+/**
+ * 비밀번호 재설정 1단계 — 아이디+이름+이메일 본인확인만(비밀번호는 안 바꿈).
+ * 성공하면 새 비밀번호 입력란을 열어도 된다는 뜻.
+ * @param {{username: string, full_name: string, email: string}} payload
+ */
+export const verifyIdentity = (payload) =>
+  client.post('/member/auth/verify-identity', payload).then((r) => r.data);
+
+/**
+ * 비밀번호 재설정 — 아이디+이름+이메일 본인확인 후 즉시 새 비밀번호로 변경.
+ * @param {{username: string, full_name: string, email: string, new_password: string}} payload
+ */
+export const resetPassword = (payload) =>
+  client.post('/member/auth/reset-password', payload).then((r) => r.data);
 
 /**
  * 로그인. 성공 시 토큰을 localStorage에 저장한다.
@@ -182,6 +210,9 @@ export const getRole = () => decodeAccessToken()?.role ?? null;
 /** 현재 사용자가 관리자('1')인지 */
 export const isAdmin = () => getRole() === '1';
 
+/** 현재 사용자가 케이스 작성 권한(관리자'1'/수사관'2')인지 */
+export const isCaseWriter = () => ['1', '2'].includes(getRole());
+
 // ══════════════════════════════════════════════════════════
 // 관리자 (admin) — /member/admin/*
 // ══════════════════════════════════════════════════════════
@@ -197,11 +228,15 @@ export const statusLabel = (code) => STATUS_LABELS[code] ?? '-';
  * @param {string} [approvalStatus] '0'(대기)/'1'(승인)/'2'(반려)/'3'(정지)
  * @returns {Promise<Array>} UserResponse[]
  */
-export const fetchUsers = (approvalStatus) => {
-  const params =
-    approvalStatus != null ? { approval_status: approvalStatus } : {};
+export const fetchUsers = (approvalStatus, role) => {
+  const params = {};
+  if (approvalStatus != null) params.approval_status = approvalStatus;
+  if (role != null) params.role = role;
   return client.get('/member/admin/users', { params }).then((r) => r.data);
 };
+
+/** 담당자 지정 드롭다운용 — 승인된 수사관 목록만. */
+export const fetchApprovedInvestigators = () => fetchUsers('1', '2');
 
 /**
  * 승인 상태 변경(승인/반려/정지).
@@ -249,6 +284,10 @@ export const getMessageList = ({
 /** 로그인 이력(감사 로그) 조회. */
 export const fetchLoginHistory = (params = {}) =>
   client.get('/member/admin/login-history', { params }).then((r) => r.data);
+
+/** 관리자 콘솔 대시보드 KPI 요약. */
+export const fetchAdminDashboardSummary = () =>
+  client.get('/member/admin/dashboard-summary').then((r) => r.data);
 
 /** 관리자 행동 이력(감사 로그) 조회. approval_only=true 면 승인·권한 변경만. */
 export const fetchAdminHistory = (params = {}) =>
@@ -481,6 +520,13 @@ export const parseAlertMessage = (msgCn) =>
 export const collectMessages = (params = {}) =>
   client.post('/message/collect', null, { params }).then((r) => r.data);
 
+/**
+ * 안내문자(sn)를 실종자관리 케이스로 등록 — 관리자·수사관 전용.
+ * 대기·미배정으로 생성되며, case_status가 갱신된 문자 객체를 반환한다.
+ */
+export const createCaseForMessage = (sn) =>
+  client.post(`/message/${encodeURIComponent(sn)}/case`).then((r) => r.data);
+
 // ══════════════════════════════════════════════════════════
 // 검색 요청 — /search/*
 // ══════════════════════════════════════════════════════════
@@ -500,6 +546,7 @@ export const deleteSearch = (id) => client.delete(`/search/${id}`);
 function mapSearchItemToHistory(item) {
   return {
     id: item.id,
+    search_type: item.search_type,
     person_name: item.missing_name || '미상',
     person_age: item.age,
     region: item.missing_location || '-',
@@ -534,6 +581,7 @@ function mapSearchItemToResult(item) {
 
   return {
     id: item.id,
+    search_type: item.search_type,
     person_name: item.missing_name || '미상',
     person_age: item.age,
     region: item.missing_location || '-',
@@ -667,16 +715,68 @@ export const fetchOutcomeStats = (query, signal) =>
 export const fetchExportLogs = (signal) =>
   getStatsJson('/exports', undefined, signal);
 
-export const createCaseEvent = async (payload) => {
+// ── 실종자 관리 케이스 ─────────────────────────────────────────────────
+const CASES_BASE_URL = '/missing-person-cases';
+
+export const fetchMissingPersonCases = async (params = {}) => {
   try {
-    const response = await client.post(
-      `${STATS_BASE_URL}/case-events`,
-      payload,
-    );
+    const response = await client.get(CASES_BASE_URL, { params });
     return response.data;
   } catch (error) {
     throw new Error(
-      await readApiErrorMessage(error, '이벤트 저장에 실패했습니다.'),
+      await readApiErrorMessage(error, '케이스 목록을 불러오지 못했습니다.'),
+    );
+  }
+};
+
+export const createMissingPersonCase = async (payload) => {
+  try {
+    const response = await client.post(CASES_BASE_URL, payload);
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      await readApiErrorMessage(error, '케이스 등록에 실패했습니다.'),
+    );
+  }
+};
+
+async function transitionCase(caseId, action, fallback) {
+  try {
+    const response = await client.post(`${CASES_BASE_URL}/${caseId}/${action}`);
+    return response.data;
+  } catch (error) {
+    throw new Error(await readApiErrorMessage(error, fallback));
+  }
+}
+
+export const assignMissingPersonCase = async (caseId, investigatorId) => {
+  try {
+    const response = await client.post(`${CASES_BASE_URL}/${caseId}/assign`, {
+      investigator_id: investigatorId || null,
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      await readApiErrorMessage(error, '담당 배정에 실패했습니다.'),
+    );
+  }
+};
+export const unassignMissingPersonCase = (caseId) =>
+  transitionCase(caseId, 'unassign', '담당 취소에 실패했습니다.');
+export const resolveMissingPersonCase = (caseId) =>
+  transitionCase(caseId, 'resolve', '완료 처리에 실패했습니다.');
+export const enrichMissingPersonCase = (caseId) =>
+  transitionCase(caseId, 'enrich', 'AI 정보 채우기에 실패했습니다.');
+
+export const updateMissingPersonCaseNotes = async (caseId, notes) => {
+  try {
+    const response = await client.patch(`${CASES_BASE_URL}/${caseId}/notes`, {
+      notes,
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      await readApiErrorMessage(error, '메모 저장에 실패했습니다.'),
     );
   }
 };

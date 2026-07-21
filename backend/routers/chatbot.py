@@ -34,6 +34,8 @@ def chat(
         session_id=result["session_id"],
         search_id=result.get("search_id"),
         search_inserted=result.get("search_inserted", False),
+        offer_case_registration=result.get("offer_case_registration", False),
+        case_prefill=result.get("case_prefill"),
     )
 
 
