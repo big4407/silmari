@@ -2,6 +2,7 @@ from datetime import date, datetime, timedelta
 from pydantic import BaseModel, Field
 
 from backend.utils.timeutils import kst_now
+from typing import Literal
 
 
 # 페이징 처리에 필요한 스키마
@@ -60,6 +61,7 @@ class SearchCreate(BaseModel):
         default="1", max_length=1
     )  # 1 : SMS API에서 파싱한데이터, 2: 챗봇, 3: 자동검색(선택사항)
 
+
 class SearchResultClip(BaseModel):
     id: int
     video_id: int
@@ -72,10 +74,11 @@ class SearchResultClip(BaseModel):
     color_match_rate: float | None = None
     final_score: float
     recorded_at: datetime | None = None
-    video_region:str | None = None
+    video_region: str | None = None
 
     class Config:
         from_attributes = True
+
 
 class SearchDetail(BaseModel):
     """
@@ -127,6 +130,7 @@ class SearchListResponse(BaseModel):
     items: list[SearchItem]
     page_info: PagingInfo
 
+
 class SearchStatus(BaseModel):
     id: int
     status: str
@@ -173,3 +177,12 @@ class AdminSearchListResponse(BaseModel):
     items: list[AdminSearchItem]
     page_info: PagingInfo
     summary: AdminSearchSummary
+
+
+class ExportRequest(BaseModel):
+    stat_type: Literal["cctv", "search", "demographic", "outcomes"]
+    from_date: date
+    to_date: date
+    region: str | None = None
+    search_type: str | None = None
+    file_format: Literal["csv", "png", "zip"] = "csv"
