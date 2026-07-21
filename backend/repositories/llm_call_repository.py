@@ -310,7 +310,12 @@ class LLmCallRepository:
         )
 
         query = self.db.query(
-            LlmCall.model_name.label("model"),
+            # chatbot_s_id로 여러 행을 GROUP BY 하는데 model은 세션 내에서
+            # 이론상 바뀔 수 있어 집계 없이 그냥 select하면 sql_mode=
+            # ONLY_FULL_GROUP_BY(MySQL 5.7.5+/최근 MariaDB 기본값)에서
+            # "GROUP BY절에 없는 비집계 컬럼" 에러가 난다. 아래 user_id/
+            # search_id와 동일하게 max()로 대표값 하나를 집계해서 선택한다.
+            func.max(LlmCall.model_name).label("model"),
             func.concat(
                 "chatbot-",
                 LlmCall.chatbot_s_id,
