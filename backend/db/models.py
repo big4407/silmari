@@ -841,8 +841,13 @@ class StatsExportLog(Base):
     stat_type: Mapped[str] = mapped_column(
         String(30), nullable=False, index=True, comment="cctv | search | demographic | outcomes"
     )
-    from_date: Mapped[date] = mapped_column(Date, nullable=False)
-    to_date: Mapped[date] = mapped_column(Date, nullable=False)
+    # from_date/to_date 대신 from_dt/to_dt로 명명 — to_date가 MariaDB 12.2+에서
+    # 예약어(TO_DATE)로 추가돼 CREATE TABLE 문법 오류를 유발한다(팀원 환경에서
+    # 재현됨). 컬럼명 우회 대신 속성명 자체를 바꿔서 Python 속성명 = DB
+    # 컬럼명이 항상 일치하게 유지한다. API 응답 필드명(ExportLogItem.from_date/
+    # to_date)은 StatsService.list_exports()에서 명시적으로 매핑한다.
+    from_dt: Mapped[date] = mapped_column(Date, nullable=False)
+    to_dt: Mapped[date] = mapped_column(Date, nullable=False)
     file_format: Mapped[str] = mapped_column(String(10), nullable=False, default="CSV")
     file_name: Mapped[str] = mapped_column(String(255), nullable=False)
     row_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
