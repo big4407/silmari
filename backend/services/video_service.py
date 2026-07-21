@@ -23,6 +23,9 @@ os.environ["HF_HUB_ETAG_TIMEOUT"] = str(settings.hf_hub_etag_timeout)
 import cv2
 import numpy as np
 import torch
+import re
+import subprocess
+import imageio_ffmpeg
 from pathlib import Path
 from PIL import Image
 from ultralytics import YOLO
@@ -47,6 +50,45 @@ def _get_yolo_model() -> YOLO:
         model_path = Path(settings.yolo_model_path)
         _model = YOLO(str(model_path) if model_path.exists() else "yolov8n.pt")
     return _model
+
+
+_DURATION_RE = re.compile(r"Duration:\s*(\d{2}):(\d{2}):(\d{2})\.(\d{2})")
+
+
+def _probe_real_duration_seconds(video_path: str) -> float | None:
+    """ffmpeg(imageio_ffmpeg가 내려받아둔 정적 바이너리)로 실제 재생 가능한
+    길이(초)를 구한다.
+
+    cv2.CAP_PROP_FRAME_COUNT는 CCTV 장비가 내보내는 비표준/가변 프레임레이트
+    (VFR) MP4에서 실제보다 부풀려지는 경우가 흔하다. frame_extract()가 이
+    부풀려진 값만 믿고 프레임 위치를 seek하면, OpenCV가 실제 존재하지 않는
+    위치에서도 에러 없이(ret=True) 마지막 프레임을 그대로 반환해버려 —
+    이미지 내용은 마지막 프레임인데 파일명(따라서 video_detail.
+    video_timestamp)엔 실제 영상 길이를 넘는 초 값이 찍히는 버그로 이어진다.
+
+    ffmpeg -i는 출력 파일 없이도 stderr에 "Duration: HH:MM:SS.ss" 형식으로
+    컨테이너가 아닌 실제 스트림 길이를 알려준다 — 별도 ffprobe 설치 없이
+    이미 프로젝트 의존성인 imageio-ffmpeg가 받아둔 ffmpeg 하나로 충분하다.
+    실패 시(포맷 파싱 불가, 타임아웃 등) None을 반환해 호출부가
+    cv2.CAP_PROP_FRAME_COUNT로 안전하게 폴백하게 한다.
+    """
+    try:
+        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+        proc = subprocess.run(
+            [ffmpeg_exe, "-i", video_path],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (subprocess.TimeoutExpired, OSError, RuntimeError):
+        return None
+
+    match = _DURATION_RE.search(proc.stderr)
+    if not match:
+        return None
+
+    hours, minutes, seconds, centiseconds = (int(g) for g in match.groups())
+    return hours * 3600 + minutes * 60 + seconds + centiseconds / 100
 
 
 def _get_fashion_clip() -> FashionCLIP:
@@ -220,6 +262,22 @@ class VideoService:
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         total_frame = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
+        # cv2.CAP_PROP_FRAME_COUNT가 실제보다 부풀려진 값이면(_probe_real_
+        # duration_seconds 설명 참고) 그 값을 그대로 믿고 seek할 위치를
+        # 만들면 video_detail.video_timestamp가 실제 영상 길이를 넘는
+        # 버그로 이어진다. ffmpeg로 확인한 실제 길이가 더 짧으면(오차 1초
+        # 감안) total_frame을 그 길이 기준으로 다시 잡아 넘어가지 않게 한다.
+        real_duration = _probe_real_duration_seconds(video_path)
+        if real_duration is not None and fps > 0:
+            real_total_frame = int(real_duration * fps)
+            if real_total_frame < total_frame:
+                print(
+                    f"[frame_extract] CAP_PROP_FRAME_COUNT({total_frame})가 "
+                    f"실제 길이({real_duration:.2f}s, ~{real_total_frame}프레임)"
+                    f"보다 큼 — 실제 길이 기준으로 잘라낸다: {video_path}"
+                )
+                total_frame = real_total_frame
+
         print(fps, width, height, total_frame)
 
         positions = [
@@ -234,6 +292,21 @@ class VideoService:
             ret, frame = cap.read()
 
             if ret:
+                # 이중 안전장치: 위에서 total_frame을 실제 길이 기준으로
+                # 잘라내도, seek 자체가 프레임 단위로 정확히 안 맞아떨어지는
+                # 코덱/컨테이너에서는 OpenCV가 여전히 요청한 위치보다 훨씬
+                # 앞선(=존재하는 마지막) 프레임을 에러 없이 반환할 수 있다.
+                # read 직후의 실제 위치가 요청한 pos보다 1초(=fps 프레임)
+                # 넘게 못 미치면 seek이 클램프됐다고 보고 이 프레임은 버린다
+                # (파일명의 seconds가 실제 내용과 어긋나는 걸 막기 위함).
+                actual_pos = cap.get(cv2.CAP_PROP_POS_FRAMES)
+                if fps > 0 and (pos - actual_pos) > fps:
+                    print(
+                        f"[frame_extract] seek 위치 불일치로 건너뜀: "
+                        f"요청 {pos}프레임, 실제 도달 {actual_pos:.0f}프레임"
+                    )
+                    continue
+
                 seconds = int(pos / fps)
                 save_path = os.path.join(
                     save_dir, f"{video_name}_frame_{seconds:05d}s.jpg"

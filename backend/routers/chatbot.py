@@ -27,6 +27,7 @@ def chat(
         session_id=request.session_id,
         message=request.message,
         user_id=current_user.id,
+        user_role=current_user.role.value if current_user.role else None,
     )
 
     return ChatbotResponse(

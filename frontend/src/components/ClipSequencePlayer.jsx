@@ -41,12 +41,6 @@ export default function ClipSequencePlayer({
     };
   }, [currentIndex, clips, selectCount]);
 
-  const handleEnded = () => {
-    if (currentIndex < clips.length - 1) {
-      onClipChange?.(currentIndex + 1);
-    }
-  };
-
   const handleVideoError = () => {
     setPlayError('영상을 불러올 수 없습니다. CCTV 영상을 다시 분석해주세요.');
   };
@@ -79,7 +73,6 @@ export default function ClipSequencePlayer({
         playsInline
         preload="auto"
         className="clip-player__video"
-        onEnded={handleEnded}
         onError={handleVideoError}
       />
 
