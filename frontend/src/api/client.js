@@ -45,7 +45,11 @@ let _refreshing = null;
 let _loggingOut = false;
 
 const isAuthBypassCall = (url = '') =>
-  url.includes('/member/auth/refresh') || url.includes('/member/auth/logout');
+  url.includes('/member/auth/refresh') ||
+  url.includes('/member/auth/logout') ||
+  url.includes('/member/auth/login') ||
+  url.includes('/member/auth/find-username') ||
+  url.includes('/member/auth/reset-password');
 
 const doRefresh = async () => {
   if (_loggingOut) throw new Error('logging out');
@@ -106,6 +110,21 @@ client.interceptors.response.use(
  */
 export const signup = (payload) =>
   client.post('/member/auth/signup', payload).then((r) => r.data);
+
+/**
+ * 아이디 찾기 — 이름+이메일 본인확인. 이메일 인증 없이 즉시 처리한다.
+ * @param {{full_name: string, email: string}} payload
+ * @returns {Promise<{username: string}>}
+ */
+export const findUsername = (payload) =>
+  client.post('/member/auth/find-username', payload).then((r) => r.data);
+
+/**
+ * 비밀번호 재설정 — 아이디+이름+이메일 본인확인 후 즉시 새 비밀번호로 변경.
+ * @param {{username: string, full_name: string, email: string, new_password: string}} payload
+ */
+export const resetPassword = (payload) =>
+  client.post('/member/auth/reset-password', payload).then((r) => r.data);
 
 /**
  * 로그인. 성공 시 토큰을 localStorage에 저장한다.
@@ -650,16 +669,22 @@ async function getStatsJson(path, query, signal) {
     });
     return response.data;
   } catch (error) {
-    throw new Error(await readApiErrorMessage(error, '통계 데이터를 불러오지 못했습니다.'));
+    throw new Error(
+      await readApiErrorMessage(error, '통계 데이터를 불러오지 못했습니다.'),
+    );
   }
 }
 
-export const fetchCctvStats = (query, signal) => getStatsJson('/cctv', query, signal);
-export const fetchSearchStats = (query, signal) => getStatsJson('/search', query, signal);
+export const fetchCctvStats = (query, signal) =>
+  getStatsJson('/cctv', query, signal);
+export const fetchSearchStats = (query, signal) =>
+  getStatsJson('/search', query, signal);
 export const fetchDemographicStats = (query, signal) =>
   getStatsJson('/demographic', query, signal);
-export const fetchOutcomeStats = (query, signal) => getStatsJson('/outcomes', query, signal);
-export const fetchExportLogs = (signal) => getStatsJson('/exports', undefined, signal);
+export const fetchOutcomeStats = (query, signal) =>
+  getStatsJson('/outcomes', query, signal);
+export const fetchExportLogs = (signal) =>
+  getStatsJson('/exports', undefined, signal);
 
 // ── 실종자 관리 케이스 ─────────────────────────────────────────────────
 const CASES_BASE_URL = '/missing-person-cases';
@@ -669,7 +694,9 @@ export const fetchMissingPersonCases = async (params = {}) => {
     const response = await client.get(CASES_BASE_URL, { params });
     return response.data;
   } catch (error) {
-    throw new Error(await readApiErrorMessage(error, '케이스 목록을 불러오지 못했습니다.'));
+    throw new Error(
+      await readApiErrorMessage(error, '케이스 목록을 불러오지 못했습니다.'),
+    );
   }
 };
 
@@ -678,7 +705,9 @@ export const createMissingPersonCase = async (payload) => {
     const response = await client.post(CASES_BASE_URL, payload);
     return response.data;
   } catch (error) {
-    throw new Error(await readApiErrorMessage(error, '케이스 등록에 실패했습니다.'));
+    throw new Error(
+      await readApiErrorMessage(error, '케이스 등록에 실패했습니다.'),
+    );
   }
 };
 
@@ -702,10 +731,14 @@ export const enrichMissingPersonCase = (caseId) =>
 
 export const updateMissingPersonCaseNotes = async (caseId, notes) => {
   try {
-    const response = await client.patch(`${CASES_BASE_URL}/${caseId}/notes`, { notes });
+    const response = await client.patch(`${CASES_BASE_URL}/${caseId}/notes`, {
+      notes,
+    });
     return response.data;
   } catch (error) {
-    throw new Error(await readApiErrorMessage(error, '메모 저장에 실패했습니다.'));
+    throw new Error(
+      await readApiErrorMessage(error, '메모 저장에 실패했습니다.'),
+    );
   }
 };
 
@@ -721,7 +754,9 @@ export const exportStats = async (payload) => {
     const filename = match?.[1] ?? 'statistics.csv';
     saveBlobDownload(response.data, filename);
   } catch (error) {
-    throw new Error(await readApiErrorMessage(error, '통계 내보내기에 실패했습니다.'));
+    throw new Error(
+      await readApiErrorMessage(error, '통계 내보내기에 실패했습니다.'),
+    );
   }
 };
 

@@ -21,6 +21,24 @@ class AuthRepository:
             select(User).where(or_(User.username == username, User.email == email))
         )
 
+    def find_by_full_name_and_email(self, full_name: str, email: str) -> User | None:
+        """아이디 찾기 — 이름+이메일이 정확히 일치하는 계정만."""
+        return self.db.scalar(
+            select(User).where(User.full_name == full_name, User.email == email)
+        )
+
+    def find_by_identity(
+        self, username: str, full_name: str, email: str
+    ) -> User | None:
+        """비밀번호 재설정 본인확인 — 아이디+이름+이메일 셋 다 일치해야 한다."""
+        return self.db.scalar(
+            select(User).where(
+                User.username == username,
+                User.full_name == full_name,
+                User.email == email,
+            )
+        )
+
     def add_user(self, user: User) -> User:
         self.db.add(user)
         self.db.commit()

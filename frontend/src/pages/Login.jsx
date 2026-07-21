@@ -103,13 +103,19 @@ export default function Login() {
 
               {error && <p className="auth-form__error">{error}</p>}
 
-              <button type="submit" className="auth-form__btn" disabled={loading}>
+              <button
+                type="submit"
+                className="auth-form__btn"
+                disabled={loading}
+              >
                 {loading ? '로그인 중…' : '로그인'}
               </button>
             </form>
 
             <p className="auth-card__footer">
               계정이 없으신가요? <Link to="/signup">회원가입</Link>
+              <br />
+              <Link to="/find-account">아이디·비밀번호 찾기</Link>
             </p>
           </div>
         </div>

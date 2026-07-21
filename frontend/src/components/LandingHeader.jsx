@@ -1,20 +1,15 @@
 /** 랜딩·인증 페이지 공통 헤더 네비게이션 */
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { isAuthenticated, isAdmin } from '../api/client';
+import { isAuthenticated, isAdmin, getRole } from '../api/client';
+import { getVisibleNavTabs } from '../navTabs';
 import useLogout from '../hooks/useLogout';
 import './LandingHeader.css';
-
-const TABS = [
-  { to: '/dashboard', label: '실종자 검색', end: true },
-  { to: '/dashboard/chatbot', label: '챗봇 검색' },
-  { to: '/search-results', label: '검색 결과' },
-  { to: '/dashboard/history', label: '검색 이력' },
-];
 
 export default function LandingHeader() {
   const { pathname } = useLocation();
   const authed = isAuthenticated();
   const admin = isAdmin();
+  const visibleTabs = getVisibleNavTabs(getRole());
   const { doLogout } = useLogout();
 
   return (
@@ -69,7 +64,7 @@ export default function LandingHeader() {
         className={`landing-header__nav-wrap${authed ? '' : ' landing-header__nav-wrap--hidden'}`}
       >
         <nav className="landing-header__nav" aria-label="주요 메뉴">
-          {TABS.map((tab) => (
+          {visibleTabs.map((tab) => (
             <NavLink
               key={tab.to}
               to={tab.to}

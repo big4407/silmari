@@ -120,10 +120,30 @@
   padding: 6px 12px 10px;
   border-top: 1px solid var(--color-border);
   background: var(--color-surface-muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .alert-card--selected .alert-card__footer {
   background: #d6e9ff;
+}
+
+.alert-card--resolved {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.alert-card__resolved-badge {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: #1d8a52;
+  background: #e7f5ee;
+  border: 1px solid #bfe3cf;
+  border-radius: 999px;
+  padding: 2px 8px;
+  flex-shrink: 0;
 }
 
 .alert-card__region {

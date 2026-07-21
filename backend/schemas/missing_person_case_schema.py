@@ -20,7 +20,7 @@ class MissingPersonCaseItem(BaseModel):
     msg_cn: str | None
     status: str
     assigned_investigator_id: str | None
-    assigned_investigator_name: str | None
+    assigned_investigator_name: str | None = None
     assigned_at: datetime | None
     resolved_at: datetime | None
     notes: str | None

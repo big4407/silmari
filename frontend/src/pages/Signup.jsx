@@ -15,7 +15,13 @@ const INITIAL = {
   phone: '',
   department: '',
   position: '',
+  requested_role: '2', // 2: 수사관(기본값). 관리자(1)는 신청 자체가 불가 — 백엔드에서 거부됨.
 };
+
+const ROLE_OPTIONS = [
+  { value: '2', label: '수사관 — 케이스 담당·처리, 검색 기능 이용' },
+  { value: '3', label: '공무원 — 조회 전용(케이스 담당·처리 불가)' },
+];
 
 const STEPS = [
   { icon: '1', text: '회원가입 신청서 작성' },
@@ -56,6 +62,7 @@ export default function Signup() {
         phone: form.phone,
         department: form.department || null,
         position: form.position || null,
+        requested_role: form.requested_role,
       });
       alert(
         '회원가입 신청이 접수되었습니다. 관리자 승인 후 로그인할 수 있습니다.',
@@ -100,8 +107,8 @@ export default function Signup() {
               ))}
             </ul>
             <p className="auth-panel__notice">
-              가입 신청 후 관리자 검토가 필요합니다. 승인까지 1~2영업일이
-              소요될 수 있습니다.
+              가입 신청 후 관리자 검토가 필요합니다. 승인까지 1~2영업일이 소요될
+              수 있습니다.
             </p>
           </aside>
 
@@ -234,6 +241,35 @@ export default function Signup() {
               </div>
 
               <div className="auth-form__section">
+                <h3 className="auth-form__section-title">권한</h3>
+                <p className="auth-form__hint">
+                  승인 시 관리자가 최종 조정할 수 있습니다. 신청 역할은
+                  참고용입니다.
+                </p>
+                <div className="auth-form__grid">
+                  {ROLE_OPTIONS.map((opt) => (
+                    <label
+                      key={opt.value}
+                      className={`auth-form__role-option ${
+                        form.requested_role === opt.value
+                          ? 'auth-form__role-option--selected'
+                          : ''
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="requested_role"
+                        value={opt.value}
+                        checked={form.requested_role === opt.value}
+                        onChange={update('requested_role')}
+                      />
+                      {opt.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="auth-form__section">
                 <h3 className="auth-form__section-title">비밀번호</h3>
                 <div className="auth-form__grid">
                   <div className="auth-form__field">
@@ -277,7 +313,11 @@ export default function Signup() {
 
               {error && <p className="auth-form__error">{error}</p>}
 
-              <button type="submit" className="auth-form__btn" disabled={loading}>
+              <button
+                type="submit"
+                className="auth-form__btn"
+                disabled={loading}
+              >
                 {loading ? '신청 중…' : '회원가입 신청'}
               </button>
             </form>

@@ -34,6 +34,34 @@
   grid-template-columns: minmax(280px, 360px) minmax(360px, 520px);
 }
 
+/* 대시보드 레이아웃(DashboardLayout) 안에 끼워 넣을 때 — 이미 헤더가 있으므로
+   전체화면 중앙정렬(.auth-page__main) 없이 컨텐츠 영역 안에서 자연스럽게 놓이게. */
+.dashboard-content-page {
+  display: flex;
+  justify-content: center;
+  padding: 32px 20px 48px;
+}
+
+.auth-shell--embedded {
+  margin: 0;
+  box-shadow: none;
+  border: 1px solid var(--color-border);
+}
+
+/* 목록형 페이지(예: 실종자 관리)에서 auth-card 톤을 단독으로 쓸 때 —
+   shell의 절반 폭 제약·높이 제한 없이 넓은 카드 하나로. */
+.auth-card--standalone {
+  max-width: 1100px;
+  width: 100%;
+  max-height: none;
+  overflow-y: visible;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  box-shadow:
+    0 4px 24px rgba(0, 56, 118, 0.08),
+    0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
 /* ── Left branding panel ── */
 .auth-panel {
   display: flex;
@@ -119,6 +147,7 @@
   padding: var(--space-xl) 28px;
   background: var(--color-surface);
   overflow-y: auto;
+  overflow-x: hidden;
   max-height: calc(100vh - var(--header-height) - var(--nav-height) - 48px);
 }
 
@@ -173,6 +202,8 @@
   display: flex;
   flex-direction: column;
   margin-bottom: var(--space-md);
+  min-width: 0; /* 그리드/플렉스 자식 기본값(auto)이 내용 폭만큼 안 줄어들어서
+                   overflow를 만드는 걸 방지 — 이번 가로 스크롤 버그의 원인. */
 }
 
 .auth-form__label {
@@ -183,6 +214,7 @@
 }
 
 .auth-form__input {
+  width: 100%;
   height: var(--control-height);
   padding: 0 var(--space-md);
   border: 1px solid var(--color-border-strong);
@@ -191,6 +223,7 @@
   font-size: var(--font-size-base);
   color: var(--color-text);
   background: var(--color-surface);
+  box-sizing: border-box;
   transition:
     border-color 0.15s,
     box-shadow 0.15s;
@@ -204,6 +237,38 @@
   outline: none;
   border-color: var(--color-accent);
   box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.12);
+}
+
+.auth-form__hint {
+  margin: -4px 0 var(--space-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.auth-form__role-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: var(--space-md);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+
+.auth-form__role-option input[type='radio'] {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.auth-form__role-option--selected {
+  border-color: var(--color-accent);
+  background: rgba(0, 102, 204, 0.06);
 }
 
 .auth-form__error {
@@ -246,6 +311,60 @@
   cursor: not-allowed;
 }
 
+.auth-form__btn--link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.auth-form__result {
+  padding: var(--space-lg) 0;
+  text-align: center;
+}
+
+.auth-form__result-label {
+  margin: 0 0 4px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.auth-form__result-value {
+  margin: 0 0 var(--space-lg);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--color-accent);
+}
+
+.auth-card__tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.auth-card__tab {
+  flex: 1;
+  padding: 10px 8px;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.auth-card__tab--active {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+}
+
 .auth-card__footer {
   margin-top: var(--space-lg);
   padding-top: var(--space-lg);
@@ -264,6 +383,28 @@
 .auth-card__footer a:hover {
   color: var(--color-accent-hover);
   text-decoration: underline;
+}
+
+.auth-card__link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--color-accent);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.auth-card__link-btn:hover {
+  color: var(--color-accent-hover);
+  text-decoration: underline;
+}
+
+.auth-form__textarea {
+  height: auto;
+  min-height: 90px;
+  padding: 10px var(--space-md);
+  resize: vertical;
 }
 
 @media (max-width: 768px) {

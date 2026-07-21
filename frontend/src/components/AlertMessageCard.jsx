@@ -26,6 +26,8 @@ export default function AlertMessageCard({ alert, index, selected, onClick }) {
     );
   }
 
+  const resolved = alert.case_status === '3';
+
   const preview =
     alert.msg_cn?.length > 100
       ? `${alert.msg_cn.slice(0, 100)}…`
@@ -34,8 +36,12 @@ export default function AlertMessageCard({ alert, index, selected, onClick }) {
   return (
     <button
       type="button"
-      className={`alert-card ${selected ? 'alert-card--selected' : ''}`}
-      onClick={() => onClick?.(alert)}
+      className={`alert-card ${selected ? 'alert-card--selected' : ''} ${
+        resolved ? 'alert-card--resolved' : ''
+      }`}
+      onClick={() => !resolved && onClick?.(alert)}
+      disabled={resolved}
+      title={resolved ? '이미 처리 완료된 케이스입니다' : undefined}
     >
       <div className="alert-card__head">
         <span className="alert-card__index">#{index + 1}</span>
@@ -66,6 +72,7 @@ export default function AlertMessageCard({ alert, index, selected, onClick }) {
         <span className="alert-card__region">
           {alert.rcptn_rgn_nm || '지역 미상'}
         </span>
+        {resolved && <span className="alert-card__resolved-badge">완료</span>}
       </div>
     </button>
   );

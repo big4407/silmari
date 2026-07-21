@@ -44,6 +44,10 @@ class DuplicateAccountError(ValueError):
     """아이디 또는 이메일이 이미 사용 중인 경우."""
 
 
+class IdentityNotFoundError(ValueError):
+    """아이디 찾기/비밀번호 재설정 시 입력한 본인확인 정보와 일치하는 계정이 없는 경우."""
+
+
 class AuthService:
     def __init__(self, db: Session):
         self.db = db
@@ -196,3 +200,20 @@ class AuthService:
         if current_password == new_password:
             raise ValueError("새 비밀번호는 현재 비밀번호와 달라야 합니다.")
         user.password_hash = hash_password(new_password)
+
+    def find_username(self, *, full_name: str, email: str) -> str:
+        """아이디 찾기 — 이름+이메일이 정확히 일치하는 계정의 아이디를 돌려준다."""
+        user = self.repository.find_by_full_name_and_email(full_name, email)
+        if user is None:
+            raise IdentityNotFoundError("입력하신 정보와 일치하는 계정을 찾을 수 없습니다.")
+        return user.username
+
+    def reset_password(
+        self, *, username: str, full_name: str, email: str, new_password: str
+    ) -> None:
+        """본인확인(아이디+이름+이메일) 후 바로 비밀번호를 새 값으로 바꾼다."""
+        user = self.repository.find_by_identity(username, full_name, email)
+        if user is None:
+            raise IdentityNotFoundError("입력하신 정보와 일치하는 계정을 찾을 수 없습니다.")
+        user.password_hash = hash_password(new_password)
+        self.db.commit()

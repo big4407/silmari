@@ -186,7 +186,11 @@ class MessageService:
 
     def get_message(self, sn: str) -> MessageResponse:
         message = self._get_or_404(sn)
-        return MessageResponse.model_validate(message)
+        case = self.missing_person_case_service.repository.get_by_sn(sn)
+        response = MessageResponse.model_validate(message)
+        return response.model_copy(
+            update={"case_status": case.status.value if case else None}
+        )
 
     # services/message_service.py
 
@@ -211,8 +215,18 @@ class MessageService:
             order_by=order_by,
         )
 
+        status_by_sn = self.missing_person_case_service.repository.get_status_by_sns(
+            [m.sn for m in messages]
+        )
+        items = [
+            MessageResponse.model_validate(message).model_copy(
+                update={"case_status": status_by_sn.get(message.sn)}
+            )
+            for message in messages
+        ]
+
         return MessageListResponse(
-            items=[MessageResponse.model_validate(message) for message in messages],
+            items=items,
             total=total,
             page=page,
             size=per_page,

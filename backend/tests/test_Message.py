@@ -29,6 +29,7 @@ from datetime import datetime, timedelta
 from backend.db.database import SessionLocal
 from backend.db.models import Message
 from backend.repositories.message_repository import MessageRepository
+from backend.services.missing_person_case_service import MissingPersonCaseService
 
 # rcptn_rgn_nm 기본값 — 실제 Region 테이블 데이터와 안 맞으면 --region으로 덮어써야 함.
 DEFAULT_REGIONS = [
@@ -117,6 +118,7 @@ def insert_test_messages(
     db = SessionLocal()
     try:
         repository = MessageRepository(db)
+        case_service = MissingPersonCaseService(db)
 
         if clear_existing:
             deleted = clear_test_messages(db)
@@ -133,6 +135,18 @@ def insert_test_messages(
                 continue
 
             repository.insert(**data)
+            # 실제 수집 흐름(services/message_service.py)과 동일하게, sn당
+            # missing_person_case 1건을 만든다. 여기서도 LLM 파싱은 안 한다
+            # (msg_cn 원문만 저장 — 비용 이유는 db/models.py의
+            # MissingPersonCase docstring 참고). 담당자가 케이스를 열 때
+            # "AI로 채우기" 버튼으로 그때 채우는 흐름을 테스트하려면 이렇게
+            # 비어있는 채로 만들어지는 게 오히려 맞다.
+            case_service.create_from_message(
+                data["sn"],
+                msg_cn=data["msg_cn"],
+                missing_location=data["rcptn_rgn_nm"][:20],
+            )
+            db.commit()
             inserted += 1
 
         print(f"[테스트 문자 삽입 완료] {inserted}건 삽입, {skipped}건은 이미 있어 건너뜀")

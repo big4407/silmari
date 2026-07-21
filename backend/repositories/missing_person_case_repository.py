@@ -27,6 +27,18 @@ class MissingPersonCaseRepository:
     def get_by_sn(self, sn: str) -> MissingPersonCase | None:
         return self.db.query(MissingPersonCase).filter(MissingPersonCase.sn == sn).first()
 
+    def get_status_by_sns(self, sns: list[str]) -> dict[str, str]:
+        """sn 목록에 대해 케이스 상태만 가져온다 — 안내문자 목록에 상태 배지를
+        붙일 때(Dashboard 실종자 검색탭, 관리자 안내문자 목록) 쓴다."""
+        if not sns:
+            return {}
+        rows = (
+            self.db.query(MissingPersonCase.sn, MissingPersonCase.status)
+            .filter(MissingPersonCase.sn.in_(sns))
+            .all()
+        )
+        return {sn: status.value for sn, status in rows}
+
     def exists_by_sn(self, sn: str) -> bool:
         return (
             self.db.query(MissingPersonCase.id)
