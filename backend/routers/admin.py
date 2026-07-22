@@ -6,11 +6,12 @@
 """
 
 import csv
+from urllib.parse import quote
 import io
 from datetime import date, datetime, time, timezone
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
@@ -76,6 +77,8 @@ from backend.schemas.video_schema import (
     VideoIndexRetryRequest,
     VideoIndexRetryResponse,
 )
+from backend.schemas.stats_schema import ExportRequest
+from backend.services.stats_export_service import StatsExportService
 
 router = APIRouter(prefix="/admin")
 
@@ -91,7 +94,10 @@ def get_dashboard_summary(
 @router.get("/users", response_model=list[UserResponse])
 def list_users(
     approval_status: ApprovalStatus | None = Query(default=None),
-    role: UserRole | None = Query(default=None, description="담당자 지정 드롭다운 등에서 특정 역할만 조회할 때 사용"),
+    role: UserRole | None = Query(
+        default=None,
+        description="담당자 지정 드롭다운 등에서 특정 역할만 조회할 때 사용",
+    ),
     _: User = Depends(require_roles(UserRole.ADMIN)),
     db: Session = Depends(get_db),
 ) -> list[User]:
@@ -350,8 +356,12 @@ def list_admin_history(
 
 @router.get("/search-requests", response_model=AdminSearchListResponse)
 def list_search_requests(
-    keyword: str | None = Query(default=None, description="이름·인상착의·지역 부분 검색"),
-    search_type: str | None = Query(default=None, description="1:안내문자, 2:챗봇, 3:자동"),
+    keyword: str | None = Query(
+        default=None, description="이름·인상착의·지역 부분 검색"
+    ),
+    search_type: str | None = Query(
+        default=None, description="1:안내문자, 2:챗봇, 3:자동"
+    ),
     requester_user_id: str | None = Query(default=None, description="요청자 user.id"),
     start_date: date | None = Query(default=None),
     end_date: date | None = Query(default=None),
@@ -558,6 +568,8 @@ def export_regions_csv(
         filename = "regions.csv"
         export_format = "region"
 
+    encoded_filename = quote(filename)
+
     row_count = max(csv_text.count("\n") - 1, 0)
     AuditService(db).record_admin_action(
         actor_id=admin.id,
@@ -576,7 +588,9 @@ def export_regions_csv(
     return Response(
         content=body,
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8 {encoded_filename}"
+        },
     )
 
 
@@ -1105,4 +1119,35 @@ def download_integrity_report_csv(
         content=body,
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/stats/export")
+def export_stats(
+    request: ExportRequest,
+    current_user: User = Depends(require_roles(UserRole.ADMIN)),
+    db: Session = Depends(get_db),
+) -> StreamingResponse:
+    """관리자 통계 내보내기: CSV, PNG, ZIP 지원."""
+    try:
+        service = StatsExportService(db)
+
+        filename, content, media_type, row_count = service.build(
+            request,
+            actor_id=str(current_user.id),
+            actor_name=current_user.username,
+        )
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    encoded_filename = quote(filename)
+
+    return StreamingResponse(
+        io.BytesIO(content),
+        media_type=media_type,
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8 {encoded_filename}",
+            "X-Row-Count": str(row_count),
+        },
     )

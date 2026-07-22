@@ -4,10 +4,12 @@
 CctvCoverageService가 VideoService 옆에 별도로 있는 것과 같은 구성 —
 StatsService(집계 조회)를 그대로 조합해서 CSV로 포맷팅만 담당한다.
 """
+
 from __future__ import annotations
 
 import csv
 import io
+import zipfile
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -15,6 +17,7 @@ from sqlalchemy.orm import Session
 from backend.repositories.stats_repository import StatsRepository
 from backend.schemas.stats_schema import ExportRequest
 from backend.services.stats_service import StatsService
+from backend.services.stats_chart_service import StatsChartService
 from backend.utils.timeutils import kst_now
 
 
@@ -24,33 +27,53 @@ class StatsExportService:
         db: Session,
         service: StatsService | None = None,
         repository: StatsRepository | None = None,
+        chart_service: StatsChartService | None = None,
     ):
         self.db = db
         self.repository = repository or StatsRepository(db)
         self.service = service or StatsService(db, self.repository)
+        self.chart_service = chart_service or StatsChartService(
+            db, self.service, self.repository
+        )
 
     @staticmethod
-    def _csv_content(headers: list[str], rows: list[list[Any]]) -> str:
+    def _csv_content(headers: list[str], rows: list[list[Any]]) -> bytes:
         stream = io.StringIO()
         stream.write("\ufeff")
         writer = csv.writer(stream)
         writer.writerow(headers)
         writer.writerows(rows)
-        return stream.getvalue()
+        return stream.getvalue().encode("utf-8-sig")
 
-    def build(
-        self, request: ExportRequest, *, actor_id: str | None, actor_name: str
-    ) -> tuple[str, str, int]:
+    @staticmethod
+    def _zip_content(files: list[tuple[str, bytes]]) -> bytes:
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+            for filename, content in files:
+                zf.writestr(filename, content)
+        buffer.seek(0)
+        return buffer.getvalue()
+
+    def _build_rows(
+        self, request: ExportRequest
+    ) -> tuple[str, list[str], list[list[Any]]]:
         if request.from_date > request.to_date:
             raise ValueError("시작일은 종료일보다 늦을 수 없습니다.")
 
         stat_type = request.stat_type
 
         if stat_type == "cctv":
-            data = self.service.get_cctv(request.from_date, request.to_date, request.region)
+            data = self.service.get_cctv(
+                request.from_date, request.to_date, request.region
+            )
             headers = ["지역", "등록 영상", "인덱싱 완료", "감지 인원"]
             rows = [
-                [item.region, item.registered_videos, item.indexed_videos, item.detected_persons]
+                [
+                    item.region,
+                    item.registered_videos,
+                    item.indexed_videos,
+                    item.detected_persons,
+                ]
                 for item in data.by_region
             ]
         elif stat_type == "search":
@@ -79,8 +102,16 @@ class StatsExportService:
                 request.from_date, request.to_date, request.region
             )
             headers = [
-                "SN", "이름", "성별", "나이", "지역", "상태",
-                "담당자", "담당 시각", "완료 시각", "생성 시각",
+                "SN",
+                "이름",
+                "성별",
+                "나이",
+                "지역",
+                "상태",
+                "담당자",
+                "담당 시각",
+                "완료 시각",
+                "생성 시각",
             ]
             rows = [
                 [
@@ -98,10 +129,41 @@ class StatsExportService:
                 for item in data.recent_cases
             ]
 
-        filename = (
-            f"{stat_type}_stats_{request.from_date.isoformat()}_{request.to_date.isoformat()}.csv"
-        )
-        content = self._csv_content(headers, rows)
+        return stat_type, headers, rows
+
+    def build(
+        self, request: ExportRequest, *, actor_id: str | None, actor_name: str
+    ) -> tuple[str, bytes, str, int]:
+        stat_type, headers, rows = self._build_rows(request)
+
+        base_name = f"{stat_type}_stats_{request.from_date.isoformat()}_{request.to_date.isoformat()}"
+        row_count = len(rows)
+
+        if request.file_format == "csv":
+            filename = f"{base_name}.csv"
+            content = self._csv_content(headers, rows)
+            media_type = "text/csv"
+
+        elif request.file_format == "png":
+            filename, content = self.chart_service.build_bar_chart(request)
+            media_type = "image/png"
+
+        elif request.file_format == "zip":
+            csv_name = f"{base_name}.csv"
+            csv_content = self._csv_content(headers, rows)
+            png_name, png_content = self.chart_service.build_bar_chart(request)
+
+            filename = f"{base_name}.zip"
+            content = self._zip_content(
+                [
+                    (csv_name, csv_content),
+                    (png_name, png_content),
+                ]
+            )
+            media_type = "application/zip"
+
+        else:
+            raise ValueError("지원하지 않는 파일 형식입니다.")
 
         try:
             self.repository.create_export_log(
@@ -111,7 +173,7 @@ class StatsExportService:
                     "to_dt": request.to_date,
                     "file_format": request.file_format,
                     "file_name": filename,
-                    "row_count": len(rows),
+                    "row_count": row_count,
                     "requested_by_id": actor_id,
                     "requested_by_name": actor_name,
                     "created_at": kst_now(),
@@ -122,4 +184,4 @@ class StatsExportService:
             self.db.rollback()
             raise
 
-        return filename, content, len(rows)
+        return filename, content, media_type, row_count

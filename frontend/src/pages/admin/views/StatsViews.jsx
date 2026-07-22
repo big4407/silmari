@@ -531,6 +531,7 @@ export function StatsExportView() {
   const [exporting, setExporting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [error, setError] = useState('');
+  const [fileFormat, setFileFormat] = useState('csv');
 
   const logs = useStatsQuery((signal) => fetchExportLogs(signal), [refreshKey]);
 
@@ -560,7 +561,7 @@ export function StatsExportView() {
     <>
       <PageHead
         viewId="stats-export"
-        desc="통계 데이터를 CSV로 내보내고 이력을 확인합니다."
+        desc="통계 데이터를 ZIP로 내보내고 이력을 확인합니다."
       />
 
       <div className="admin-card admin-mb">
@@ -600,8 +601,13 @@ export function StatsExportView() {
 
             <div className="admin-fld">
               <label>형식</label>
-              <select value="CSV" disabled>
-                <option>CSV</option>
+              <select
+                value={fileFormat}
+                onChange={(e) => setFileFormat(e.target.value)}
+              >
+                <option value="csv">CSV</option>
+                <option value="png">그래프 PNG</option>
+                <option value="zip">CSV + 그래프 ZIP</option>
               </select>
             </div>
 
