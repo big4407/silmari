@@ -6,6 +6,8 @@ import PageHead from '../components/PageHead';
 import { StatValue } from '../components/EmptyState';
 import { LlmCallList } from '../components/LlmCallList';
 import { LlmConversationModal } from '../components/LlmConversationModal';
+import Pagination from '../components/Pagination';
+import { adminPinnedPaginationStyle } from '../components/adminTableUtils';
 
 import {
   getLlmCallList,
@@ -13,6 +15,7 @@ import {
   getLlmUsageSummary,
 } from '../../../api/llm_call_api';
 
+// 요청대로 10줄
 const PAGE_SIZE = 10;
 
 export function LlmUsageView() {
@@ -133,7 +136,8 @@ export function LlmUsageView() {
         </div>
       </div>
 
-      <div className="admin-card admin-table-wrap">
+      <div style={adminPinnedPaginationStyle(PAGE_SIZE)}>
+        <div className="admin-card admin-table-wrap">
         <div className="admin-card-h">LLM 호출 내역</div>
 
         {loading && <div className="admin-loading">불러오는 중...</div>}
@@ -146,32 +150,15 @@ export function LlmUsageView() {
             onOpenConversation={handleOpenConversation}
           />
         )}
-
-        {!loading && !error && totalPages > 1 && (
-          <div className="admin-pagination">
-            <button
-              className="admin-btn"
-              type="button"
-              disabled={page === 1}
-              onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-            >
-              이전
-            </button>
-
-            <span>
-              {page} / {totalPages}
-            </span>
-
-            <button
-              className="admin-btn"
-              type="button"
-              disabled={page === totalPages}
-              onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
-            >
-              다음
-            </button>
-          </div>
-        )}
+      </div>
+      {!loading && !error && (
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          onPageChange={setPage}
+        />
+      )}
       </div>
 
       <LlmConversationModal

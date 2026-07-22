@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import PageHead from '../components/PageHead';
 import { StatValue, TableEmptyRow } from '../components/EmptyState';
+import Pagination from '../components/Pagination';
+import { adminPinnedPaginationStyle } from '../components/adminTableUtils';
 import {
   fetchAdminSearchRequests,
   fetchCctvCoverage,
@@ -15,10 +17,19 @@ export function CctvSourceView() {
   const [coverage, setCoverage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  // fetchCctvCoverage()가 페이지 파라미터 없이 전체를 한 번에 내려줘서
+  // 클라이언트에서 자른다. 요청대로 10줄.
+  const REGION_PER_PAGE = 10;
+  const [regionPage, setRegionPage] = useState(1);
 
   const [days, setDays] = useState([]);
   const [daysLoading, setDaysLoading] = useState(true);
   const [daysError, setDaysError] = useState('');
+  // 촬영일자·영상수·지역수·등록시각 5개 열짜리 단순 텍스트 행이라 20줄로도
+  // 화면이 헐렁하지 않다.
+  const DAYS_PER_PAGE = 20;
+  const [daysPage, setDaysPage] = useState(1);
+  const [daysTotal, setDaysTotal] = useState(0);
   const [retryDate, setRetryDate] = useState('');
   const [retrying, setRetrying] = useState(false);
   const [retryMessage, setRetryMessage] = useState('');
@@ -51,8 +62,12 @@ export function CctvSourceView() {
     setDaysLoading(true);
     setDaysError('');
     try {
-      const data = await fetchVideoDailySummary({ page: 1, per_page: 20 });
+      const data = await fetchVideoDailySummary({
+        page: daysPage,
+        per_page: DAYS_PER_PAGE,
+      });
       setDays(data.items ?? []);
+      setDaysTotal(data.total ?? 0);
     } catch (err) {
       setDaysError(
         err?.response?.status === 403
@@ -62,7 +77,7 @@ export function CctvSourceView() {
     } finally {
       setDaysLoading(false);
     }
-  }, []);
+  }, [daysPage]);
 
   useEffect(() => {
     if (tab === 'daily') loadDays();
@@ -95,6 +110,11 @@ export function CctvSourceView() {
 
   const items = coverage?.items ?? [];
   const summaryData = coverage?.summary;
+  const regionTotalPages = Math.max(1, Math.ceil(items.length / REGION_PER_PAGE));
+  const pagedRegionItems = items.slice(
+    (regionPage - 1) * REGION_PER_PAGE,
+    regionPage * REGION_PER_PAGE,
+  );
 
   const summary = (
     <div className="admin-stat-grid">
@@ -133,7 +153,7 @@ export function CctvSourceView() {
           ) : items.length === 0 ? (
             <TableEmptyRow colSpan={4} message="수집된 영상이 없습니다." />
           ) : (
-            items.map((item) => (
+            pagedRegionItems.map((item) => (
               <tr key={item.region_code}>
                 <td>{item.region_name ?? item.region_code}</td>
                 <td>{item.cctv_count}</td>
@@ -161,6 +181,8 @@ export function CctvSourceView() {
           timeStyle: 'medium',
         })
       : '-';
+
+  const daysTotalPages = Math.max(1, Math.ceil(daysTotal / DAYS_PER_PAGE));
 
   const dailyTable = (
     <div className="admin-card admin-table-wrap">
@@ -227,7 +249,16 @@ export function CctvSourceView() {
         </button>
       </div>
       {tab === 'region' ? (
-        regionTable
+        <div style={adminPinnedPaginationStyle(REGION_PER_PAGE)}>
+          {regionTable}
+          <Pagination
+            page={regionPage}
+            totalPages={regionTotalPages}
+            total={items.length}
+            onPageChange={setRegionPage}
+            loading={loading}
+          />
+        </div>
       ) : (
         <>
           <div className="admin-toolbar">
@@ -248,7 +279,16 @@ export function CctvSourceView() {
             </button>
           </div>
           {retryMessage && <p className="admin-footnote">{retryMessage}</p>}
-          {dailyTable}
+          <div style={adminPinnedPaginationStyle(DAYS_PER_PAGE)}>
+            {dailyTable}
+            <Pagination
+              page={daysPage}
+              totalPages={daysTotalPages}
+              total={daysTotal}
+              onPageChange={setDaysPage}
+              loading={daysLoading}
+            />
+          </div>
           <p className="admin-footnote">
             ※ 별도 작업 기록 테이블 없이 Video 테이블을 촬영일자 기준으로 집계한
             표라, 그 날 시도했지만 전부 실패했거나 건너뛴 영상은 여기 안
@@ -377,7 +417,8 @@ export function SearchRequestsView() {
           검색
         </button>
       </div>
-      <div className="admin-card admin-table-wrap">
+      <div style={adminPinnedPaginationStyle(PER_PAGE)}>
+        <div className="admin-card admin-table-wrap">
         <table>
           <thead>
             <tr>
@@ -433,32 +474,14 @@ export function SearchRequestsView() {
         </table>
       </div>
 
-      {total > 0 && (
-        <div
-          className="admin-toolbar"
-          style={{ justifyContent: 'center', marginTop: 12 }}
-        >
-          <button
-            type="button"
-            className="admin-btn"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page <= 1 || loading}
-          >
-            이전
-          </button>
-          <span className="admin-pill admin-pill--muted">
-            {page} / {totalPages} (총 {total}건)
-          </span>
-          <button
-            type="button"
-            className="admin-btn"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page >= totalPages || loading}
-          >
-            다음
-          </button>
-        </div>
-      )}
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        onPageChange={setPage}
+        loading={loading}
+      />
+      </div>
 
       <p className="admin-footnote">
         ※ <code>search</code> 테이블의 요청 이력입니다.

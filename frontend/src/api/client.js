@@ -783,14 +783,20 @@ export const updateMissingPersonCaseNotes = async (caseId, notes) => {
 
 export const exportStats = async (payload) => {
   try {
+    // 백엔드 ExportFileFormat은 Literal["csv","png","zip"] — 소문자만
+    // 허용한다(Pydantic Literal은 대소문자까지 정확히 일치해야 통과).
+    // 예전엔 여기서 무조건 대문자 'CSV'로 덮어써서 항상 422가 났고, 그다음엔
+    // 무조건 소문자 'csv'로 고정돼 있어서 UI의 형식(PNG/ZIP) 선택이 반영되지
+    // 않았다 — 이제 호출한 쪽(StatsViews)이 고른 값을 그대로 쓴다.
     const response = await client.post(
       `${STATS_BASE_URL}/export`,
-      { ...payload, file_format: 'CSV' },
+      { ...payload, file_format: (payload.file_format || 'csv').toLowerCase() },
       { responseType: 'blob' },
     );
     const disposition = response.headers?.['content-disposition'] ?? '';
     const match = String(disposition).match(/filename="([^"]+)"/);
-    const filename = match?.[1] ?? 'statistics.csv';
+    const fallbackExt = (payload.file_format || 'csv').toLowerCase();
+    const filename = match?.[1] ?? `statistics.${fallbackExt}`;
     saveBlobDownload(response.data, filename);
   } catch (error) {
     throw new Error(

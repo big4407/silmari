@@ -4,16 +4,47 @@
  * 하위: AdminViewPage (:viewId) — 회원·메시지·검색운영·감사 등
  */
 import { useState, useEffect } from 'react';
-import { Link, NavLink, Outlet } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { NAV } from './navConfig';
 import { fetchUsers } from '../../api/client';
 import useLogout from '../../hooks/useLogout';
 import './AdminLayout.css';
 
 export default function AdminLayout() {
-  const [collapsed, setCollapsed] = useState(() =>
-    Object.fromEntries(NAV.map((node, i) => [node.group || node.id, i > 3])),
-  );
+  const location = useLocation();
+
+  // 현재 URL(/admin/:viewId)이 속한 그룹 key(node.group)를 찾는다 — 새로고침
+  // 하거나 다른 그룹의 메뉴로 이동해도 지금 보고 있는 페이지의 그룹은 항상
+  // 펼쳐진 채로 보이게 하기 위함. 없으면 null.
+  const activeGroupKey = (() => {
+    const viewId = location.pathname.split('/admin/')[1]?.split('/')[0];
+    if (!viewId) return null;
+    const node = NAV.find(
+      (n) => !n.solo && n.items.some((it) => it.id === viewId),
+    );
+    return node?.group ?? null;
+  })();
+
+  const [collapsed, setCollapsed] = useState(() => {
+    const initial = Object.fromEntries(
+      NAV.map((node, i) => [node.group || node.id, i > 3]),
+    );
+    // 기본 규칙(4번째 그룹부터 접힘)보다, 지금 보고 있는 페이지의 그룹을
+    // 펼쳐두는 게 우선이다.
+    if (activeGroupKey) initial[activeGroupKey] = false;
+    return initial;
+  });
+
+  // 새로고침이 아니라 사이드바 클릭 없이 다른 그룹의 페이지로 SPA 이동한
+  // 경우(예: 링크를 통해 들어온 경우)에도 그 그룹이 접혀있으면 펼친다.
+  // 사용자가 수동으로 다른 그룹을 접어둔 상태는 건드리지 않는다.
+  useEffect(() => {
+    if (!activeGroupKey) return;
+    setCollapsed((prev) =>
+      prev[activeGroupKey] ? { ...prev, [activeGroupKey]: false } : prev,
+    );
+  }, [activeGroupKey]);
+
   const { doLogout, loading } = useLogout();
   const [pendingCount, setPendingCount] = useState(0);
 

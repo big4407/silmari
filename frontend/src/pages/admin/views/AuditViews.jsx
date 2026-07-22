@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import PageHead from '../components/PageHead';
 import { StatValue, TableEmptyRow } from '../components/EmptyState';
+import Pagination from '../components/Pagination';
+import { adminPinnedPaginationStyle } from '../components/adminTableUtils';
 import {
   fetchLoginHistory,
   LOGIN_FAIL_LABELS,
@@ -21,7 +23,7 @@ export function AuditAdminView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const PER_PAGE = 10;
+  const PER_PAGE = 15; // 관리자 활동 이력 — 요청대로 15줄
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -120,7 +122,8 @@ export function AuditAdminView() {
           검색
         </button>
       </div>
-      <div className="admin-card admin-table-wrap">
+      <div style={adminPinnedPaginationStyle(PER_PAGE)}>
+        <div className="admin-card admin-table-wrap">
         <table>
           <thead>
             <tr>
@@ -174,32 +177,14 @@ export function AuditAdminView() {
         </table>
       </div>
 
-      {total > 0 && (
-        <div
-          className="admin-toolbar"
-          style={{ justifyContent: 'center', marginTop: 12 }}
-        >
-          <button
-            type="button"
-            className="admin-btn"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page <= 1 || loading}
-          >
-            이전
-          </button>
-          <span className="admin-pill admin-pill--muted">
-            {page} / {totalPages} (총 {total}건)
-          </span>
-          <button
-            type="button"
-            className="admin-btn"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page >= totalPages || loading}
-          >
-            다음
-          </button>
-        </div>
-      )}
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        onPageChange={setPage}
+        loading={loading}
+      />
+      </div>
 
       <p className="admin-footnote">
         ※ <code>admin_history</code> 테이블 기록입니다. 가입 승인·권한 변경은
@@ -218,7 +203,7 @@ export function AuditApprovalView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const PER_PAGE = 10;
+  const PER_PAGE = 15; // 승인·권한변경 이력 — 요청대로 15줄
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -299,7 +284,8 @@ export function AuditApprovalView() {
           검색
         </button>
       </div>
-      <div className="admin-card admin-table-wrap">
+      <div style={adminPinnedPaginationStyle(PER_PAGE)}>
+        <div className="admin-card admin-table-wrap">
         <table>
           <thead>
             <tr>
@@ -346,32 +332,14 @@ export function AuditApprovalView() {
         </table>
       </div>
 
-      {total > 0 && (
-        <div
-          className="admin-toolbar"
-          style={{ justifyContent: 'center', marginTop: 12 }}
-        >
-          <button
-            type="button"
-            className="admin-btn"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page <= 1 || loading}
-          >
-            이전
-          </button>
-          <span className="admin-pill admin-pill--muted">
-            {page} / {totalPages} (총 {total}건)
-          </span>
-          <button
-            type="button"
-            className="admin-btn"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page >= totalPages || loading}
-          >
-            다음
-          </button>
-        </div>
-      )}
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        onPageChange={setPage}
+        loading={loading}
+      />
+      </div>
 
       <p className="admin-footnote">
         ※ 승인·반려·정지·재승인이 <code>admin_history</code> 에 기록됩니다. 변경
@@ -392,7 +360,7 @@ export function AuditLoginView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const PER_PAGE = 10;
+  const PER_PAGE = 10; // 로그인·접근 이력 — 요청대로 10줄
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -480,7 +448,8 @@ export function AuditLoginView() {
         </button>
       </div>
 
-      <div className="admin-card admin-table-wrap">
+      <div style={adminPinnedPaginationStyle(PER_PAGE)}>
+        <div className="admin-card admin-table-wrap">
         <table>
           <thead>
             <tr>
@@ -532,32 +501,14 @@ export function AuditLoginView() {
         </table>
       </div>
 
-      {total > 0 && (
-        <div
-          className="admin-toolbar"
-          style={{ justifyContent: 'center', marginTop: 12 }}
-        >
-          <button
-            type="button"
-            className="admin-btn"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page <= 1 || loading}
-          >
-            이전
-          </button>
-          <span className="admin-pill admin-pill--muted">
-            {page} / {totalPages} (총 {total}건)
-          </span>
-          <button
-            type="button"
-            className="admin-btn"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page >= totalPages || loading}
-          >
-            다음
-          </button>
-        </div>
-      )}
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        onPageChange={setPage}
+        loading={loading}
+      />
+      </div>
 
       <p className="admin-footnote">
         ※ 로그인 성공·실패가 <code>login_history</code> 에 기록됩니다. 같은

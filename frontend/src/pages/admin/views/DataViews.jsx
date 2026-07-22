@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PageHead from '../components/PageHead';
 import EmptyState, { StatValue, TableEmptyRow } from '../components/EmptyState';
+import Pagination from '../components/Pagination';
+import { adminPinnedPaginationStyle } from '../components/adminTableUtils';
 import {
   ADMIN_ACTION_LABELS,
   deleteRegion,
@@ -779,50 +781,46 @@ export function DataCodesView() {
               !regionError &&
               isSearchMode &&
               searchRows.length > 0 && (
-                <div className="admin-tree">
-                  {searchRows.map((row) => (
-                    <div
-                      key={row.region_code}
-                      className={`admin-tnode admin-tnode--l0 ${
-                        selected?.region_code === row.region_code
-                          ? 'admin-tnode--active'
-                          : ''
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        className="admin-tnode__main"
-                        onClick={() => handleSelect(row)}
+                <div
+                  style={{
+                    minHeight: 32 * 30,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <div className="admin-tree">
+                    {searchRows.map((row) => (
+                      <div
+                        key={row.region_code}
+                        className={`admin-tnode admin-tnode--l0 ${
+                          selected?.region_code === row.region_code
+                            ? 'admin-tnode--active'
+                            : ''
+                        }`}
                       >
-                        <span className="admin-tnode__label">
-                          {row.full_name || row.specific_name}
-                        </span>
-                        <span className="admin-tcode">{row.region_code}</span>
-                      </button>
-                    </div>
-                  ))}
+                        <button
+                          type="button"
+                          className="admin-tnode__main"
+                          onClick={() => handleSelect(row)}
+                        >
+                          <span className="admin-tnode__label">
+                            {row.full_name || row.specific_name}
+                          </span>
+                          <span className="admin-tcode">
+                            {row.region_code}
+                          </span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                   {searchTotal > 30 && (
-                    <div className="admin-pager">
-                      <button
-                        type="button"
-                        className="admin-btn admin-btn--sm"
-                        disabled={searchPage <= 1}
-                        onClick={() => setSearchPage((p) => p - 1)}
-                      >
-                        이전
-                      </button>
-                      <span>
-                        {searchPage} / {searchPages} ({searchTotal}건)
-                      </span>
-                      <button
-                        type="button"
-                        className="admin-btn admin-btn--sm"
-                        disabled={searchPage >= searchPages}
-                        onClick={() => setSearchPage((p) => p + 1)}
-                      >
-                        다음
-                      </button>
-                    </div>
+                    <Pagination
+                      page={searchPage}
+                      totalPages={searchPages}
+                      total={searchTotal}
+                      onPageChange={setSearchPage}
+                    />
                   )}
                 </div>
               )}
@@ -966,21 +964,40 @@ export function DataValidateView() {
   const [reportBusy, setReportBusy] = useState(false);
   const [targetFilter, setTargetFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  // 검사 항목(displayedChecks)은 result.checks 전체를 한 번에 받아와 클라이언트
+  // 에서 필터링·페이지네이션한다. 요청대로 10줄.
+  const CHECKS_PER_PAGE = 10;
+  const [checksPage, setChecksPage] = useState(1);
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  // 일시·변경내용·실행자 3개 열짜리 단순 텍스트 행이라 20줄로도 무난하다.
+  const HISTORY_PER_PAGE = 5; // 요청대로 5줄
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyTotal, setHistoryTotal] = useState(0);
   const [detailCheck, setDetailCheck] = useState(null);
 
+  // historyLoading은 "과거 검사 결과 불러오기(행 클릭)" 전용 플래그라 재사용하지
+  // 않는다 — 페이지 이동 중에도 historyLoading이 true가 되면 엉뚱한 행에 "…"
+  // 표시가 깜빡인다. 목록 자체를 새로 받아오는 동안엔 별도 플래그를 쓴다.
+  const [historyListLoading, setHistoryListLoading] = useState(false);
+
   const loadHistory = useCallback(async () => {
+    setHistoryListLoading(true);
     try {
       const data = await fetchAdminHistory({
         target_type: 'integrity_check',
-        per_page: 10,
+        page: historyPage,
+        per_page: HISTORY_PER_PAGE,
       });
       setHistory(data.items ?? []);
+      setHistoryTotal(data.total ?? 0);
     } catch {
       setHistory([]);
+      setHistoryTotal(0);
+    } finally {
+      setHistoryListLoading(false);
     }
-  }, []);
+  }, [historyPage]);
 
   const loadLastRun = useCallback(async () => {
     try {
@@ -1028,6 +1045,19 @@ export function DataValidateView() {
     });
   }, [result, targetFilter, statusFilter]);
 
+  useEffect(() => {
+    setChecksPage(1);
+  }, [result, targetFilter, statusFilter]);
+
+  const checksTotalPages = Math.max(
+    1,
+    Math.ceil(displayedChecks.length / CHECKS_PER_PAGE),
+  );
+  const pagedChecks = displayedChecks.slice(
+    (checksPage - 1) * CHECKS_PER_PAGE,
+    checksPage * CHECKS_PER_PAGE,
+  );
+
   const runCheck = async () => {
     setLoading(true);
     setError('');
@@ -1041,13 +1071,8 @@ export function DataValidateView() {
           ? `정합성 검사를 완료했습니다. 이슈 ${data.total_issues}건이 발견되었습니다.`
           : '정합성 검사를 완료했습니다. 이슈가 없습니다.',
       );
+      setHistoryPage(1);
       await loadHistory();
-    } catch (err) {
-      setError(
-        err?.response?.status === 403
-          ? '관리자 권한이 필요합니다.'
-          : '정합성 검사를 실행하지 못했습니다.',
-      );
     } finally {
       setLoading(false);
     }
@@ -1217,7 +1242,8 @@ export function DataValidateView() {
         </div>
       )}
 
-      <div className="admin-card admin-table-wrap">
+      <div style={adminPinnedPaginationStyle(CHECKS_PER_PAGE)}>
+        <div className="admin-card admin-table-wrap">
         <table>
           <thead>
             <tr>
@@ -1246,7 +1272,7 @@ export function DataValidateView() {
                 message="필터 조건에 맞는 검사 항목이 없습니다."
               />
             ) : (
-              displayedChecks.map((row) => {
+              pagedChecks.map((row) => {
                 const fixLink = integrityFixLink(row);
                 return (
                   <tr
@@ -1291,8 +1317,17 @@ export function DataValidateView() {
           </p>
         )}
       </div>
+      <Pagination
+        page={checksPage}
+        totalPages={checksTotalPages}
+        total={displayedChecks.length}
+        onPageChange={setChecksPage}
+        loading={loading}
+      />
+      </div>
 
-      <div className="admin-card admin-table-wrap">
+      <div style={adminPinnedPaginationStyle(HISTORY_PER_PAGE)}>
+        <div className="admin-card admin-table-wrap">
         <div className="admin-card-h">최근 검사 이력 (감사 로그)</div>
         <table>
           <thead>
@@ -1329,6 +1364,14 @@ export function DataValidateView() {
           이력 행을 클릭하면 해당 시점의 검사 결과를 다시 불러옵니다.
         </p>
       </div>
+      <Pagination
+        page={historyPage}
+        totalPages={Math.max(1, Math.ceil(historyTotal / HISTORY_PER_PAGE))}
+        total={historyTotal}
+        onPageChange={setHistoryPage}
+        loading={historyListLoading}
+      />
+      </div>
 
       <IntegrityCheckDetailModal
         open={!!detailCheck}
@@ -1345,7 +1388,16 @@ export function DataRetentionView() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
+  // 보존 정책 자체는 데이터 유형별로 고정된 소수 행이지만, 요청대로 페이징
+  // UI를 통일해서 5줄로 넣는다(전체를 한 번에 받아와 클라이언트에서 자름).
+  const POLICY_PER_PAGE = 5;
+  const [policyPage, setPolicyPage] = useState(1);
   const [history, setHistory] = useState([]);
+  // 일시·변경내용·실행자 3개 열짜리 단순 텍스트 행. 요청대로 5줄.
+  const HISTORY_PER_PAGE = 5;
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [dryRunOpen, setDryRunOpen] = useState(false);
   const [dryRunItems, setDryRunItems] = useState([]);
   const [dryRunTitle, setDryRunTitle] = useState('');
@@ -1359,16 +1411,26 @@ export function DataRetentionView() {
   const [seedError, setSeedError] = useState('');
 
   const loadHistory = useCallback(async () => {
+    setHistoryLoading(true);
     try {
       const data = await fetchAdminHistory({
         target_type: 'retention_policy',
-        per_page: 10,
+        page: historyPage,
+        per_page: HISTORY_PER_PAGE,
       });
       setHistory(data.items ?? []);
+      setHistoryTotal(data.total ?? 0);
     } catch {
       setHistory([]);
+      setHistoryTotal(0);
+    } finally {
+      setHistoryLoading(false);
     }
-  }, []);
+  }, [historyPage]);
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1376,14 +1438,13 @@ export function DataRetentionView() {
     try {
       const data = await fetchRetentionPolicies();
       setRows(data.items ?? []);
-      await loadHistory();
     } catch {
       setError('보존 정책을 불러오지 못했습니다.');
       setRows([]);
     } finally {
       setLoading(false);
     }
-  }, [loadHistory]);
+  }, []);
 
   useEffect(() => {
     load();
@@ -1395,12 +1456,20 @@ export function DataRetentionView() {
     try {
       await seedDefaultRetentionPolicies();
       await load();
+      setHistoryPage(1);
+      await loadHistory();
     } catch {
       setSeedError('기본 정책 생성에 실패했습니다.');
     } finally {
       setSeeding(false);
     }
   };
+
+  const policyTotalPages = Math.max(1, Math.ceil(rows.length / POLICY_PER_PAGE));
+  const pagedRows = rows.slice(
+    (policyPage - 1) * POLICY_PER_PAGE,
+    policyPage * POLICY_PER_PAGE,
+  );
 
   const patchRow = (id, field, value) => {
     setRows((prev) =>
@@ -1424,6 +1493,7 @@ export function DataRetentionView() {
       );
       setRows(data.items ?? []);
       setMessage('보존 정책을 저장했습니다.');
+      setHistoryPage(1);
       await loadHistory();
     } catch {
       setError('정책 저장에 실패했습니다.');
@@ -1461,7 +1531,9 @@ export function DataRetentionView() {
     try {
       const data = await executeRetentionPolicies({ policyId: dryRunPolicyId });
       setExecuteResult(data);
-      await load(); // 목록·건수·이력 다시 불러오기
+      await load(); // 목록·건수 다시 불러오기
+      setHistoryPage(1);
+      await loadHistory(); // 이력 다시 불러오기
     } catch {
       setExecuteError('삭제 실행에 실패했습니다.');
     } finally {
@@ -1545,7 +1617,8 @@ export function DataRetentionView() {
         </div>
       )}
 
-      <div className="admin-card admin-table-wrap">
+      <div style={adminPinnedPaginationStyle(POLICY_PER_PAGE)}>
+        <div className="admin-card admin-table-wrap">
         <div className="admin-card-h">보존 정책</div>
         <table>
           <thead>
@@ -1566,7 +1639,7 @@ export function DataRetentionView() {
             ) : rows.length === 0 ? (
               <TableEmptyRow colSpan={8} message="보존 정책이 없습니다." />
             ) : (
-              rows.map((row) => (
+              pagedRows.map((row) => (
                 <tr
                   key={row.id}
                   className={!row.is_active ? 'admin-row--muted' : undefined}
@@ -1653,8 +1726,17 @@ export function DataRetentionView() {
           </tbody>
         </table>
       </div>
+      <Pagination
+        page={policyPage}
+        totalPages={policyTotalPages}
+        total={rows.length}
+        onPageChange={setPolicyPage}
+        loading={loading}
+      />
+      </div>
 
-      <div className="admin-card admin-table-wrap admin-mt">
+      <div style={adminPinnedPaginationStyle(HISTORY_PER_PAGE)}>
+        <div className="admin-card admin-table-wrap admin-mt">
         <div className="admin-card-h">정책 변경 이력 (감사 로그)</div>
         <table>
           <thead>
@@ -1678,6 +1760,14 @@ export function DataRetentionView() {
             )}
           </tbody>
         </table>
+      </div>
+      <Pagination
+        page={historyPage}
+        totalPages={Math.max(1, Math.ceil(historyTotal / HISTORY_PER_PAGE))}
+        total={historyTotal}
+        onPageChange={setHistoryPage}
+        loading={historyLoading}
+      />
       </div>
 
       <p className="admin-footnote">

@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom';
 
 import PageHead from '../components/PageHead';
 import { TableEmptyRow } from '../components/EmptyState';
+import Pagination from '../components/Pagination';
+import { adminPinnedPaginationStyle } from '../components/adminTableUtils';
 import { SimpleBars } from '../components/SimpleBars';
 import { SimpleLineChart } from '../components/SimpleLineChart';
 import { StatsFilter } from '../components/StatsFilter';
@@ -115,11 +117,29 @@ export function CctvStatsView() {
   const [days, setDays] = useState(90);
   const [region, setRegion] = useState('');
   const range = useMemo(() => recentDateRange(days), [days]);
+  // 백엔드가 by_region 전체를 한 번에 내려줘서 클라이언트에서 자른다.
+  // 요청대로 10줄.
+  const REGION_PER_PAGE = 10;
+  const [regionPage, setRegionPage] = useState(1);
 
   const state = useStatsQuery(
     (signal) =>
       fetchCctvStats({ ...range, region: region || undefined }, signal),
     [range.fromDate, range.toDate, region],
+  );
+
+  useEffect(() => {
+    setRegionPage(1);
+  }, [range.fromDate, range.toDate, region]);
+
+  const byRegion = state.data?.by_region ?? [];
+  const regionTotalPages = Math.max(
+    1,
+    Math.ceil(byRegion.length / REGION_PER_PAGE),
+  );
+  const pagedByRegion = byRegion.slice(
+    (regionPage - 1) * REGION_PER_PAGE,
+    regionPage * REGION_PER_PAGE,
   );
 
   return (
@@ -167,7 +187,8 @@ export function CctvStatsView() {
         />
       </div>
 
-      <div className="admin-card admin-table-wrap">
+      <div style={adminPinnedPaginationStyle(REGION_PER_PAGE)}>
+        <div className="admin-card admin-table-wrap">
         <div className="admin-card-h">지역별 등록 현황</div>
         <table>
           <thead>
@@ -179,8 +200,8 @@ export function CctvStatsView() {
             </tr>
           </thead>
           <tbody>
-            {state.data?.by_region.length ? (
-              state.data.by_region.map((row) => (
+            {pagedByRegion.length ? (
+              pagedByRegion.map((row) => (
                 <tr key={row.region}>
                   <td>{row.region}</td>
                   <td>{row.registered_videos.toLocaleString()}</td>
@@ -193,6 +214,14 @@ export function CctvStatsView() {
             )}
           </tbody>
         </table>
+      </div>
+      <Pagination
+        page={regionPage}
+        totalPages={regionTotalPages}
+        total={byRegion.length}
+        onPageChange={setRegionPage}
+        loading={state.loading}
+      />
       </div>
     </>
   );
@@ -304,10 +333,28 @@ export function SearchStatsView() {
 export function DemographicStatsView() {
   const [days, setDays] = useState(90);
   const range = useMemo(() => recentDateRange(days), [days]);
+  // 백엔드가 by_region 전체를 한 번에 내려줘서 클라이언트에서 자른다.
+  // 요청대로 5줄.
+  const REGION_PER_PAGE = 5;
+  const [regionPage, setRegionPage] = useState(1);
 
   const state = useStatsQuery(
     (signal) => fetchDemographicStats(range, signal),
     [range.fromDate, range.toDate],
+  );
+
+  useEffect(() => {
+    setRegionPage(1);
+  }, [range.fromDate, range.toDate]);
+
+  const byRegion = state.data?.by_region ?? [];
+  const regionTotalPages = Math.max(
+    1,
+    Math.ceil(byRegion.length / REGION_PER_PAGE),
+  );
+  const pagedByRegion = byRegion.slice(
+    (regionPage - 1) * REGION_PER_PAGE,
+    regionPage * REGION_PER_PAGE,
   );
 
   return (
@@ -337,7 +384,8 @@ export function DemographicStatsView() {
         </div>
       </div>
 
-      <div className="admin-card admin-table-wrap stats-region-table admin-mt">
+      <div style={adminPinnedPaginationStyle(REGION_PER_PAGE)}>
+        <div className="admin-card admin-table-wrap stats-region-table admin-mt">
         <div className="admin-card-h">지역별 처리 현황</div>
         <table>
           <thead>
@@ -349,8 +397,8 @@ export function DemographicStatsView() {
             </tr>
           </thead>
           <tbody>
-            {state.data?.by_region.length ? (
-              state.data.by_region.map((row) => (
+            {pagedByRegion.length ? (
+              pagedByRegion.map((row) => (
                 <tr key={row.region}>
                   <td>{row.region}</td>
                   <td>{row.search_requests.toLocaleString()}</td>
@@ -364,6 +412,14 @@ export function DemographicStatsView() {
           </tbody>
         </table>
       </div>
+      <Pagination
+        page={regionPage}
+        totalPages={regionTotalPages}
+        total={byRegion.length}
+        onPageChange={setRegionPage}
+        loading={state.loading}
+      />
+      </div>
     </>
   );
 }
@@ -372,11 +428,42 @@ export function OutcomeStatsView() {
   const [days, setDays] = useState(90);
   const [region, setRegion] = useState('');
   const range = useMemo(() => recentDateRange(days), [days]);
+  // 백엔드가 by_region/recent_cases 전체를 한 번에 내려줘서 클라이언트에서
+  // 자른다. 요청대로 둘 다 5줄.
+  const REGION_PER_PAGE = 5;
+  const [regionPage, setRegionPage] = useState(1);
+  const CASES_PER_PAGE = 5;
+  const [casesPage, setCasesPage] = useState(1);
 
   const state = useStatsQuery(
     (signal) =>
       fetchOutcomeStats({ ...range, region: region || undefined }, signal),
     [range.fromDate, range.toDate, region],
+  );
+
+  useEffect(() => {
+    setRegionPage(1);
+    setCasesPage(1);
+  }, [range.fromDate, range.toDate, region]);
+
+  const byRegion = state.data?.by_region ?? [];
+  const regionTotalPages = Math.max(
+    1,
+    Math.ceil(byRegion.length / REGION_PER_PAGE),
+  );
+  const pagedByRegion = byRegion.slice(
+    (regionPage - 1) * REGION_PER_PAGE,
+    regionPage * REGION_PER_PAGE,
+  );
+
+  const recentCases = state.data?.recent_cases ?? [];
+  const casesTotalPages = Math.max(
+    1,
+    Math.ceil(recentCases.length / CASES_PER_PAGE),
+  );
+  const pagedCases = recentCases.slice(
+    (casesPage - 1) * CASES_PER_PAGE,
+    casesPage * CASES_PER_PAGE,
   );
 
   return (
@@ -426,7 +513,8 @@ export function OutcomeStatsView() {
         />
       </div>
 
-      <div className="admin-card admin-table-wrap admin-mb">
+      <div style={adminPinnedPaginationStyle(REGION_PER_PAGE)}>
+        <div className="admin-card admin-table-wrap admin-mb">
         <div className="admin-card-h">지역별 처리 현황</div>
         <table>
           <thead>
@@ -438,8 +526,8 @@ export function OutcomeStatsView() {
             </tr>
           </thead>
           <tbody>
-            {state.data?.by_region.length ? (
-              state.data.by_region.map((row) => (
+            {pagedByRegion.length ? (
+              pagedByRegion.map((row) => (
                 <tr key={row.region}>
                   <td>{row.region}</td>
                   <td>{row.total_cases.toLocaleString()}</td>
@@ -453,8 +541,17 @@ export function OutcomeStatsView() {
           </tbody>
         </table>
       </div>
+      <Pagination
+        page={regionPage}
+        totalPages={regionTotalPages}
+        total={byRegion.length}
+        onPageChange={setRegionPage}
+        loading={state.loading}
+      />
+      </div>
 
-      <div className="admin-card admin-table-wrap">
+      <div style={adminPinnedPaginationStyle(CASES_PER_PAGE)}>
+        <div className="admin-card admin-table-wrap">
         <div className="admin-card-h">
           최근 케이스
           <Link to="/dashboard/cases" className="admin-card-h__link">
@@ -476,8 +573,8 @@ export function OutcomeStatsView() {
             </tr>
           </thead>
           <tbody>
-            {state.data?.recent_cases.length ? (
-              state.data.recent_cases.map((row) => (
+            {pagedCases.length ? (
+              pagedCases.map((row) => (
                 <tr key={row.id}>
                   <td>{row.sn}</td>
                   <td>{row.missing_name ?? '-'}</td>
@@ -519,6 +616,14 @@ export function OutcomeStatsView() {
           </tbody>
         </table>
       </div>
+      <Pagination
+        page={casesPage}
+        totalPages={casesTotalPages}
+        total={recentCases.length}
+        onPageChange={setCasesPage}
+        loading={state.loading}
+      />
+      </div>
     </>
   );
 }
@@ -532,8 +637,22 @@ export function StatsExportView() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [error, setError] = useState('');
   const [fileFormat, setFileFormat] = useState('csv');
+  // 백엔드 /stats/exports가 page 파라미터 없이 limit(기본 50)만 지원해서,
+  // 받아온 목록을 클라이언트에서 잘라 페이지네이션한다. 요청대로 10줄.
+  const LOGS_PER_PAGE = 10;
+  const [logsPage, setLogsPage] = useState(1);
 
   const logs = useStatsQuery((signal) => fetchExportLogs(signal), [refreshKey]);
+  const logsTotal = logs.data?.length ?? 0;
+  const logsTotalPages = Math.max(1, Math.ceil(logsTotal / LOGS_PER_PAGE));
+  const pagedLogs = (logs.data ?? []).slice(
+    (logsPage - 1) * LOGS_PER_PAGE,
+    logsPage * LOGS_PER_PAGE,
+  );
+
+  useEffect(() => {
+    setLogsPage(1);
+  }, [refreshKey]);
 
   async function handleExport() {
     setExporting(true);
@@ -544,6 +663,7 @@ export function StatsExportView() {
         stat_type: statType,
         from_date: fromDate,
         to_date: toDate,
+        file_format: fileFormat,
       });
       setRefreshKey((value) => value + 1);
     } catch (caughtError) {
@@ -630,7 +750,8 @@ export function StatsExportView() {
         </div>
       </div>
 
-      <div className="admin-card admin-table-wrap">
+      <div style={adminPinnedPaginationStyle(LOGS_PER_PAGE)}>
+        <div className="admin-card admin-table-wrap">
         <div className="admin-card-h">최근 내보내기</div>
         <table>
           <thead>
@@ -644,8 +765,8 @@ export function StatsExportView() {
             </tr>
           </thead>
           <tbody>
-            {logs.data?.length ? (
-              logs.data.map((row) => (
+            {pagedLogs.length ? (
+              pagedLogs.map((row) => (
                 <tr key={row.id}>
                   <td>{formatDateTime(row.created_at)}</td>
                   <td>{STAT_TYPE_LABELS[row.stat_type] ?? row.stat_type}</td>
@@ -662,6 +783,14 @@ export function StatsExportView() {
             )}
           </tbody>
         </table>
+      </div>
+      <Pagination
+        page={logsPage}
+        totalPages={logsTotalPages}
+        total={logsTotal}
+        onPageChange={setLogsPage}
+        loading={logs.loading}
+      />
       </div>
     </>
   );

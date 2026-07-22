@@ -1,13 +1,16 @@
 /** 안내문자 관리 뷰 — 목록·인상착의 파싱 검수 (목 UI) */
 import PageHead from '../components/PageHead';
 import EmptyState, { TableEmptyRow } from '../components/EmptyState';
+import Pagination from '../components/Pagination';
+import { adminPinnedPaginationStyle } from '../components/adminTableUtils';
 import { ReportRow } from '../components/MessageBody';
 import { useState, useEffect } from 'react';
 import { getMessageList } from '../../../api/client';
 
 // 문자 목록을 보여주는 함수
 export function ReportsView() {
-  const PAGE_SIZE = 10; // 한 페이지에 보여줄 문자 수
+  const PAGE_SIZE = 10; // 한 페이지에 보여줄 문자 수 — 행이 4개 열(SN/일시/지역/
+  // 내용 미리보기)에 내용 칸이 길어질 수 있는 텍스트 위주 행이라 10줄 유지
   const [reports, setReports] = useState([]);
   const [page, setPage] = useState(1); // 현재 페이지
   const [total, setTotal] = useState(0); // 총 문자 수
@@ -38,37 +41,6 @@ export function ReportsView() {
   };
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
-
-  // 실제로 보일 페이지 배열을 계산하는 함수, 첫 페이지와 마지막 페이지는 항상 보이므로 그 외만 처리
-  const getPageNumbers = () => {
-    const maxVisible = 5; // 가운데 보일 페이지 수, 이외의 페이지는 ... 처리
-
-    let start = Math.max(1, page - Math.floor(maxVisible / 2));
-    let end = start + maxVisible - 1;
-
-    if (end > totalPages) {
-      end = totalPages;
-      start = Math.max(1, end - maxVisible + 1);
-    }
-
-    return Array.from({ length: end - start + 1 }, (_, index) => start + index);
-  };
-
-  const pageNumbers = getPageNumbers();
-
-  const renderPageButton = (
-    pageNumber,
-    paginationButtonClass = 'admin-btn',
-  ) => (
-    <button
-      key={pageNumber}
-      type="button"
-      className={paginationButtonClass}
-      onClick={() => setPage(pageNumber)}
-    >
-      {pageNumber}
-    </button>
-  );
 
   useEffect(() => {
     async function fetchReports() {
@@ -146,7 +118,8 @@ export function ReportsView() {
         </select>
       </form>
 
-      <div className="admin-card admin-table-wrap">
+      <div style={adminPinnedPaginationStyle(PAGE_SIZE)}>
+        <div className="admin-card admin-table-wrap">
         <table>
           <thead>
             <tr>
@@ -168,47 +141,12 @@ export function ReportsView() {
         </table>
       </div>
 
-      <div className="admin-pagination">
-        <button
-          className="admin-btn"
-          type="button"
-          disabled={page === 1}
-          onClick={() => setPage((prev) => prev - 1)}
-        >
-          이전
-        </button>
-
-        {pageNumbers[0] > 1 && (
-          <>
-            {renderPageButton(1)}
-            {pageNumbers[0] > 2 && <span>...</span>}
-          </>
-        )}
-
-        {pageNumbers.map((pageNumber) =>
-          renderPageButton(
-            pageNumber,
-            page === pageNumber ? 'admin-btn admin-btn--primary' : 'admin-btn',
-          ),
-        )}
-
-        {pageNumbers[pageNumbers.length - 1] < totalPages && (
-          <>
-            {pageNumbers[pageNumbers.length - 1] < totalPages - 1 && (
-              <span>...</span>
-            )}
-            {renderPageButton(totalPages)}
-          </>
-        )}
-
-        <button
-          className="admin-btn"
-          type="button"
-          disabled={page === totalPages || totalPages === 0}
-          onClick={() => setPage((prev) => prev + 1)}
-        >
-          다음
-        </button>
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        onPageChange={setPage}
+      />
       </div>
 
       <p className="admin-footnote">

@@ -26,8 +26,16 @@ class StatsChartService:
         self.repository = repository or StatsRepository(db)
         self.service = service or StatsService(db, self.repository)
 
-        # 한글 폰트 설정 (Windows 기준)
-        plt.rcParams["font.family"] = "Malgun Gothic"
+        # 한글 폰트 설정 — 첫 번째로 실제 설치된 폰트를 matplotlib이 자동으로
+        # 골라 쓴다. Malgun Gothic은 Windows 전용이라 Docker(Linux) 이미지엔
+        # 없다 — 그대로 두면 한글이 전부 빈 네모(□)로 깨진다. NanumGothic은
+        # backend/Dockerfile에서 fonts-nanum 패키지로 설치해둔다.
+        plt.rcParams["font.family"] = [
+            "Malgun Gothic",
+            "NanumGothic",
+            "AppleGothic",
+            "DejaVu Sans",
+        ]
         plt.rcParams["axes.unicode_minus"] = False
 
     @staticmethod

@@ -75,16 +75,21 @@ def export_stats(
     admin: User = Depends(require_roles(UserRole.ADMIN)),
     db: Session = Depends(get_db),
 ):
-    filename, content, _ = StatsExportService(db).build(
+    # build()는 (filename, content, media_type, row_count) 4개를 반환한다.
+    # content는 이미 bytes(_csv_content/_png_content/_zip_content가 각각
+    # utf-8-sig/PNG/ZIP 바이너리로 인코딩해서 돌려줌) — 여기서 다시
+    # .encode()하면 안 된다(bytes엔 encode가 없어 AttributeError). media_type도
+    # 포맷별로 다르므로(text/csv, image/png, application/zip) 하드코딩하지
+    # 않고 그대로 써야 PNG/ZIP 응답이 올바른 Content-Type으로 내려간다.
+    filename, content, media_type, _ = StatsExportService(db).build(
         payload,
         actor_id=admin.id,
         actor_name=admin.full_name or admin.username,
     )
 
-    encoded = content.encode("utf-8")
     return StreamingResponse(
-        iter([encoded]),
-        media_type="text/csv; charset=utf-8",
+        iter([content]),
+        media_type=media_type,
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 

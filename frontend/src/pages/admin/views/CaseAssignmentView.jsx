@@ -7,6 +7,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import PageHead from '../components/PageHead';
 import { TableEmptyRow } from '../components/EmptyState';
+import Pagination from '../components/Pagination';
+import { adminPinnedPaginationStyle } from '../components/adminTableUtils';
 import {
   assignMissingPersonCase,
   fetchApprovedInvestigators,
@@ -136,7 +138,8 @@ export function CaseAssignmentView() {
 
       {actionError && <p className="admin-modal__error">{actionError}</p>}
 
-      <div className="admin-card admin-table-wrap">
+      <div style={adminPinnedPaginationStyle(PER_PAGE)}>
+        <div className="admin-card admin-table-wrap">
         <table>
           <thead>
             <tr>
@@ -246,29 +249,14 @@ export function CaseAssignmentView() {
         </table>
       </div>
 
-      {total > 0 && (
-        <div className="admin-toolbar" style={{ justifyContent: 'center', marginTop: 12 }}>
-          <button
-            type="button"
-            className="admin-btn"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page <= 1 || loading}
-          >
-            이전
-          </button>
-          <span className="admin-pill admin-pill--muted">
-            {page} / {totalPages} (총 {total}건)
-          </span>
-          <button
-            type="button"
-            className="admin-btn"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page >= totalPages || loading}
-          >
-            다음
-          </button>
-        </div>
-      )}
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        onPageChange={setPage}
+        loading={loading}
+      />
+      </div>
 
       <p className="admin-footnote">
         ※ 대기 상태 케이스만 담당자를 배정할 수 있습니다. 완료 처리는 되돌릴 수 없습니다.

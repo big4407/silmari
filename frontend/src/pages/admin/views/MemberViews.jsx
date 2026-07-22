@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import PageHead from '../components/PageHead';
 import { TableEmptyRow } from '../components/EmptyState';
+import Pagination from '../components/Pagination';
+import { adminPinnedPaginationStyle } from '../components/adminTableUtils';
 import {
   fetchUsers,
   updateApproval,
@@ -23,6 +25,11 @@ export function MembersPendingView() {
   const [selectedRoles, setSelectedRoles] = useState({});
   const [keyword, setKeyword] = useState('');
   const [busy, setBusy] = useState(false);
+  // 이 API는 page/limit 파라미터가 없어 전체를 한 번에 받아와 클라이언트에서
+  // 필터링하고 있다 — 페이징도 같은 방식(클라이언트에서 자르기)으로 넣는다.
+  // 체크박스+역할 선택 드롭다운까지 있는 행이라 한눈에 검토하기 좋게 10줄.
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
 
   const roleFor = useCallback(
     (u) => selectedRoles[u.id] ?? u.requested_role,
@@ -67,6 +74,13 @@ export function MembersPendingView() {
         .some((v) => v.toLowerCase().includes(k)),
     );
   }, [rows, keyword]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [keyword, rows]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const allChecked = filtered.length > 0 && selected.size === filtered.length;
 
@@ -162,7 +176,8 @@ export function MembersPendingView() {
           선택 승인{selected.size > 0 ? ` (${selected.size})` : ''}
         </button>
       </div>
-      <div className="admin-card admin-table-wrap">
+      <div style={adminPinnedPaginationStyle(PAGE_SIZE)}>
+        <div className="admin-card admin-table-wrap">
         <table>
           <thead>
             <tr>
@@ -195,7 +210,7 @@ export function MembersPendingView() {
                 message="승인 대기 중인 신청이 없습니다."
               />
             ) : (
-              filtered.map((u) => (
+              pageRows.map((u) => (
                 <tr key={u.id}>
                   <td>
                     <input
@@ -245,6 +260,14 @@ export function MembersPendingView() {
           </tbody>
         </table>
       </div>
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={filtered.length}
+        onPageChange={setPage}
+        loading={loading}
+      />
+      </div>
     </>
   );
 }
@@ -259,6 +282,10 @@ export function MembersAllView() {
   const [keyword, setKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState(''); // '' = 전체
   const [busy, setBusy] = useState(false);
+  // 여기도 이 API가 page/limit이 없어 전체를 받아와 클라이언트에서 자른다.
+  // 텍스트 위주 + 버튼 하나뿐인 단순한 행이라 20줄로도 무난하다.
+  const PAGE_SIZE = 20;
+  const [page, setPage] = useState(1);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -290,6 +317,13 @@ export function MembersAllView() {
         .some((v) => v.toLowerCase().includes(k)),
     );
   }, [rows, keyword]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [keyword, statusFilter, rows]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const suspend = async (id) => {
     const reason = window.prompt('정지 사유를 입력하세요 (선택):', '') ?? '';
@@ -355,7 +389,8 @@ export function MembersAllView() {
         </select>
         <div className="admin-spacer" />
       </div>
-      <div className="admin-card admin-table-wrap">
+      <div style={adminPinnedPaginationStyle(PAGE_SIZE)}>
+        <div className="admin-card admin-table-wrap">
         <table>
           <thead>
             <tr>
@@ -377,7 +412,7 @@ export function MembersAllView() {
             ) : filtered.length === 0 ? (
               <TableEmptyRow colSpan={8} message="회원이 없습니다." />
             ) : (
-              filtered.map((u) => (
+              pageRows.map((u) => (
                 <tr key={u.id}>
                   <td>{u.full_name}</td>
                   <td>{u.username}</td>
@@ -414,6 +449,14 @@ export function MembersAllView() {
             )}
           </tbody>
         </table>
+      </div>
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={filtered.length}
+        onPageChange={setPage}
+        loading={loading}
+      />
       </div>
     </>
   );
