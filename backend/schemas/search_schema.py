@@ -117,6 +117,7 @@ class SearchItem(BaseModel):
     missing_location: str | None
     searched_at: datetime
     search_type: str
+    result_count: int = 0
 
     class Config:
         from_attributes = True

@@ -547,6 +547,17 @@ class Search(Base):
         back_populates="search", cascade="all, delete-orphan"
     )
 
+    @property
+    def result_count(self) -> int:
+        """이 검색으로 나온 매칭 후보(analysis_detail) 총 개수.
+
+        검색 이력 화면에서 "결과 없음"을 표시하려고 추가 — 검색 1건당
+        보통 analysis 1건이지만, 혹시 여러 건이어도 전부 합산한다.
+        find_all()에서 selectinload(Search.analyses)
+        .selectinload(Analysis.details)로 미리 불러와야 N+1 없이 동작한다.
+        """
+        return sum(len(a.details) for a in self.analyses)
+
 
 class Analysis(Base):
     """검색 요청에 대한 분석(실행) 상태."""

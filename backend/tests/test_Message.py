@@ -27,7 +27,7 @@ import string
 from datetime import datetime, timedelta
 
 from backend.db.database import SessionLocal
-from backend.db.models import Message
+from backend.db.models import LlmCall, Message, Search
 from backend.repositories.message_repository import MessageRepository
 from backend.services.missing_person_case_service import MissingPersonCaseService
 
@@ -49,7 +49,7 @@ NAME_SAMPLES = ["김OO", "이OO", "박OO", "최OO", "정OO"]
 GENDER_SAMPLES = ["남", "여"]
 
 TOP_SAMPLES = ["파란색티", "검은색 후드티", "회색 셔츠", "흰색 니트", "빨간색 재킷"]
-BOTTOM_SAMPLES = ["검정바지", "청바지", "베이지색 바지", "회색 츄리닝"]
+BOTTOM_SAMPLES = ["검정바지", "청바지", "베이지색 바지", "회색 바지"]
 SHOE_SAMPLES = ["검정신발", "흰색 운동화", "갈색 구두"]
 HAIR_SAMPLES = ["흰머리", "검은머리", "짧은머리", "긴머리"]
 
@@ -97,7 +97,30 @@ def build_test_message(index: int, region: str, base_dt: datetime) -> dict:
 
 
 def clear_test_messages(db) -> int:
-    """SN이 T로 시작하는(=테스트로 넣은) 데이터만 지운다. 실제 API 수집분은 안 건드림."""
+    """SN이 T로 시작하는(=테스트로 넣은) 데이터만 지운다. 실제 API 수집분은 안 건드림.
+
+    message을 바로 지우면 두 군데서 FK 위반이 난다:
+    1. search.message_sn → message.sn — 테스트 문자로 생성된 검색 요청이 있으면
+       막힌다. Search를 ORM으로(session.delete) 지워야 Search.analyses의
+       cascade="all, delete-orphan"이 Analysis→AnalysisDetail까지 따라가며
+       같이 지워진다(대량 .delete()는 이 cascade를 안 타서 안 됨).
+    2. llm_call.search_id → search.id — 그 검색에 딸린 LLM 호출 이력이 있으면
+       Search를 지우기도 전에 여기서 막힌다. LlmCall은 감사 로그라 지우지
+       않고 search_id만 NULL로 풀어서 "연결된 검색이 삭제됨" 상태로 남긴다.
+    """
+    test_searches = (
+        db.query(Search).filter(Search.message_sn.like("T%")).all()
+    )
+    search_ids = [s.id for s in test_searches]
+
+    if search_ids:
+        db.query(LlmCall).filter(LlmCall.search_id.in_(search_ids)).update(
+            {LlmCall.search_id: None}, synchronize_session=False
+        )
+        for search in test_searches:
+            db.delete(search)
+        db.flush()
+
     deleted = (
         db.query(Message)
         .filter(Message.sn.like("T%"))

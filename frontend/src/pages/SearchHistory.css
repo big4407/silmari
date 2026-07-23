@@ -391,6 +391,18 @@
   color: #fff;
 }
 
+/* 결과 0건 — 파란 강조 대신 회색 톤으로 눈에 덜 띄게, 클릭은 그대로 가능
+   (검색 조건 자체는 확인할 수 있어야 하니 버튼 자체를 없애진 않는다) */
+.search-history__view-btn--empty {
+  border-color: #cbd5e1;
+  color: #64748b;
+}
+
+.search-history__view-btn--empty:hover {
+  background: #64748b;
+  color: #fff;
+}
+
 @media (max-width: 960px) {
   .search-history__toolbar {
     flex-wrap: wrap;

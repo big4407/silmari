@@ -103,14 +103,24 @@ def _distribute_videos(
     sample_videos: list[Path],
     max_per_folder: int,
     rng: random.Random,
+    min_per_folder: int = 0,
 ) -> dict:
-    """folders 각각에 0~max_per_folder개의 샘플 영상을 무작위로 복사한다.
+    """folders 각각에 min_per_folder~max_per_folder개의 샘플 영상을 무작위로 복사한다.
 
     이미 영상이 있는 폴더는 건드리지 않고 건너뛴다(중복 배치 방지). 같은 원본
     영상이 서로 다른 폴더에 겹쳐 들어가지 않는다 — 전체 배치 과정에서 한 번
     쓰인 영상은 다시 안 쓴다(테스트할 때 같은 영상이 여러 곳에 나오면
     헷갈리기 때문). 원본 개수보다 필요한 슬롯이 많으면 원본이 소진된 뒤로는
     그냥 빈 채로 남긴다.
+
+    min_per_folder 기본값 0은 "폴더가 아예 빈 채로 남을 수도 있다"는 기존
+    동작 그대로다(실제 CCTV 중 아무것도 안 찍힌 카메라가 있는 것처럼 보이길
+    원하는 일반적인 --from-messages/범위 지정 CLI 사용에 맞음). 반면
+    test_setup_environment.py처럼 "문자로 검색하면 반드시 매칭 결과가 나와야
+    한다"가 목적인 호출부는 min_per_folder=1을 넘겨서 0이 안 나오게 강제해야
+    한다 — 안 그러면 max_per_folder가 작을수록(특히 1일 때 50%) 그 문자의
+    (지역,날짜)에 영상이 하나도 안 들어가 검색 결과가 빈 채로 나오는 문제가
+    생긴다.
     """
     placed = 0
     empty_folders = 0
@@ -128,7 +138,7 @@ def _distribute_videos(
             skipped_existing += 1
             continue
 
-        count = rng.randint(0, max_per_folder)
+        count = rng.randint(min_per_folder, max_per_folder)
         if count == 0:
             empty_folders += 1
             continue
@@ -164,6 +174,7 @@ def place_test_videos(
     base_dir: Path | None = None,
     max_per_folder: int = 3,
     seed: int | None = None,
+    min_per_folder: int = 0,
 ) -> dict:
     """base_dir 밑의 모든 CCTV 리프 폴더에 샘플 영상을 무작위로 배치한다(범위 지정 모드용).
 
@@ -194,7 +205,9 @@ def place_test_videos(
         )
         return empty_result
 
-    result = _distribute_videos(leaf_folders, sample_videos, max_per_folder, rng)
+    result = _distribute_videos(
+        leaf_folders, sample_videos, max_per_folder, rng, min_per_folder
+    )
     print(
         f"[테스트 영상 배치 완료] 대상 폴더 {result['folders']}개 중 "
         f"{result['skipped_existing']}개는 이미 영상이 있어 건너뜀, "
@@ -268,6 +281,7 @@ def setup_test_video_data_from_messages(
     max_per_folder: int = 3,
     seed: int | None = None,
     max_pairs: int | None = 20,
+    min_per_folder: int = 0,
 ) -> dict:
     """Message 테이블에 있는 실제 문자(지역·생성일시) 기준으로만 CCTV 폴더를
     만들고 샘플 영상을 배치한다.
@@ -336,7 +350,9 @@ def setup_test_video_data_from_messages(
         target_folders.extend(p for p in date_dir.glob("*") if p.is_dir())
 
     rng = random.Random(seed)
-    result = _distribute_videos(target_folders, sample_videos, max_per_folder, rng)
+    result = _distribute_videos(
+        target_folders, sample_videos, max_per_folder, rng, min_per_folder
+    )
     result["message_pairs"] = len(pairs)
 
     print(
@@ -363,6 +379,7 @@ def setup_test_video_data(
     max_per_folder: int = 3,
     region_codes: list[str] | None = None,
     seed: int | None = None,
+    min_per_folder: int = 0,
 ) -> dict:
     """CCTV 폴더 생성 + 샘플 영상 배치를 한 번에 실행한다."""
     base_dir = Path(settings.cctv_data_dir)
@@ -378,6 +395,7 @@ def setup_test_video_data(
         base_dir=base_dir,
         max_per_folder=max_per_folder,
         seed=seed,
+        min_per_folder=min_per_folder,
     )
 
 
@@ -419,7 +437,15 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         "--max-per-folder",
         type=int,
         default=3,
-        help="폴더 하나당 최대 배치 개수 (0~이 값 사이에서 무작위, 기본 3)",
+        help="폴더 하나당 최대 배치 개수 (min-per-folder~이 값 사이에서 무작위, 기본 3)",
+    )
+    parser.add_argument(
+        "--min-per-folder",
+        type=int,
+        default=0,
+        help="폴더 하나당 최소 배치 개수(기본 0 — 폴더가 빈 채로 남을 수도 있음). "
+        "1 이상을 주면 그 폴더의 (지역,날짜)로 검색했을 때 매칭 결과가 아예 "
+        "없는 경우를 없앨 수 있다",
     )
     parser.add_argument(
         "--max-pairs",
@@ -446,6 +472,7 @@ if __name__ == "__main__":
             max_per_folder=args.max_per_folder,
             seed=args.seed,
             max_pairs=args.max_pairs if args.max_pairs > 0 else None,
+            min_per_folder=args.min_per_folder,
         )
     else:
         if not args.start_date or not args.end_date:
@@ -463,4 +490,5 @@ if __name__ == "__main__":
             max_per_folder=args.max_per_folder,
             region_codes=args.region_codes,
             seed=args.seed,
+            min_per_folder=args.min_per_folder,
         )

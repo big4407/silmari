@@ -204,6 +204,10 @@ def setup_test_environment(
 
     print("\n[2/3] Message 기반 CCTV 폴더 생성 + 영상 배치 (test_place_videos)")
     # 폴더당 정확히 1개만 배치 — 인덱싱할 영상 개수를 처음부터 예측 가능하게 한다.
+    # min_per_folder=1을 반드시 같이 줘야 한다 — max_per_folder=1만 주면
+    # _distribute_videos가 매 폴더마다 0~1 중 무작위로 뽑아서(50% 확률로 0),
+    # 어떤 문자는 배치된 영상이 하나도 없어 그 문자로 검색해도 결과가 안
+    # 나오는 문제가 있었다. min=max=1로 고정해서 "정확히 1개"를 실제로 보장한다.
     # max_pairs로 (지역,날짜) 조합 자체도 제한 — 지역명이 넓게 매칭되면(예: 짧은
     # 지역명이 여러 동에 걸리는 경우) 폴더 생성 대상이 메시지 개수보다 훨씬
     # 많아질 수 있어서, 폴더 생성 단계 자체도 시간이 오래 걸릴 수 있다.
@@ -211,6 +215,7 @@ def setup_test_environment(
         source_dir=source_dir,
         cctv_count=1,
         max_per_folder=1,
+        min_per_folder=1,
         seed=seed,
         max_pairs=max_pairs if max_pairs > 0 else None,
     )

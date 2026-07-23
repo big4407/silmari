@@ -258,13 +258,19 @@ export default function SearchHistory() {
                         <td className="search-history__col-action">
                           <button
                             type="button"
-                            className="search-history__view-btn"
+                            className={`search-history__view-btn${
+                              item.result_count === 0
+                                ? ' search-history__view-btn--empty'
+                                : ''
+                            }`}
                             onClick={(e) => {
                               e.stopPropagation();
                               handleOpenResults(item);
                             }}
                           >
-                            결과 보기
+                            {item.result_count === 0
+                              ? '영상 없음'
+                              : '결과 보기'}
                           </button>
                         </td>
                       </tr>

@@ -39,7 +39,9 @@ class SearchRepository:
         user_id: str | None = None,
         order_by: str = "latest",
     ) -> tuple[list[Search], int]:
-        query = self.db.query(Search)
+        query = self.db.query(Search).options(
+            selectinload(Search.analyses).selectinload(Analysis.details)
+        )
 
         # user_id가 있으면 해당 사용자의 검색 내역만 조회
         if user_id:

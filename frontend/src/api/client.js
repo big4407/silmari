@@ -556,6 +556,7 @@ function mapSearchItemToHistory(item) {
     created_at: item.searched_at,
     best_confidence: null,
     sms_info: { gender: item.gender, clothes: item.clothing },
+    result_count: item.result_count ?? 0,
   };
 }
 
