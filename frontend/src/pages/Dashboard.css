@@ -217,6 +217,10 @@
   color: var(--color-error);
 }
 
+.filter-panel__progress {
+  margin-top: var(--space-sm);
+}
+
 /* ── Main layout ── */
 .main-area {
   display: flex;

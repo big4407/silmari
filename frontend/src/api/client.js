@@ -45,7 +45,12 @@ let _refreshing = null;
 let _loggingOut = false;
 
 const isAuthBypassCall = (url = '') =>
-  url.includes('/member/auth/refresh') || url.includes('/member/auth/logout');
+  url.includes('/member/auth/refresh') ||
+  url.includes('/member/auth/logout') ||
+  url.includes('/member/auth/login') ||
+  url.includes('/member/auth/find-username') ||
+  url.includes('/member/auth/verify-identity') ||
+  url.includes('/member/auth/reset-password');
 
 const doRefresh = async () => {
   if (_loggingOut) throw new Error('logging out');
@@ -106,6 +111,29 @@ client.interceptors.response.use(
  */
 export const signup = (payload) =>
   client.post('/member/auth/signup', payload).then((r) => r.data);
+
+/**
+ * 아이디 찾기 — 이름+이메일 본인확인. 이메일 인증 없이 즉시 처리한다.
+ * @param {{full_name: string, email: string}} payload
+ * @returns {Promise<{username: string}>}
+ */
+export const findUsername = (payload) =>
+  client.post('/member/auth/find-username', payload).then((r) => r.data);
+
+/**
+ * 비밀번호 재설정 1단계 — 아이디+이름+이메일 본인확인만(비밀번호는 안 바꿈).
+ * 성공하면 새 비밀번호 입력란을 열어도 된다는 뜻.
+ * @param {{username: string, full_name: string, email: string}} payload
+ */
+export const verifyIdentity = (payload) =>
+  client.post('/member/auth/verify-identity', payload).then((r) => r.data);
+
+/**
+ * 비밀번호 재설정 — 아이디+이름+이메일 본인확인 후 즉시 새 비밀번호로 변경.
+ * @param {{username: string, full_name: string, email: string, new_password: string}} payload
+ */
+export const resetPassword = (payload) =>
+  client.post('/member/auth/reset-password', payload).then((r) => r.data);
 
 /**
  * 로그인. 성공 시 토큰을 localStorage에 저장한다.
@@ -182,6 +210,9 @@ export const getRole = () => decodeAccessToken()?.role ?? null;
 /** 현재 사용자가 관리자('1')인지 */
 export const isAdmin = () => getRole() === '1';
 
+/** 현재 사용자가 케이스 작성 권한(관리자'1'/수사관'2')인지 */
+export const isCaseWriter = () => ['1', '2'].includes(getRole());
+
 // ══════════════════════════════════════════════════════════
 // 관리자 (admin) — /member/admin/*
 // ══════════════════════════════════════════════════════════
@@ -197,11 +228,15 @@ export const statusLabel = (code) => STATUS_LABELS[code] ?? '-';
  * @param {string} [approvalStatus] '0'(대기)/'1'(승인)/'2'(반려)/'3'(정지)
  * @returns {Promise<Array>} UserResponse[]
  */
-export const fetchUsers = (approvalStatus) => {
-  const params =
-    approvalStatus != null ? { approval_status: approvalStatus } : {};
+export const fetchUsers = (approvalStatus, role) => {
+  const params = {};
+  if (approvalStatus != null) params.approval_status = approvalStatus;
+  if (role != null) params.role = role;
   return client.get('/member/admin/users', { params }).then((r) => r.data);
 };
+
+/** 담당자 지정 드롭다운용 — 승인된 수사관 목록만. */
+export const fetchApprovedInvestigators = () => fetchUsers('1', '2');
 
 /**
  * 승인 상태 변경(승인/반려/정지).
@@ -250,9 +285,36 @@ export const getMessageList = ({
 export const fetchLoginHistory = (params = {}) =>
   client.get('/member/admin/login-history', { params }).then((r) => r.data);
 
+/** 관리자 콘솔 대시보드 KPI 요약. */
+export const fetchAdminDashboardSummary = () =>
+  client.get('/member/admin/dashboard-summary').then((r) => r.data);
+
 /** 관리자 행동 이력(감사 로그) 조회. approval_only=true 면 승인·권한 변경만. */
 export const fetchAdminHistory = (params = {}) =>
   client.get('/member/admin/admin-history', { params }).then((r) => r.data);
+
+/** 검색 요청 이력(관리자용, 전체 사용자 대상) */
+export const fetchAdminSearchRequests = (params = {}) =>
+  client.get('/member/admin/search-requests', { params }).then((r) => r.data);
+
+/** CCTV 영상 수집 현황(관리자용, 지역별 집계) */
+export const fetchCctvCoverage = () =>
+  client.get('/member/admin/cctv-coverage').then((r) => r.data);
+
+/** 촬영일자별 영상 현황(관리자용) — 별도 작업 기록 테이블 없이 Video groupby 기반.
+ * 그래서 완전히 실패한 날/건너뛴 개수는 안 잡히고, 성공해서 실제 등록된
+ * 영상만 집계된다. */
+export const fetchVideoDailySummary = (params = {}) =>
+  client
+    .get('/member/admin/video-daily-summary', { params })
+    .then((r) => r.data);
+
+/** 특정 날짜 영상 재인덱싱("인덱싱 재시도") — YOLO+FashionCLIP 처리라 오래 걸릴 수
+ * 있음. 결과는 저장 안 되는 1회성 응답이라, 반영하려면 목록을 새로고침해야 함. */
+export const retryVideoIndexJob = (targetDate) =>
+  client
+    .post('/member/admin/video-index-jobs/retry', { target_date: targetDate })
+    .then((r) => r.data);
 
 /** 행정구역 목록 */
 export const fetchRegions = (params = {}) =>
@@ -309,6 +371,12 @@ export const importRegionsCsv = (file, dryRun = false) => {
 export const fetchRetentionPolicies = () =>
   client.get('/member/admin/retention-policies').then((r) => r.data);
 
+/** 기본 보존 정책 생성(비어있는 데이터 유형만, 멱등적) — 정책이 하나도 없을 때 사용. */
+export const seedDefaultRetentionPolicies = () =>
+  client
+    .post('/member/admin/retention-policies/seed-defaults')
+    .then((r) => r.data);
+
 /** 보존 정책 일괄 수정. */
 export const updateRetentionPolicies = (policies) =>
   client
@@ -321,6 +389,16 @@ export const runRetentionDryRun = ({ policyId = null, policies = null } = {}) =>
     .post(
       '/member/admin/retention-policies/dry-run',
       policies?.length ? { policies } : {},
+      { params: policyId ? { policy_id: policyId } : {} },
+    )
+    .then((r) => r.data);
+
+/** 보존 정책 실제 실행 — 만료된 데이터를 진짜로 삭제한다(되돌릴 수 없음). */
+export const executeRetentionPolicies = ({ policyId = null } = {}) =>
+  client
+    .post(
+      '/member/admin/retention-policies/execute',
+      {},
       { params: policyId ? { policy_id: policyId } : {} },
     )
     .then((r) => r.data);
@@ -395,6 +473,21 @@ export const ADMIN_ACTION_LABELS = {
   6: '수정',
 };
 
+// 관리자 행동 이력의 target_type → 어느 화면(대상)에서 벌어진 일인지 표시용 라벨
+export const ADMIN_TARGET_TYPE_LABELS = {
+  user: '회원 관리',
+  region: '행정구역 관리',
+  retention_policy: '삭제·보존 정책',
+  integrity_check: '데이터 정합성 검사',
+};
+
+// 검색 요청 출처 코드 → 한글 라벨 (SearchType enum)
+export const SEARCH_TYPE_LABELS = {
+  1: '안내문자',
+  2: '챗봇',
+  3: '자동검색',
+};
+
 // 로그인 실패 사유 — 화면 표시용 라벨.
 // DB/응답에는 숫자 코드("1"~"5")로 저장·전달되고(LoginFailReason enum),
 // 사용자에게는 아래 한글로 변환해 보여준다. (성공 시 fail_reason 은 없음)
@@ -419,9 +512,20 @@ export const LOGIN_FAIL_LABELS = {
 export const fetchMessages = (params = {}) =>
   client.get('/message', { params }).then((r) => r.data);
 
+/** 안내문자 본문에서 LLM으로 실종자 정보(이름·성별·나이·인상착의) 추출 */
+export const parseAlertMessage = (msgCn) =>
+  client.post('/message/parse', { msg_cn: msgCn }).then((r) => r.data);
+
 /** 외부 API에서 재난문자 수집 후 DB 저장 */
 export const collectMessages = (params = {}) =>
   client.post('/message/collect', null, { params }).then((r) => r.data);
+
+/**
+ * 안내문자(sn)를 실종자관리 케이스로 등록 — 관리자·수사관 전용.
+ * 대기·미배정으로 생성되며, case_status가 갱신된 문자 객체를 반환한다.
+ */
+export const createCaseForMessage = (sn) =>
+  client.post(`/message/${encodeURIComponent(sn)}/case`).then((r) => r.data);
 
 // ══════════════════════════════════════════════════════════
 // 검색 요청 — /search/*
@@ -442,6 +546,7 @@ export const deleteSearch = (id) => client.delete(`/search/${id}`);
 function mapSearchItemToHistory(item) {
   return {
     id: item.id,
+    search_type: item.search_type,
     person_name: item.missing_name || '미상',
     person_age: item.age,
     region: item.missing_location || '-',
@@ -451,11 +556,13 @@ function mapSearchItemToHistory(item) {
     created_at: item.searched_at,
     best_confidence: null,
     sms_info: { gender: item.gender, clothes: item.clothing },
+    result_count: item.result_count ?? 0,
   };
 }
 
 function mapSearchItemToResult(item) {
   const results = item.analysis_results || [];
+  const rank = (result) => result.final_score ?? result.matching_rate ?? 0;
   const groupedByVideo = results.reduce((groups, result) => {
     const videoId = result.video_id;
 
@@ -469,12 +576,13 @@ function mapSearchItemToResult(item) {
   const bestResult =
     results.length > 0
       ? results.reduce((best, current) =>
-          current.matching_rate > best.matching_rate ? current : best,
+          rank(current) > rank(best) ? current : best,
         )
       : null;
 
   return {
     id: item.id,
+    search_type: item.search_type,
     person_name: item.missing_name || '미상',
     person_age: item.age,
     region: item.missing_location || '-',
@@ -482,14 +590,16 @@ function mapSearchItemToResult(item) {
     video_results: Object.entries(groupedByVideo).map(
       ([videoId, videoResults]) => {
         const bestVideoResult = videoResults.reduce((best, current) =>
-          current.matching_rate > best.matching_rate ? current : best,
+          rank(current) > rank(best) ? current : best,
         );
 
         return {
           video_id: Number(videoId),
           video_path: bestVideoResult.video_path || '',
+          video_region: bestVideoResult.video_region,
+          recorded_at: bestVideoResult.recorded_at,
           thumbnail_url: bestVideoResult.crop_img_path || '',
-          best_confidence: bestVideoResult.matching_rate || 0,
+          best_confidence: rank(bestVideoResult),
           best_timestamp_sec: bestVideoResult.video_timestamp,
           clips: videoResults.map((result) => ({
             id: result.id,
@@ -498,7 +608,9 @@ function mapSearchItemToResult(item) {
             start_sec: result.video_timestamp,
             end_sec: result.video_timestamp + 5,
             thumbnail_url: result.crop_img_path || '',
-            confidence: result.matching_rate,
+            confidence: rank(result),
+            matching_rate: result.matching_rate,
+            color_match_rate: result.color_match_rate,
             position: result.position,
           })),
         };
@@ -506,7 +618,7 @@ function mapSearchItemToResult(item) {
     ),
 
     thumbnail_url: bestResult?.crop_img_path || '',
-    best_confidence: bestResult?.matching_rate || 0,
+    best_confidence: bestResult ? rank(bestResult) : 0,
     best_timestamp_sec: bestResult?.video_timestamp ?? null,
     clips: results.map((result) => ({
       id: result.id,
@@ -515,7 +627,9 @@ function mapSearchItemToResult(item) {
       start_sec: result.video_timestamp,
       end_sec: result.video_timestamp + 5,
       thumbnail_url: result.crop_img_path || '',
-      confidence: result.matching_rate,
+      confidence: rank(result),
+      matching_rate: result.matching_rate,
+      color_match_rate: result.color_match_rate,
       position: result.position,
     })),
 
@@ -563,6 +677,133 @@ export const deleteAllSearchResults = async () => {
   const items = data.items || [];
   await Promise.all(items.map((item) => deleteSearch(item.id)));
   return { ok: true, deleted_count: items.length };
+};
+
+// ── 관리자 통계(CCTV·검색·인구통계·발견해결결과) ──────────────────────────
+const STATS_BASE_URL = '/member/admin/stats';
+
+function buildStatsParams(query = {}) {
+  return {
+    from_date: query.fromDate || undefined,
+    to_date: query.toDate || undefined,
+    region: query.region || undefined,
+    search_type: query.searchType || undefined,
+  };
+}
+
+async function getStatsJson(path, query, signal) {
+  try {
+    const response = await client.get(`${STATS_BASE_URL}${path}`, {
+      params: buildStatsParams(query),
+      signal,
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      await readApiErrorMessage(error, '통계 데이터를 불러오지 못했습니다.'),
+    );
+  }
+}
+
+export const fetchCctvStats = (query, signal) =>
+  getStatsJson('/cctv', query, signal);
+export const fetchSearchStats = (query, signal) =>
+  getStatsJson('/search', query, signal);
+export const fetchDemographicStats = (query, signal) =>
+  getStatsJson('/demographic', query, signal);
+export const fetchOutcomeStats = (query, signal) =>
+  getStatsJson('/outcomes', query, signal);
+export const fetchExportLogs = (signal) =>
+  getStatsJson('/exports', undefined, signal);
+
+// ── 실종자 관리 케이스 ─────────────────────────────────────────────────
+const CASES_BASE_URL = '/missing-person-cases';
+
+export const fetchMissingPersonCases = async (params = {}) => {
+  try {
+    const response = await client.get(CASES_BASE_URL, { params });
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      await readApiErrorMessage(error, '케이스 목록을 불러오지 못했습니다.'),
+    );
+  }
+};
+
+export const createMissingPersonCase = async (payload) => {
+  try {
+    const response = await client.post(CASES_BASE_URL, payload);
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      await readApiErrorMessage(error, '케이스 등록에 실패했습니다.'),
+    );
+  }
+};
+
+async function transitionCase(caseId, action, fallback) {
+  try {
+    const response = await client.post(`${CASES_BASE_URL}/${caseId}/${action}`);
+    return response.data;
+  } catch (error) {
+    throw new Error(await readApiErrorMessage(error, fallback));
+  }
+}
+
+export const assignMissingPersonCase = async (caseId, investigatorId) => {
+  try {
+    const response = await client.post(`${CASES_BASE_URL}/${caseId}/assign`, {
+      investigator_id: investigatorId || null,
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      await readApiErrorMessage(error, '담당 배정에 실패했습니다.'),
+    );
+  }
+};
+export const unassignMissingPersonCase = (caseId) =>
+  transitionCase(caseId, 'unassign', '담당 취소에 실패했습니다.');
+export const resolveMissingPersonCase = (caseId) =>
+  transitionCase(caseId, 'resolve', '완료 처리에 실패했습니다.');
+export const enrichMissingPersonCase = (caseId) =>
+  transitionCase(caseId, 'enrich', 'AI 정보 채우기에 실패했습니다.');
+
+export const updateMissingPersonCaseNotes = async (caseId, notes) => {
+  try {
+    const response = await client.patch(`${CASES_BASE_URL}/${caseId}/notes`, {
+      notes,
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(
+      await readApiErrorMessage(error, '메모 저장에 실패했습니다.'),
+    );
+  }
+};
+
+export const exportStats = async (payload) => {
+  try {
+    // 백엔드 ExportFileFormat은 Literal["csv","png","zip"] — 소문자만
+    // 허용한다(Pydantic Literal은 대소문자까지 정확히 일치해야 통과).
+    // 예전엔 여기서 무조건 대문자 'CSV'로 덮어써서 항상 422가 났고, 그다음엔
+    // 무조건 소문자 'csv'로 고정돼 있어서 UI의 형식(PNG/ZIP) 선택이 반영되지
+    // 않았다 — 이제 호출한 쪽(StatsViews)이 고른 값을 그대로 쓴다.
+    const response = await client.post(
+      `${STATS_BASE_URL}/export`,
+      { ...payload, file_format: (payload.file_format || 'csv').toLowerCase() },
+      { responseType: 'blob' },
+    );
+    const disposition = response.headers?.['content-disposition'] ?? '';
+    const match = String(disposition).match(/filename="([^"]+)"/);
+    const fallbackExt = (payload.file_format || 'csv').toLowerCase();
+    const filename = match?.[1] ?? `statistics.${fallbackExt}`;
+    saveBlobDownload(response.data, filename);
+  } catch (error) {
+    throw new Error(
+      await readApiErrorMessage(error, '통계 내보내기에 실패했습니다.'),
+    );
+  }
 };
 
 export default client;

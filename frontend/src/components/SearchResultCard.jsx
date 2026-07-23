@@ -13,7 +13,10 @@ export default function SearchResultCard({
   onDelete,
   deleting,
 }) {
+  console.log('SearchResultCard result:', result);
   const hasThumb = Boolean(result.thumbnail_url);
+  const pathParts = result.video_path?.split(/[\\/]/) || [];
+  const cctvNo = pathParts.at(-2);
   const rankLabel =
     result.rank === 1
       ? '1st'
@@ -57,31 +60,37 @@ export default function SearchResultCard({
               {rankLabel}
             </span>
           )}
-          <button
-            type="button"
-            className="search-card__delete"
-            aria-label="검색 결과 삭제"
-            disabled={deleting}
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete?.(result);
-            }}
-          >
-            ×
-          </button>
         </div>
         <div className="search-card__body">
-          <p className="search-card__meta">
-            <span>{result.region}</span>
-            <span>
-              {result.best_timestamp_sec != null
-                ? formatTime(result.best_timestamp_sec)
-                : '-'}
-            </span>
+          <p className="search-card__location">
+            {result.video_region || result.region || '-'}
           </p>
-          <p className="search-card__desc">
-            {result.description || result.video_filename}
-          </p>
+
+          <dl className="search-card__info">
+            <div>
+              <dt>촬영일</dt>
+              <dd>{result.recorded_at || '-'}</dd>
+            </div>
+
+            <div>
+              <dt>CCTV</dt>
+              <dd>{cctvNo || '-'}</dd>
+            </div>
+
+            <div>
+              <dt>영상 시점</dt>
+              <dd>
+                {result.best_timestamp_sec != null
+                  ? formatTime(result.best_timestamp_sec)
+                  : '-'}
+              </dd>
+            </div>
+
+            <div>
+              <dt>인상착의</dt>
+              <dd>{result.description || '-'}</dd>
+            </div>
+          </dl>
         </div>
       </div>
     </article>

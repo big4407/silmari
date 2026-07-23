@@ -23,40 +23,66 @@ from __future__ import annotations
 
 import argparse
 import random
+import string
 from datetime import datetime, timedelta
 
 from backend.db.database import SessionLocal
-from backend.db.models import Message
+from backend.db.models import LlmCall, Message, Search
 from backend.repositories.message_repository import MessageRepository
+from backend.services.missing_person_case_service import MissingPersonCaseService
 
 # rcptn_rgn_nm 기본값 — 실제 Region 테이블 데이터와 안 맞으면 --region으로 덮어써야 함.
 DEFAULT_REGIONS = [
     "대전광역시 동구",
     "서울특별시 강남구",
     "부산광역시 해운대구",
-]
-
-CLOTHING_SAMPLES = [
-    "검은 패딩에 청바지 착용",
-    "회색 후드티에 검은 바지 착용",
-    "흰색 셔츠에 베이지색 바지 착용",
-    "파란색 셔츠에 검은색 바지 착용",
-    "빨간색 재킷에 회색 바지 착용",
+    "대구광역시 수성구",
+    "인천광역시 남동구",
+    "광주광역시 북구",
+    "대전광역시 서구",
+    "울산광역시 남구",
+    "서울특별시 마포구",
+    "부산광역시 사하구"
 ]
 
 NAME_SAMPLES = ["김OO", "이OO", "박OO", "최OO", "정OO"]
+GENDER_SAMPLES = ["남", "여"]
+
+TOP_SAMPLES = ["파란색티", "검은색 후드티", "회색 셔츠", "흰색 니트", "빨간색 재킷"]
+BOTTOM_SAMPLES = ["검정바지", "청바지", "베이지색 바지", "회색 바지"]
+SHOE_SAMPLES = ["검정신발", "흰색 운동화", "갈색 구두"]
+HAIR_SAMPLES = ["흰머리", "검은머리", "짧은머리", "긴머리"]
+
+
+def _agency_from_region(region: str) -> str:
+    """지역명 앞 두 글자로 그럴듯한 관할 기관명을 만든다(예: '부산광역시 해운대구' → '부산경찰청')."""
+    return f"{region[:2]}경찰청"
 
 
 def build_test_message(index: int, region: str, base_dt: datetime) -> dict:
-    """utils/message_filter.is_missing_person_message 조건(재해구분명=기타,
-    실종 키워드 포함)에 맞는 문자 1건을 만든다 — 실제 실종문자와 같은 모양이라야
-    나중에 이 데이터로 다른 걸 테스트할 때도 어긋나지 않는다."""
+    """실제 실종 안내문자와 같은 자유 서식으로 문자 1건을 만든다.
+
+    "인상착의:" 같은 라벨 없이, 실제 문자처럼 성별·나이·키·몸무게·인상착의를
+    쉼표로 나열한 terse한 형태를 쓴다 — LLM 파싱(core/llm/alert_parser.py)이
+    실제로 마주치는 형식과 최대한 비슷해야 테스트 의미가 있다.
+    """
     name = random.choice(NAME_SAMPLES)
-    clothing = random.choice(CLOTHING_SAMPLES)
+    gender = random.choice(GENDER_SAMPLES)
+    age = random.randint(5, 89)
+    height = random.randint(140, 190)
+    weight = random.randint(35, 95)
+    top = random.choice(TOP_SAMPLES)
+    bottom = random.choice(BOTTOM_SAMPLES)
+    shoes = random.choice(SHOE_SAMPLES)
+    hair = random.choice(HAIR_SAMPLES)
+    short_code = "".join(random.choices(string.ascii_letters, k=6))
+    agency = _agency_from_region(region)
+
     crt_dt = base_dt + timedelta(minutes=index)
     msg_cn = (
-        f"[{region}] {name}(이)가 실종되었습니다. 인상착의: {clothing}. "
-        f"목격 시 경찰서로 신고 바랍니다."
+        f"{region} 주민인 {name}씨({gender},{age}세)를 찾습니다-"
+        f"{height}cm,{weight}kg,{top},{bottom},{shoes},{hair}\n"
+        f"vo.la/{short_code} / \u260e182 [{agency}]"
     )
     return {
         "sn": f"T{index:05d}",
@@ -71,7 +97,30 @@ def build_test_message(index: int, region: str, base_dt: datetime) -> dict:
 
 
 def clear_test_messages(db) -> int:
-    """SN이 T로 시작하는(=테스트로 넣은) 데이터만 지운다. 실제 API 수집분은 안 건드림."""
+    """SN이 T로 시작하는(=테스트로 넣은) 데이터만 지운다. 실제 API 수집분은 안 건드림.
+
+    message을 바로 지우면 두 군데서 FK 위반이 난다:
+    1. search.message_sn → message.sn — 테스트 문자로 생성된 검색 요청이 있으면
+       막힌다. Search를 ORM으로(session.delete) 지워야 Search.analyses의
+       cascade="all, delete-orphan"이 Analysis→AnalysisDetail까지 따라가며
+       같이 지워진다(대량 .delete()는 이 cascade를 안 타서 안 됨).
+    2. llm_call.search_id → search.id — 그 검색에 딸린 LLM 호출 이력이 있으면
+       Search를 지우기도 전에 여기서 막힌다. LlmCall은 감사 로그라 지우지
+       않고 search_id만 NULL로 풀어서 "연결된 검색이 삭제됨" 상태로 남긴다.
+    """
+    test_searches = (
+        db.query(Search).filter(Search.message_sn.like("T%")).all()
+    )
+    search_ids = [s.id for s in test_searches]
+
+    if search_ids:
+        db.query(LlmCall).filter(LlmCall.search_id.in_(search_ids)).update(
+            {LlmCall.search_id: None}, synchronize_session=False
+        )
+        for search in test_searches:
+            db.delete(search)
+        db.flush()
+
     deleted = (
         db.query(Message)
         .filter(Message.sn.like("T%"))
@@ -92,6 +141,7 @@ def insert_test_messages(
     db = SessionLocal()
     try:
         repository = MessageRepository(db)
+        case_service = MissingPersonCaseService(db)
 
         if clear_existing:
             deleted = clear_test_messages(db)
@@ -108,6 +158,18 @@ def insert_test_messages(
                 continue
 
             repository.insert(**data)
+            # 실제 수집 흐름(services/message_service.py)과 동일하게, sn당
+            # missing_person_case 1건을 만든다. 여기서도 LLM 파싱은 안 한다
+            # (msg_cn 원문만 저장 — 비용 이유는 db/models.py의
+            # MissingPersonCase docstring 참고). 담당자가 케이스를 열 때
+            # "AI로 채우기" 버튼으로 그때 채우는 흐름을 테스트하려면 이렇게
+            # 비어있는 채로 만들어지는 게 오히려 맞다.
+            case_service.create_from_message(
+                data["sn"],
+                msg_cn=data["msg_cn"],
+                missing_location=data["rcptn_rgn_nm"][:20],
+            )
+            db.commit()
             inserted += 1
 
         print(f"[테스트 문자 삽입 완료] {inserted}건 삽입, {skipped}건은 이미 있어 건너뜀")

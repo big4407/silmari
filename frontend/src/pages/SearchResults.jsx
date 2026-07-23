@@ -82,6 +82,7 @@ export default function SearchResults() {
   const [clearingAll, setClearingAll] = useState(false);
   const [sortBy, setSortBy] = useState('confidence-desc');
   const [activeClipIndex, setActiveClipIndex] = useState(0);
+  const [clipSelectKey, setClipSelectKey] = useState(0);
 
   const searchParams = useMemo(() => {
     const params = {};
@@ -170,6 +171,11 @@ export default function SearchResults() {
   useEffect(() => {
     setActiveClipIndex(0);
   }, [selectedResult?.id]);
+
+  const handleClipSelect = (index) => {
+    setActiveClipIndex(index);
+    setClipSelectKey((prev) => prev + 1);
+  };
 
   const handleDeleteResult = async (result) => {
     if (
@@ -350,9 +356,6 @@ export default function SearchResults() {
                 {resultStats.totalClips > 0 && (
                   <>
                     <span className="search-page__stat">
-                      최고 신뢰도 <strong>{resultStats.maxConfidence}%</strong>
-                    </span>
-                    <span className="search-page__stat">
                       클립 <strong>{resultStats.totalClips}</strong>개
                     </span>
                   </>
@@ -410,23 +413,36 @@ export default function SearchResults() {
               ))}
 
             {selectedResult && clipsWithFullUrl?.length > 0 && (
-              <div className="search-page__detail">
-                <ClipSequencePlayer
-                  clips={clipsWithFullUrl}
-                  currentIndex={activeClipIndex}
-                  onClipChange={setActiveClipIndex}
-                  onBack={() => setSelectedResult(null)}
-                />
-                <DetectionCandidateList
-                  candidates={clipsWithFullUrl}
-                  activeIndex={activeClipIndex}
-                  onSelect={setActiveClipIndex}
-                  appearance={
-                    sidebarPerson?.clothes ||
-                    selectedResult?.sms_info?.clothes ||
-                    null
-                  }
-                />
+              <div className="search-page__detail-wrap">
+                <div className="search-page__detail-toolbar">
+                  <button
+                    type="button"
+                    className="search-page__back-btn"
+                    onClick={() => setSelectedResult(null)}
+                  >
+                    검색 결과 목록
+                  </button>
+                </div>
+
+                <div className="search-page__detail">
+                  <ClipSequencePlayer
+                    clips={clipsWithFullUrl}
+                    currentIndex={activeClipIndex}
+                    selectCount={clipSelectKey}
+                    onClipChange={setActiveClipIndex}
+                  />
+
+                  <DetectionCandidateList
+                    candidates={clipsWithFullUrl}
+                    activeIndex={activeClipIndex}
+                    onSelect={handleClipSelect}
+                    appearance={
+                      sidebarPerson?.clothes ||
+                      selectedResult?.sms_info?.clothes ||
+                      null
+                    }
+                  />
+                </div>
               </div>
             )}
 

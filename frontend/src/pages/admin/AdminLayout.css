@@ -305,6 +305,17 @@
   justify-content: space-between;
 }
 
+.admin-card-h__link {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--admin-blue);
+  text-decoration: none;
+}
+
+.admin-card-h__link:hover {
+  text-decoration: underline;
+}
+
 .admin-card-b {
   padding: 18px;
 }
@@ -317,12 +328,23 @@
 }
 
 .admin-stat {
+  display: block;
   background: #fff;
   border: 1px solid var(--admin-line);
   border-radius: var(--admin-radius);
   padding: 16px 18px;
   position: relative;
   overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  transition:
+    box-shadow 0.15s,
+    border-color 0.15s;
+}
+
+.admin-stat:hover {
+  border-color: var(--admin-blue);
+  box-shadow: 0 2px 8px rgba(31, 79, 158, 0.12);
 }
 
 .admin-stat::before {
@@ -384,10 +406,45 @@
   overflow-x: auto;
 }
 
+.admin-activity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-activity-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--admin-line-soft);
+  font-size: 13px;
+}
+
+.admin-activity-list li:last-child {
+  border-bottom: none;
+}
+
+.admin-activity-list__actor {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--admin-ink);
+}
+
+.admin-activity-list__time {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--admin-ink-3);
+}
+
 .admin-console table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  table-layout: fixed;
 }
 
 .admin-console th {
@@ -398,12 +455,21 @@
   color: var(--admin-ink-2);
   border-bottom: 1px solid var(--admin-line);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-console th:empty {
+  width: 60px;
 }
 
 .admin-console td {
   padding: 11px 14px;
   border-bottom: 1px solid var(--admin-line-soft);
   color: var(--admin-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-console tr:last-child td {
@@ -627,8 +693,20 @@
 .admin-pagination {
   display: flex;
   justify-content: center;
+  align-items: center;
   gap: 8px;
   margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.admin-pagination__ellipsis {
+  padding: 0 2px;
+  color: #94a3b8;
+}
+
+.admin-pagination__total {
+  margin-left: 8px;
+  white-space: nowrap;
 }
 
 .admin-tree {
@@ -895,7 +973,8 @@
 }
 
 .admin-fld input,
-.admin-fld select {
+.admin-fld select,
+.admin-fld textarea {
   font-family: inherit;
   font-size: 13px;
   padding: 8px 11px;
@@ -904,6 +983,10 @@
   color: var(--admin-ink);
   background: #fff;
   width: 100%;
+}
+
+.admin-fld textarea {
+  resize: vertical;
 }
 
 .admin-form-row .admin-spacer {
@@ -1492,4 +1575,83 @@
   font-size: 11.5px;
   color: var(--admin-ink-3);
   margin-top: 2px;
+}
+
+/* ── 통계 뷰(views/StatsViews.jsx) 전용 스타일 ─────────────────────────── */
+.stats-error {
+  margin: 12px 0;
+  padding: 16px;
+  border-radius: 8px;
+  background: #fff5f5;
+  border: 1px solid #f0c4c4;
+  color: #8a2f2f;
+  font-size: 13px;
+}
+
+.stats-empty {
+  min-height: 140px;
+  display: grid;
+  place-items: center;
+  opacity: 0.7;
+  color: var(--admin-ink-3);
+  font-size: 13px;
+}
+
+.stats-bars {
+  display: grid;
+  gap: 14px;
+}
+
+.stats-bars__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--admin-ink);
+}
+
+.stats-bars__track {
+  height: 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--admin-line-soft);
+}
+
+.stats-bars__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--admin-blue);
+}
+
+.stats-chart-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.stats-line-chart {
+  width: 100%;
+  min-width: 420px;
+  height: auto;
+}
+
+.stats-line-chart__axis {
+  stroke: var(--admin-line);
+}
+
+.stats-line-chart__line {
+  stroke: var(--admin-blue);
+  stroke-width: 2.5;
+}
+
+.stats-line-chart__point {
+  fill: var(--admin-blue);
+}
+
+/* 성별·연령·지역별 통계 페이지의 "지역별 처리 현황" 표 — 기본 관리자 표보다
+   행 간격을 넉넉하게(위아래 여백을 늘려서 행이 다닥다닥 붙어 보이지 않게). */
+.stats-region-table td,
+.stats-region-table th {
+  padding-top: 16px;
+  padding-bottom: 16px;
 }

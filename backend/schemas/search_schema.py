@@ -2,6 +2,7 @@ from datetime import date, datetime, timedelta
 from pydantic import BaseModel, Field
 
 from backend.utils.timeutils import kst_now
+from typing import Literal
 
 
 # 페이징 처리에 필요한 스키마
@@ -60,6 +61,7 @@ class SearchCreate(BaseModel):
         default="1", max_length=1
     )  # 1 : SMS API에서 파싱한데이터, 2: 챗봇, 3: 자동검색(선택사항)
 
+
 class SearchResultClip(BaseModel):
     id: int
     video_id: int
@@ -69,9 +71,14 @@ class SearchResultClip(BaseModel):
     position: str
     crop_img_path: str | None
     matching_rate: float
+    color_match_rate: float | None = None
+    final_score: float
+    recorded_at: datetime | None = None
+    video_region: str | None = None
 
     class Config:
         from_attributes = True
+
 
 class SearchDetail(BaseModel):
     """
@@ -110,6 +117,7 @@ class SearchItem(BaseModel):
     missing_location: str | None
     searched_at: datetime
     search_type: str
+    result_count: int = 0
 
     class Config:
         from_attributes = True
@@ -123,6 +131,7 @@ class SearchListResponse(BaseModel):
     items: list[SearchItem]
     page_info: PagingInfo
 
+
 class SearchStatus(BaseModel):
     id: int
     status: str
@@ -130,3 +139,51 @@ class SearchStatus(BaseModel):
     message: str | None = None
     started_at: datetime | None = None
     completed_at: datetime | None = None
+
+
+class AdminSearchItem(BaseModel):
+    """관리자용 검색 요청 목록 항목 — 요청자·연결된 안내문자 요약 포함."""
+
+    id: int
+    search_type: str
+    requester_name: str | None = None
+    requester_username: str | None = None
+    message_sn: str | None = None
+    message_preview: str | None = None
+    missing_name: str | None
+    gender: str | None
+    age: int | None
+    clothing: str | None
+    missing_location: str | None
+    missing_time: datetime | None
+    searched_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class AdminSearchSummary(BaseModel):
+    """검색 요청 이력 화면 상단 통계 카드용.
+
+    today_total만 당일(오늘) 기준이고, 나머지 유형별 건수는 전체 누적이다.
+    """
+
+    today_total: int = 0
+    total_sms: int = 0
+    total_chatbot: int = 0
+    total_auto: int = 0
+
+
+class AdminSearchListResponse(BaseModel):
+    items: list[AdminSearchItem]
+    page_info: PagingInfo
+    summary: AdminSearchSummary
+
+
+class ExportRequest(BaseModel):
+    stat_type: Literal["cctv", "search", "demographic", "outcomes"]
+    from_date: date
+    to_date: date
+    region: str | None = None
+    search_type: str | None = None
+    file_format: Literal["csv", "png", "zip"] = "csv"

@@ -1,24 +1,20 @@
-/** 관리자 콘솔 뷰 컴포넌트 레지스트리 — viewId → React 컴포넌트 */
+/** 관리자 콘솔 viewId 와 실제 화면 컴포넌트 매핑 */
 import { DashboardView } from './DashboardView';
 import { MembersPendingView, MembersAllView } from './MemberViews';
-import { ReportsView, ParseReviewView } from './MessageViews';
+import { ReportsView } from './MessageViews';
+import { CaseAssignmentView } from './CaseAssignmentView';
+import { CctvSourceView, SearchRequestsView } from './SearchOpsViews';
+import { LlmUsageView } from './LlmViews';
 import {
-  CctvSourceView,
-  SearchRequestsView,
-  SearchJobsView,
-  MatchReviewView,
-} from './SearchOpsViews';
-import {
-  LlmUsageView,
-  LlmCostView,
-  LlmPerfView,
-  LlmLogsView,
-} from './LlmViews';
-import { RepTimeView, RepRegionView, RepSearchView } from './ReportViews';
+  CctvStatsView,
+  SearchStatsView,
+  DemographicStatsView,
+  OutcomeStatsView,
+  StatsExportView,
+} from './StatsViews';
 import {
   DataCodesView,
   DataValidateView,
-  DataExportView,
   DataRetentionView,
 } from './DataViews';
 import {
@@ -32,21 +28,17 @@ export const ADMIN_VIEWS = {
   'members-pending': MembersPendingView,
   'members-all': MembersAllView,
   reports: ReportsView,
-  'parse-review': ParseReviewView,
+  'case-assignment': CaseAssignmentView,
   'cctv-source': CctvSourceView,
   'search-requests': SearchRequestsView,
-  'search-jobs': SearchJobsView,
-  'match-review': MatchReviewView,
   'llm-usage': LlmUsageView,
-  'llm-cost': LlmCostView,
-  'llm-perf': LlmPerfView,
-  'llm-logs': LlmLogsView,
-  'rep-time': RepTimeView,
-  'rep-region': RepRegionView,
-  'rep-search': RepSearchView,
+  'stats-cctv': CctvStatsView,
+  'stats-search': SearchStatsView,
+  'stats-demographic': DemographicStatsView,
+  'stats-outcomes': OutcomeStatsView,
+  'stats-export': StatsExportView,
   'data-codes': DataCodesView,
   'data-validate': DataValidateView,
-  'data-export': DataExportView,
   'data-retention': DataRetentionView,
   'audit-admin': AuditAdminView,
   'audit-approval': AuditApprovalView,

@@ -6,11 +6,12 @@
 """
 
 import csv
+from urllib.parse import quote
 import io
 from datetime import date, datetime, time, timezone
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
@@ -29,6 +30,7 @@ from backend.db.models import (
     Video,
 )
 from backend.schemas.auth_schema import UserResponse
+from backend.schemas.admin_dashboard_schema import AdminDashboardSummary
 from backend.schemas.user_schema import ApprovalRequest
 from backend.schemas.login_history_schema import (
     LoginHistoryItem,
@@ -36,6 +38,7 @@ from backend.schemas.login_history_schema import (
 )
 from backend.utils.timeutils import kst_now
 from backend.services.audit_service import AuditService
+from backend.services.admin_dashboard_service import AdminDashboardService
 from backend.schemas.admin_history_schema import (
     AdminHistoryItem,
     AdminHistoryListResponse,
@@ -57,6 +60,7 @@ from backend.schemas.region_schema import (
 from backend.schemas.retention_schema import (
     RetentionDryRunRequest,
     RetentionDryRunResponse,
+    RetentionExecuteResponse,
     RetentionPolicyBulkUpdate,
     RetentionPolicyItem,
     RetentionPolicyListResponse,
@@ -64,19 +68,44 @@ from backend.schemas.retention_schema import (
 from backend.services.integrity_service import IntegrityService
 from backend.services.retention_service import RetentionService
 from backend.services.region_admin_service import RegionAdminService
+from backend.services.search_service import SearchService
+from backend.schemas.search_schema import AdminSearchListResponse
+from backend.services.cctv_coverage_service import CctvCoverageService
+from backend.schemas.video_schema import (
+    CctvRegionCoverageResponse,
+    DailyVideoSummaryResponse,
+    VideoIndexRetryRequest,
+    VideoIndexRetryResponse,
+)
+from backend.schemas.stats_schema import ExportRequest
+from backend.services.stats_export_service import StatsExportService
 
 router = APIRouter(prefix="/admin")
+
+
+@router.get("/dashboard-summary", response_model=AdminDashboardSummary)
+def get_dashboard_summary(
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+    db: Session = Depends(get_db),
+) -> AdminDashboardSummary:
+    return AdminDashboardSummary(**AdminDashboardService(db).get_summary())
 
 
 @router.get("/users", response_model=list[UserResponse])
 def list_users(
     approval_status: ApprovalStatus | None = Query(default=None),
+    role: UserRole | None = Query(
+        default=None,
+        description="담당자 지정 드롭다운 등에서 특정 역할만 조회할 때 사용",
+    ),
     _: User = Depends(require_roles(UserRole.ADMIN)),
     db: Session = Depends(get_db),
 ) -> list[User]:
     stmt = select(User).order_by(User.created_at.desc())
     if approval_status is not None:
         stmt = stmt.where(User.approval_status == approval_status)
+    if role is not None:
+        stmt = stmt.where(User.role == role)
     return list(db.scalars(stmt).all())
 
 
@@ -325,6 +354,73 @@ def list_admin_history(
     return AdminHistoryListResponse(items=items, total=total, page=page, size=per_page)
 
 
+@router.get("/search-requests", response_model=AdminSearchListResponse)
+def list_search_requests(
+    keyword: str | None = Query(
+        default=None, description="이름·인상착의·지역 부분 검색"
+    ),
+    search_type: str | None = Query(
+        default=None, description="1:안내문자, 2:챗봇, 3:자동"
+    ),
+    requester_user_id: str | None = Query(default=None, description="요청자 user.id"),
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=20, ge=1, le=100),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+    db: Session = Depends(get_db),
+) -> AdminSearchListResponse:
+    """검색 요청 이력(관리자용) — 전체 사용자 대상, 최신순, 필터·오늘 요약 포함."""
+    return SearchService(db).list_for_admin(
+        page=page,
+        size=per_page,
+        keyword=keyword,
+        search_type=search_type,
+        requester_user_id=requester_user_id,
+        start_date=start_date,
+        end_date=end_date,
+    )
+
+
+@router.get("/cctv-coverage", response_model=CctvRegionCoverageResponse)
+def get_cctv_coverage(
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+    db: Session = Depends(get_db),
+) -> CctvRegionCoverageResponse:
+    """CCTV 영상 수집 현황(관리자용) — 지역별 CCTV 대수·영상 파일 수."""
+    return CctvCoverageService(db).get_region_coverage()
+
+
+@router.get("/video-daily-summary", response_model=DailyVideoSummaryResponse)
+def get_video_daily_summary(
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=20, ge=1, le=100),
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+    db: Session = Depends(get_db),
+) -> DailyVideoSummaryResponse:
+    """촬영일자별 영상 현황(관리자용) — Video 테이블 groupby 기반."""
+    return CctvCoverageService(db).get_daily_summary(page=page, per_page=per_page)
+
+
+@router.post("/video-index-jobs/retry", response_model=VideoIndexRetryResponse)
+def retry_video_index_job(
+    payload: VideoIndexRetryRequest,
+    _: User = Depends(require_roles(UserRole.ADMIN)),
+    db: Session = Depends(get_db),
+) -> VideoIndexRetryResponse:
+    """특정 날짜의 영상을 다시 인덱싱한다("인덱싱 재시도" 버튼).
+
+    YOLO·FashionCLIP 처리라 시간이 걸릴 수 있다 — 지금은 요청-응답 안에서
+    동기로 끝까지 돈다(검색 생성과 같은 1차 결정). 영상이 많아지면 비동기
+    전환을 검토해야 한다. 결과는 별도로 저장되지 않는 1회성 응답이다 —
+    다시 조회하고 싶으면 /video-daily-summary를 새로고침한다.
+    """
+    from backend.services.video_service import VideoService
+
+    result = VideoService(db).run_indexing_job(payload.target_date)
+    return VideoIndexRetryResponse(target_date=payload.target_date, **result)
+
+
 def _region_child_counts(db: Session, codes: list[str]) -> dict[str, int]:
     if not codes:
         return {}
@@ -472,6 +568,8 @@ def export_regions_csv(
         filename = "regions.csv"
         export_format = "region"
 
+    encoded_filename = quote(filename)
+
     row_count = max(csv_text.count("\n") - 1, 0)
     AuditService(db).record_admin_action(
         actor_id=admin.id,
@@ -490,7 +588,9 @@ def export_regions_csv(
     return Response(
         content=body,
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8 {encoded_filename}"
+        },
     )
 
 
@@ -745,6 +845,38 @@ def delete_region(
     db.commit()
 
 
+@router.post(
+    "/retention-policies/seed-defaults", response_model=RetentionPolicyListResponse
+)
+def seed_default_retention_policies(
+    request: Request,
+    admin: User = Depends(require_roles(UserRole.ADMIN)),
+    db: Session = Depends(get_db),
+) -> RetentionPolicyListResponse:
+    """기본 보존 정책 생성(비어있는 데이터 유형만, 멱등적) — 정책이 하나도 없어서
+    "정책 저장"·"드라이런" 버튼이 다 비활성화된 초기 상태를 벗어나기 위함."""
+    retention_svc = RetentionService(db)
+    before_types = retention_svc.repository.get_existing_data_types()
+    items = [
+        RetentionPolicyItem.model_validate(row) for row in retention_svc.seed_defaults()
+    ]
+    created_types = sorted(
+        {i.data_type for i in items if i.data_type not in before_types}
+    )
+
+    AuditService(db).record_admin_action(
+        actor_id=admin.id,
+        action_type=AdminAction.UPDATE,
+        target_type="retention_policy",
+        target_id="seed-defaults",
+        detail={"created_data_types": created_types},
+        ip_address=request.client.host if request.client else None,
+    )
+    db.commit()
+
+    return RetentionPolicyListResponse(items=items)
+
+
 @router.get("/retention-policies", response_model=RetentionPolicyListResponse)
 def get_retention_policies(
     _: User = Depends(require_roles(UserRole.ADMIN)),
@@ -775,6 +907,39 @@ def retention_policies_dry_run(
         raise HTTPException(status_code=404, detail="보존 정책을 찾을 수 없습니다.")
     total = sum(i.expired_count for i in items if i.is_active)
     return RetentionDryRunResponse(items=items, total_affected=total)
+
+
+@router.post("/retention-policies/execute", response_model=RetentionExecuteResponse)
+def retention_policies_execute(
+    request: Request,
+    policy_id: int | None = Query(
+        default=None, description="특정 정책만 실행. 생략 시 활성화된 전체 정책"
+    ),
+    admin: User = Depends(require_roles(UserRole.ADMIN)),
+    db: Session = Depends(get_db),
+) -> RetentionExecuteResponse:
+    """보존 기간이 지난 데이터를 실제로 삭제한다 — 되돌릴 수 없다.
+
+    is_active=False인 정책과 expiry_action != "delete"인 정책은 건너뛰고
+    skipped_reason으로 알린다. 실행 결과는 관리자 행동 이력에 기록된다.
+    """
+    results = RetentionService(db).execute(policy_id=policy_id)
+    if policy_id is not None and not results:
+        raise HTTPException(status_code=404, detail="보존 정책을 찾을 수 없습니다.")
+
+    total_executed = sum(r["executed_count"] for r in results)
+
+    AuditService(db).record_admin_action(
+        actor_id=admin.id,
+        action_type=AdminAction.DELETE,
+        target_type="retention_policy",
+        target_id=str(policy_id) if policy_id is not None else "bulk",
+        detail={"results": results, "total_executed": total_executed},
+        ip_address=request.client.host if request.client else None,
+    )
+    db.commit()
+
+    return RetentionExecuteResponse(items=results, total_executed=total_executed)
 
 
 @router.patch("/retention-policies", response_model=RetentionPolicyListResponse)
@@ -954,4 +1119,35 @@ def download_integrity_report_csv(
         content=body,
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/stats/export")
+def export_stats(
+    request: ExportRequest,
+    current_user: User = Depends(require_roles(UserRole.ADMIN)),
+    db: Session = Depends(get_db),
+) -> StreamingResponse:
+    """관리자 통계 내보내기: CSV, PNG, ZIP 지원."""
+    try:
+        service = StatsExportService(db)
+
+        filename, content, media_type, row_count = service.build(
+            request,
+            actor_id=str(current_user.id),
+            actor_name=current_user.username,
+        )
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    encoded_filename = quote(filename)
+
+    return StreamingResponse(
+        io.BytesIO(content),
+        media_type=media_type,
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8 {encoded_filename}",
+            "X-Row-Count": str(row_count),
+        },
     )

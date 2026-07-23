@@ -8,7 +8,11 @@ from fastapi import APIRouter, Depends, Query, Path
 from sqlalchemy.orm import Session
 
 from backend.db.database import get_db
+from backend.db.models import User, UserRole
+from backend.deps import get_current_user, require_roles
 from backend.schemas.message_schema import (
+    AlertParseRequest,
+    AlertParseResponse,
     MessageCollectResponse,
     MessageCreate,
     MessageResponse,
@@ -49,6 +53,19 @@ async def collect_messages(
 
 
 @router.post(
+    "/parse",
+    response_model=AlertParseResponse,
+    summary="안내문자 본문에서 실종자 정보(이름·성별·나이·인상착의) LLM 추출",
+)
+def parse_alert(
+    payload: AlertParseRequest,
+    current_user: User = Depends(get_current_user),
+    service: MessageService = Depends(get_message_service),
+):
+    return service.parse_alert(payload.msg_cn, user_id=current_user.id)
+
+
+@router.post(
     "/manual_input",
     status_code=201,
     summary="문자 수동 등록, crt_dt(생성일시), reg_ymd(등록일자), mdfcn_ymd(수정일자)는 지정하지 않을 시 기본값, sn은 중복될시 오류 발생",
@@ -58,6 +75,20 @@ def manual_input(
     service: MessageService = Depends(get_message_service),
 ):
     return service.manual_input_message(message_data=message_data)
+
+
+@router.post(
+    "/{sn}/case",
+    response_model=MessageResponse,
+    status_code=201,
+    summary="안내문자를 실종자관리 케이스로 등록(대기·미배정) — 관리자·수사관 전용",
+)
+def create_case_for_message(
+    sn: str = Path(..., min_length=1, max_length=22),
+    _: User = Depends(require_roles(UserRole.ADMIN, UserRole.INVESTIGATOR)),
+    service: MessageService = Depends(get_message_service),
+):
+    return service.create_case_for_message(sn)
 
 
 @router.get("/{sn}", response_model=MessageResponse, summary="문자 단건 조회")

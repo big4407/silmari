@@ -10,9 +10,16 @@
   text-align: left;
   padding: 0;
   font-family: inherit;
+  user-select: none;
+  -webkit-user-select: none;
   transition:
     border-color 0.15s,
-    background 0.15s;
+    background 0.15s,
+    box-shadow 0.15s;
+}
+
+.alert-card * {
+  pointer-events: none;
 }
 
 .alert-card:hover {
@@ -20,10 +27,22 @@
   background: var(--color-surface-muted);
 }
 
+.alert-card:focus,
+.alert-card:focus-visible {
+  outline: none;
+}
+
 .alert-card--selected {
   border-color: var(--color-accent);
-  background: #f0f6fc;
-  box-shadow: inset 3px 0 0 var(--color-accent);
+  background: #e8f3ff;
+  box-shadow:
+    inset 4px 0 0 var(--color-accent),
+    0 0 0 1px var(--color-accent);
+}
+
+.alert-card--selected:hover {
+  border-color: var(--color-accent);
+  background: #dcecff;
 }
 
 .alert-card--empty {
@@ -101,14 +120,100 @@
   padding: 6px 12px 10px;
   border-top: 1px solid var(--color-border);
   background: var(--color-surface-muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .alert-card--selected .alert-card__footer {
-  background: #e8f2fa;
+  background: #d6e9ff;
+}
+
+.alert-card--resolved {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.alert-card__resolved-badge {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: #1d8a52;
+  background: #e7f5ee;
+  border: 1px solid #bfe3cf;
+  border-radius: 999px;
+  padding: 2px 8px;
+  flex-shrink: 0;
 }
 
 .alert-card__region {
   font-size: var(--font-size-xs);
   font-weight: 600;
   color: var(--color-text-secondary);
+}
+
+/* 카드 래퍼 — 추가 버튼을 카드 우측 하단에 겹쳐 배치하기 위한 기준 컨테이너.
+   추가 버튼은 .alert-card의 자식이 아니라 형제라서 `.alert-card *`의
+   pointer-events:none 영향을 받지 않는다(정상 클릭 가능). */
+.alert-card-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.alert-card-wrap .alert-card {
+  flex: 1 1 auto;
+}
+
+/* 케이스 미보유(관리자·수사관) 문자에만 노출되는 backfill 버튼.
+   footer 위 우측 하단에 겹치므로 카드에 하단 여유를 준다. */
+/* 케이스 미보유(관리자·수사관) 문자에만 노출되는 backfill 버튼 —
+   footer 지역 텍스트와 같은 줄, 오른쪽 끝에 배치. 긴 지역명이 버튼 아래로
+   파고들지 않게 오른쪽 여백을 확보하고 지역 텍스트는 말줄임 처리한다. */
+.alert-card--addable .alert-card__footer {
+  padding-top: 9px;
+  padding-bottom: 9px;
+  padding-right: 132px;
+}
+
+.alert-card--addable .alert-card__region {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.alert-card__add-btn {
+  position: absolute;
+  right: 10px;
+  bottom: 17px;
+  transform: translateY(50%);
+  z-index: 2;
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--color-accent);
+  background: var(--color-surface);
+  border: 1px solid var(--color-accent);
+  border-radius: 999px;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    box-shadow 0.15s;
+}
+
+.alert-card__add-btn:hover {
+  background: var(--color-accent);
+  color: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+.alert-card__add-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  border-color: var(--color-border);
 }

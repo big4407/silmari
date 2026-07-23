@@ -5,15 +5,22 @@
 [호출] routes/messages.py, Dashboard 재난문자 연동
 """
 
+import time
+
+from langchain_community.callbacks import get_openai_callback
 from sqlalchemy.orm import Session
 
-from backend.db.models import Message
+from backend.core.llm.alert_parser import ALERT_PARSE_MODEL, parse_alert_message
+from backend.db.models import LlmCallType, Message
 from backend.repositories.message_repository import MessageRepository
 from backend.schemas.message_schema import (
+    AlertParseResponse,
     MessageCreate,
     MessageResponse,
     MessageListResponse,
 )
+from backend.services.llm_call_service import LlmCallService
+from backend.services.missing_person_case_service import MissingPersonCaseService
 from backend.utils.datetime_parser import parse_date, parse_datetime
 from backend.utils.message_filter import is_missing_person_message
 
@@ -28,6 +35,48 @@ class MessageService:
         self.db = db
         # self.client = DisasterMessageClient()
         self.repository = MessageRepository(db)
+        self.llm_call_service = LlmCallService(db)
+        self.missing_person_case_service = MissingPersonCaseService(db)
+
+    def parse_alert(self, msg_cn: str, *, user_id: str | None = None) -> AlertParseResponse:
+        """안내문자 본문에서 LLM으로 실종자 정보(이름·성별·나이·인상착의)를 뽑는다.
+
+        실제 문자는 라벨 없는 자유 서식이라 정규식으로는 한계가 있어 LLM을 쓴다
+        (core/llm/alert_parser.py). 대시보드의 "실종자 검색" 흐름에서
+        검색 요청(SearchCreate) 필드를 채우는 데 그대로 쓰인다.
+
+        챗봇 호출(chatbot_service.py)과 동일하게 get_openai_callback()으로 감싸서
+        llm_call 테이블에 기록한다(call_type="3" = 안내문자 파싱) — LLM 운영
+        관리 화면(모델별 사용량·프롬프트 로그)에서 같이 집계되도록.
+        """
+        start = time.perf_counter()
+        call_status = "1"
+        error_msg = None
+        result = None
+        callback = None
+
+        try:
+            with get_openai_callback() as cb:
+                callback = cb
+                result = parse_alert_message(msg_cn)
+        except Exception as e:
+            call_status = "0"
+            error_msg = str(e)[:255]
+            raise
+        finally:
+            self.llm_call_service.record_call(
+                call_type=LlmCallType.ALERT_PARSE,
+                model_name=ALERT_PARSE_MODEL,
+                prompt=msg_cn,
+                response=result.model_dump_json() if result else None,
+                start_time=start,
+                callback=callback,
+                status=call_status,
+                error_msg=error_msg,
+                user_id=user_id,
+            )
+
+        return AlertParseResponse(**result.model_dump())
 
     def _get_or_404(self, sn: str):
         """
@@ -90,6 +139,21 @@ class MessageService:
                 self.repository.save(message)
                 saved_count += 1
 
+                # 실종자 관리 케이스 자동 생성 — sn 하나당 케이스 하나(멱등).
+                # 이름/성별/나이/인상착의는 여기서 LLM으로 안 뽑는다 — 수집은
+                # 문자를 한 번에 여러 건씩 배치로 가져오는데, 매번 LLM을
+                # 돌리면 비용이 커진다. 원문(msg_cn)과 수신지역명(이미 구조화된
+                # 값이라 LLM 불필요)만 저장해두고, 담당자가 실제로 케이스를
+                # 열 때 필요하면 그 1건만 파싱한다(missing_person_case_service.
+                # enrich_from_message).
+                self.missing_person_case_service.create_from_message(
+                    sn,
+                    msg_cn=msg_cn,
+                    missing_location=(
+                        item.get("RCPTN_RGN_NM")[:20] if item.get("RCPTN_RGN_NM") else None
+                    ),
+                )
+
             self.db.commit()
 
         except Exception:
@@ -122,7 +186,34 @@ class MessageService:
 
     def get_message(self, sn: str) -> MessageResponse:
         message = self._get_or_404(sn)
-        return MessageResponse.model_validate(message)
+        case = self.missing_person_case_service.repository.get_by_sn(sn)
+        response = MessageResponse.model_validate(message)
+        return response.model_copy(
+            update={"case_status": case.status.value if case else None}
+        )
+
+    def create_case_for_message(self, sn: str) -> MessageResponse:
+        """안내문자(sn)를 실종자관리 케이스로 등록한다 — 대기·미배정으로 생성.
+
+        자동수집이 놓친 문자(수동 입력·레거시 등 case_status=None)를 실종자
+        검색 화면에서 관리자·수사관이 직접 실종자관리로 올릴 때 쓰는 backfill
+        창구다. create_from_message가 sn 기준 멱등이라 이미 케이스가 있으면
+        기존 케이스 상태를 그대로 돌려준다(중복 클릭·동시 요청 안전). 담당자
+        배정과 이름/인상착의 파싱(enrich)은 자동 케이스와 동일하게 실종자관리
+        보드에서 처리한다 — 여기선 지역·원문만 채운 대기 케이스를 만든다.
+        """
+        message = self._get_or_404(sn)
+        case = self.missing_person_case_service.create_from_message(
+            sn,
+            msg_cn=message.msg_cn,
+            missing_location=(
+                message.rcptn_rgn_nm[:20] if message.rcptn_rgn_nm else None
+            ),
+        )
+        self.db.commit()
+        return MessageResponse.model_validate(message).model_copy(
+            update={"case_status": case.status.value}
+        )
 
     # services/message_service.py
 
@@ -147,8 +238,18 @@ class MessageService:
             order_by=order_by,
         )
 
+        status_by_sn = self.missing_person_case_service.repository.get_status_by_sns(
+            [m.sn for m in messages]
+        )
+        items = [
+            MessageResponse.model_validate(message).model_copy(
+                update={"case_status": status_by_sn.get(message.sn)}
+            )
+            for message in messages
+        ]
+
         return MessageListResponse(
-            items=[MessageResponse.model_validate(message) for message in messages],
+            items=items,
             total=total,
             page=page,
             size=per_page,

@@ -1,12 +1,35 @@
+import os
+
+from backend.core.config import settings
+
+# huggingface_hub는 로컬에 캐시가 있어도 매번 "새 버전 있는지" 네트워크로
+# 확인하려고 한다(HEAD 요청) — huggingface.co 접속이 느리거나 막힌 환경에서는
+# 이 확인이 매번 타임아웃+재시도를 반복해서 로딩이 멈춘 것처럼 보인다.
+# huggingface_hub는 이 값들을 import 시점에 한 번만 읽으므로, fashion_clip을
+# import하기 전에 반드시 먼저 설정해야 한다.
+#
+#   HF_HUB_OFFLINE: 네트워크 확인 자체를 끈다(기본 True — settings.hf_hub_offline).
+#     .env에서 HF_HUB_OFFLINE=false로 덮어쓸 수 있다(캐시 없는 새 환경에서
+#     최초 다운로드가 필요할 때).
+#   HF_HUB_ETAG_TIMEOUT: huggingface_hub/transformers의 알려진 버그로,
+#     HF_HUB_OFFLINE=1이어도 일부 코드 경로(특히 processor 로딩)가 최소 1번은
+#     HEAD 요청을 시도한다(huggingface/transformers #43200 등) — 이 값을
+#     짧게 줄여서 그 요청이 느리게 매달리지 않고 빨리 실패해 캐시로
+#     넘어가게 한다(기본 10초 → settings.hf_hub_etag_timeout, 기본 1초).
+os.environ["HF_HUB_OFFLINE"] = "1" if settings.hf_hub_offline else "0"
+os.environ["TRANSFORMERS_OFFLINE"] = "1" if settings.hf_hub_offline else "0"
+os.environ["HF_HUB_ETAG_TIMEOUT"] = str(settings.hf_hub_etag_timeout)
+
 import cv2
 import numpy as np
-import os
+import torch
+import re
+import subprocess
+import imageio_ffmpeg
 from pathlib import Path
+from PIL import Image
 from ultralytics import YOLO
 from datetime import date, datetime, timedelta
-from backend.core.config import settings
-from torchreid.utils import FeatureExtractor
-import torch.nn.functional as F
 import shutil
 import json
 from fashion_clip.fashion_clip import FashionCLIP
@@ -15,6 +38,7 @@ from sqlalchemy.orm import Session
 from backend.repositories.video_repository import VideoRepository
 from backend.schemas.video_schema import VideoCreate, VideoDetailCreate
 from backend.db.models import Video, VideoDetail
+from backend.core.search.color_matching import extract_region_dominant_color
 
 _model = None
 _fclip = None
@@ -28,12 +52,87 @@ def _get_yolo_model() -> YOLO:
     return _model
 
 
+_DURATION_RE = re.compile(r"Duration:\s*(\d{2}):(\d{2}):(\d{2})\.(\d{2})")
+
+
+def _probe_real_duration_seconds(video_path: str) -> float | None:
+    """ffmpeg(imageio_ffmpeg가 내려받아둔 정적 바이너리)로 실제 재생 가능한
+    길이(초)를 구한다.
+
+    cv2.CAP_PROP_FRAME_COUNT는 CCTV 장비가 내보내는 비표준/가변 프레임레이트
+    (VFR) MP4에서 실제보다 부풀려지는 경우가 흔하다. frame_extract()가 이
+    부풀려진 값만 믿고 프레임 위치를 seek하면, OpenCV가 실제 존재하지 않는
+    위치에서도 에러 없이(ret=True) 마지막 프레임을 그대로 반환해버려 —
+    이미지 내용은 마지막 프레임인데 파일명(따라서 video_detail.
+    video_timestamp)엔 실제 영상 길이를 넘는 초 값이 찍히는 버그로 이어진다.
+
+    ffmpeg -i는 출력 파일 없이도 stderr에 "Duration: HH:MM:SS.ss" 형식으로
+    컨테이너가 아닌 실제 스트림 길이를 알려준다 — 별도 ffprobe 설치 없이
+    이미 프로젝트 의존성인 imageio-ffmpeg가 받아둔 ffmpeg 하나로 충분하다.
+    실패 시(포맷 파싱 불가, 타임아웃 등) None을 반환해 호출부가
+    cv2.CAP_PROP_FRAME_COUNT로 안전하게 폴백하게 한다.
+    """
+    try:
+        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+        proc = subprocess.run(
+            [ffmpeg_exe, "-i", video_path],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (subprocess.TimeoutExpired, OSError, RuntimeError):
+        return None
+
+    match = _DURATION_RE.search(proc.stderr)
+    if not match:
+        return None
+
+    hours, minutes, seconds, centiseconds = (int(g) for g in match.groups())
+    return hours * 3600 + minutes * 60 + seconds + centiseconds / 100
+
+
 def _get_fashion_clip() -> FashionCLIP:
     # FashionCLIP 은 로드가 매우 무거우므로(수 초~수십 초) 최초 사용 시 1회만 생성해 재사용한다.
     global _fclip
     if _fclip is None:
         _fclip = FashionCLIP("fashion-clip")
     return _fclip
+
+
+def _encode_texts(texts: list[str], batch_size: int = 1) -> np.ndarray:
+    """FashionCLIP의 datasets 기반 인코더 대신 processor를 직접 사용한다."""
+    fclip = _get_fashion_clip()
+    embeddings = []
+    for start in range(0, len(texts), batch_size):
+        inputs = fclip.preprocess(
+            text=texts[start : start + batch_size],
+            return_tensors="pt",
+            max_length=77,
+            padding="max_length",
+            truncation=True,
+        )
+        inputs = {key: value.to(fclip.device) for key, value in inputs.items()}
+        with torch.no_grad():
+            features = fclip.model.get_text_features(**inputs)
+        embeddings.append(features.detach().cpu().numpy())
+    return np.vstack(embeddings)
+
+
+def _encode_images(image_paths: list[str], batch_size: int = 32) -> np.ndarray:
+    """torchvision VideoReader와 무관하게 PIL 이미지 배치를 직접 인코딩한다."""
+    fclip = _get_fashion_clip()
+    embeddings = []
+    for start in range(0, len(image_paths), batch_size):
+        images = []
+        for path in image_paths[start : start + batch_size]:
+            with Image.open(path) as image:
+                images.append(image.convert("RGB").copy())
+        inputs = fclip.preprocess(images=images, return_tensors="pt")
+        inputs = {key: value.to(fclip.device) for key, value in inputs.items()}
+        with torch.no_grad():
+            features = fclip.model.get_image_features(**inputs)
+        embeddings.append(features.detach().cpu().numpy())
+    return np.vstack(embeddings)
 
 # 처리 대상 영상 확장자
 _VIDEO_EXTENSIONS = {".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm"}
@@ -118,6 +217,22 @@ class VideoService:
 
         return {"processed": processed, "skipped": skipped, "failed": failed}
 
+    def run_indexing_job(self, target_date: date) -> dict:
+        """target_date 하루치 영상을 수집·인덱싱한다.
+
+        core/scheduler.py의 process_videos_job(매일 자동)과 관리자 콘솔의
+        수동 "인덱싱 재시도"가 이 메서드 하나를 공유한다. 작업 실행 자체를
+        별도로 기록하는 테이블은 없다 — "일자별 이력"은 Video 테이블을
+        recorded_at 기준으로 groupby해서 보여준다(services/cctv_coverage_service.py).
+        반환: {"total": 대상 건수, "processed": 처리, "skipped": 중복, "failed": 실패}
+        """
+        video_paths = self.collect_video_paths(target_date, target_date)
+        if not video_paths:
+            return {"total": 0, "processed": 0, "skipped": 0, "failed": 0}
+
+        result = self.process_videos(video_paths)
+        return {"total": len(video_paths), **result}
+
     def process_video_detail(self, video_id: int, details: list[dict]):
         for detail in details:
             video_detail = VideoDetailCreate(
@@ -125,10 +240,13 @@ class VideoService:
                 video_timestamp=detail["video_timestamp"],
                 crop_id=detail["crop_id"],
                 position=detail["position"],
+                top_color=detail.get("top_color"),
+                bottom_color=detail.get("bottom_color"),
+                shoes_color=detail.get("shoes_color"),
             )
             self.repository.create_detail(VideoDetail(**video_detail.model_dump()))
 
-    def frame_extract(self, video_path: str, every_nth: int = 5):
+    def frame_extract(self, video_path: str, every_nth: int = 1):
         cap = cv2.VideoCapture(video_path)
         path = Path(video_path)
         video_name = path.stem
@@ -144,6 +262,22 @@ class VideoService:
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         total_frame = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
+        # cv2.CAP_PROP_FRAME_COUNT가 실제보다 부풀려진 값이면(_probe_real_
+        # duration_seconds 설명 참고) 그 값을 그대로 믿고 seek할 위치를
+        # 만들면 video_detail.video_timestamp가 실제 영상 길이를 넘는
+        # 버그로 이어진다. ffmpeg로 확인한 실제 길이가 더 짧으면(오차 1초
+        # 감안) total_frame을 그 길이 기준으로 다시 잡아 넘어가지 않게 한다.
+        real_duration = _probe_real_duration_seconds(video_path)
+        if real_duration is not None and fps > 0:
+            real_total_frame = int(real_duration * fps)
+            if real_total_frame < total_frame:
+                print(
+                    f"[frame_extract] CAP_PROP_FRAME_COUNT({total_frame})가 "
+                    f"실제 길이({real_duration:.2f}s, ~{real_total_frame}프레임)"
+                    f"보다 큼 — 실제 길이 기준으로 잘라낸다: {video_path}"
+                )
+                total_frame = real_total_frame
+
         print(fps, width, height, total_frame)
 
         positions = [
@@ -158,6 +292,21 @@ class VideoService:
             ret, frame = cap.read()
 
             if ret:
+                # 이중 안전장치: 위에서 total_frame을 실제 길이 기준으로
+                # 잘라내도, seek 자체가 프레임 단위로 정확히 안 맞아떨어지는
+                # 코덱/컨테이너에서는 OpenCV가 여전히 요청한 위치보다 훨씬
+                # 앞선(=존재하는 마지막) 프레임을 에러 없이 반환할 수 있다.
+                # read 직후의 실제 위치가 요청한 pos보다 1초(=fps 프레임)
+                # 넘게 못 미치면 seek이 클램프됐다고 보고 이 프레임은 버린다
+                # (파일명의 seconds가 실제 내용과 어긋나는 걸 막기 위함).
+                actual_pos = cap.get(cv2.CAP_PROP_POS_FRAMES)
+                if fps > 0 and (pos - actual_pos) > fps:
+                    print(
+                        f"[frame_extract] seek 위치 불일치로 건너뜀: "
+                        f"요청 {pos}프레임, 실제 도달 {actual_pos:.0f}프레임"
+                    )
+                    continue
+
                 seconds = int(pos / fps)
                 save_path = os.path.join(
                     save_dir, f"{video_name}_frame_{seconds:05d}s.jpg"
@@ -214,16 +363,43 @@ class VideoService:
                 success = cv2.imwrite(str(save_path), person_crop)
                 if success:
                     crop_paths.append(str(save_path))
+
+                    # 상의/하의/신발 우세 색상(CIE Lab)을 인덱싱 시점에 미리
+                    # 뽑아둔다 — 검색할 때마다 다시 계산 안 하고
+                    # video_detail.*_color에 저장해서 재사용한다
+                    # (core/search/color_matching.py). 실패해도(추출 불가)
+                    # None으로 두고 계속 진행한다 — 색상 매칭 없이도 나머지
+                    # 파이프라인은 정상 동작해야 한다.
+                    top_color = extract_region_dominant_color(person_crop, "top")
+                    bottom_color = extract_region_dominant_color(person_crop, "bottom")
+                    shoes_color = extract_region_dominant_color(person_crop, "shoes")
+
                     details.append(
                         {
                             "video_timestamp": int(image_path.stem.split("_")[-1][:-1]),
                             "crop_id": person_idx,
                             "position": f"{x1}, {y1}, {x2}, {y2}",
+                            "top_color": (
+                                top_color.tolist() if top_color is not None else None
+                            ),
+                            "bottom_color": (
+                                bottom_color.tolist()
+                                if bottom_color is not None
+                                else None
+                            ),
+                            "shoes_color": (
+                                shoes_color.tolist()
+                                if shoes_color is not None
+                                else None
+                            ),
                         }
                     )
         return details, crop_paths
 
     def check_same_person(self, detected_path: str):
+        from torchreid.utils import FeatureExtractor
+        import torch.nn.functional as F
+
         image_dir = Path(detected_path)
         save_dir = Path("data/results/unique_persons")
         save_dir.mkdir(parents=True, exist_ok=True)
@@ -281,7 +457,7 @@ class VideoService:
     # crop embedding ------------------------------------------------------
     def create_image_embeddings(self, crop_paths: list[str]):
         path_strings = [str(path) for path in crop_paths]
-        embeddings = _get_fashion_clip().encode_images(path_strings, batch_size=32)
+        embeddings = _encode_images(path_strings, batch_size=32)
         norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
         return embeddings / norms
 
@@ -316,7 +492,7 @@ class VideoService:
         return result
 
     def search_embeddings(self, query: str, video_id: int, n_results: int = 5):
-        text_embeddings = _get_fashion_clip().encode_text([query], batch_size=1)
+        text_embeddings = _encode_texts([query], batch_size=1)
         text_embeddings = text_embeddings / np.linalg.norm(
             text_embeddings, axis=1, keepdims=True
         )
@@ -336,7 +512,7 @@ class VideoService:
         video_ids가 None이면 전체 컬렉션에서 검색한다(지역·기간 필터 없이 전수 검색).
         하나의 챗봇/검색 요청은 보통 지역·기간으로 video_ids를 먼저 좁혀서 넘긴다.
         """
-        text_embeddings = _get_fashion_clip().encode_text([query], batch_size=1)
+        text_embeddings = _encode_texts([query], batch_size=1)
         text_embeddings = text_embeddings / np.linalg.norm(
             text_embeddings, axis=1, keepdims=True
         )

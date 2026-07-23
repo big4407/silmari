@@ -1,15 +1,86 @@
-/** 감사 로그 뷰 — 로그인 이력(연동) · 관리자·승인 이력(목 UI) */
+/** 감사 로그 뷰 — 로그인 이력·관리자 행동 이력·승인 이력 (전부 연동) */
 import { useCallback, useEffect, useState } from 'react';
 import PageHead from '../components/PageHead';
 import { StatValue, TableEmptyRow } from '../components/EmptyState';
+import Pagination from '../components/Pagination';
+import { adminPinnedPaginationStyle } from '../components/adminTableUtils';
 import {
   fetchLoginHistory,
   LOGIN_FAIL_LABELS,
   fetchAdminHistory,
   ADMIN_ACTION_LABELS,
+  ADMIN_TARGET_TYPE_LABELS,
 } from '../../../api/client';
 
 export function AuditAdminView() {
+  const [rows, setRows] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [keyword, setKeyword] = useState('');
+  const [actionFilter, setActionFilter] = useState(''); // '' 전체 / '1'~'6'
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const PER_PAGE = 15; // 관리자 활동 이력 — 요청대로 15줄
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const params = { page, per_page: PER_PAGE };
+      if (keyword.trim()) params.actor = keyword.trim();
+      if (actionFilter) params.action_type = actionFilter;
+      if (startDate) params.start_date = startDate;
+      if (endDate) params.end_date = endDate;
+      const data = await fetchAdminHistory(params);
+      setRows(data.items ?? []);
+      setTotal(data.total ?? 0);
+    } catch (err) {
+      setError(
+        err?.response?.status === 403
+          ? '관리자 권한이 필요합니다.'
+          : '관리자 행동 이력을 불러오지 못했습니다.',
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [page, keyword, actionFilter, startDate, endDate]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
+  const fmt = (s) =>
+    s
+      ? new Date(s).toLocaleString('ko-KR', {
+          dateStyle: 'short',
+          timeStyle: 'medium',
+        })
+      : '-';
+
+  // detail JSON → 대상·변경 내용 요약 (행동 유형별로 detail 모양이 다를 수 있음)
+  const targetSummary = (r) => {
+    const d = r.detail ?? {};
+    const name = d.target_name ?? d.target_username ?? r.target_id ?? '-';
+    if (d.before && d.after) {
+      const changed = Object.keys(d.after).filter(
+        (k) => d.before[k] !== d.after[k],
+      );
+      if (changed.length) {
+        return `${name} (${changed.map((k) => `${k}: ${d.before[k] ?? '-'} → ${d.after[k] ?? '-'}`).join(', ')})`;
+      }
+    }
+    return name;
+  };
+
+  const onSearch = () => {
+    setPage(1);
+    load();
+  };
+
   return (
     <>
       <PageHead
@@ -17,36 +88,107 @@ export function AuditAdminView() {
         desc="관리자가 수행한 모든 작업(데이터 수정·삭제·보내기 등)을 시간순으로 기록합니다. 행위자·대상·결과를 추적할 수 있습니다."
       />
       <div className="admin-toolbar">
-        <input placeholder="행위자·대상 검색" disabled />
-        <select disabled>
-          <option>전체 유형</option>
+        <input
+          placeholder="행위자 검색"
+          value={keyword}
+          onChange={(e) => setKeyword(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && onSearch()}
+        />
+        <select
+          value={actionFilter}
+          onChange={(e) => setActionFilter(e.target.value)}
+        >
+          <option value="">전체 유형</option>
+          {Object.entries(ADMIN_ACTION_LABELS).map(([code, label]) => (
+            <option key={code} value={code}>
+              {label}
+            </option>
+          ))}
         </select>
-        <input type="date" disabled />
+        <input
+          type="date"
+          value={startDate}
+          onChange={(e) => setStartDate(e.target.value)}
+          title="시작일"
+        />
+        <input
+          type="date"
+          value={endDate}
+          onChange={(e) => setEndDate(e.target.value)}
+          title="종료일"
+        />
         <div className="admin-spacer" />
-        <button type="button" className="admin-btn" disabled>
-          로그보내기
+        <button type="button" className="admin-btn" onClick={onSearch}>
+          검색
         </button>
       </div>
-      <div className="admin-card admin-table-wrap">
+      <div style={adminPinnedPaginationStyle(PER_PAGE)}>
+        <div className="admin-card admin-table-wrap">
         <table>
           <thead>
             <tr>
               <th>시각</th>
               <th>행위자</th>
               <th>유형</th>
+              <th>화면</th>
               <th>대상 · 변경 내용</th>
               <th>결과</th>
               <th>IP</th>
             </tr>
           </thead>
           <tbody>
-            <TableEmptyRow colSpan={6} />
+            {loading ? (
+              <TableEmptyRow colSpan={7} message="불러오는 중…" />
+            ) : error ? (
+              <TableEmptyRow colSpan={7} message={error} />
+            ) : rows.length === 0 ? (
+              <TableEmptyRow
+                colSpan={7}
+                message="관리자 행동 이력이 없습니다."
+              />
+            ) : (
+              rows.map((r) => (
+                <tr key={r.id}>
+                  <td>{fmt(r.created_at)}</td>
+                  <td>{r.actor_name ?? r.actor_id}</td>
+                  <td>
+                    <span className="admin-pill admin-pill--muted">
+                      {ADMIN_ACTION_LABELS[r.action_type] ?? r.action_type}
+                    </span>
+                  </td>
+                  <td>
+                    {ADMIN_TARGET_TYPE_LABELS[r.target_type] ?? r.target_type}
+                  </td>
+                  <td title={targetSummary(r)}>{targetSummary(r)}</td>
+                  <td>
+                    <span
+                      className={`admin-pill ${
+                        r.success ? 'admin-pill--ok' : 'admin-pill--danger'
+                      }`}
+                    >
+                      {r.success ? '성공' : '실패'}
+                    </span>
+                  </td>
+                  <td>{r.ip_address ?? '-'}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        onPageChange={setPage}
+        loading={loading}
+      />
+      </div>
+
       <p className="admin-footnote">
-        ※ 가입 승인·권한 변경은 보안 감사를 위해 <b>승인·권한변경 이력</b>에서
-        별도 추적합니다.
+        ※ <code>admin_history</code> 테이블 기록입니다. 가입 승인·권한 변경은
+        보안 감사를 위해 <b>승인·권한변경 이력</b>에서 별도로도 볼 수 있습니다.
       </p>
     </>
   );
@@ -61,7 +203,7 @@ export function AuditApprovalView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const PER_PAGE = 20;
+  const PER_PAGE = 15; // 승인·권한변경 이력 — 요청대로 15줄
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -142,7 +284,8 @@ export function AuditApprovalView() {
           검색
         </button>
       </div>
-      <div className="admin-card admin-table-wrap">
+      <div style={adminPinnedPaginationStyle(PER_PAGE)}>
+        <div className="admin-card admin-table-wrap">
         <table>
           <thead>
             <tr>
@@ -189,32 +332,14 @@ export function AuditApprovalView() {
         </table>
       </div>
 
-      {total > 0 && (
-        <div
-          className="admin-toolbar"
-          style={{ justifyContent: 'center', marginTop: 12 }}
-        >
-          <button
-            type="button"
-            className="admin-btn"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page <= 1 || loading}
-          >
-            이전
-          </button>
-          <span className="admin-pill admin-pill--muted">
-            {page} / {totalPages} (총 {total}건)
-          </span>
-          <button
-            type="button"
-            className="admin-btn"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page >= totalPages || loading}
-          >
-            다음
-          </button>
-        </div>
-      )}
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        onPageChange={setPage}
+        loading={loading}
+      />
+      </div>
 
       <p className="admin-footnote">
         ※ 승인·반려·정지·재승인이 <code>admin_history</code> 에 기록됩니다. 변경
@@ -235,7 +360,7 @@ export function AuditLoginView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const PER_PAGE = 20;
+  const PER_PAGE = 10; // 로그인·접근 이력 — 요청대로 10줄
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -323,7 +448,8 @@ export function AuditLoginView() {
         </button>
       </div>
 
-      <div className="admin-card admin-table-wrap">
+      <div style={adminPinnedPaginationStyle(PER_PAGE)}>
+        <div className="admin-card admin-table-wrap">
         <table>
           <thead>
             <tr>
@@ -375,32 +501,14 @@ export function AuditLoginView() {
         </table>
       </div>
 
-      {total > 0 && (
-        <div
-          className="admin-toolbar"
-          style={{ justifyContent: 'center', marginTop: 12 }}
-        >
-          <button
-            type="button"
-            className="admin-btn"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page <= 1 || loading}
-          >
-            이전
-          </button>
-          <span className="admin-pill admin-pill--muted">
-            {page} / {totalPages} (총 {total}건)
-          </span>
-          <button
-            type="button"
-            className="admin-btn"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page >= totalPages || loading}
-          >
-            다음
-          </button>
-        </div>
-      )}
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        onPageChange={setPage}
+        loading={loading}
+      />
+      </div>
 
       <p className="admin-footnote">
         ※ 로그인 성공·실패가 <code>login_history</code> 에 기록됩니다. 같은

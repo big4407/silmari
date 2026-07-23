@@ -172,3 +172,35 @@
   color: #6b7280;
   line-height: 1.5;
 }
+
+.candidate-list__pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-top: 1px solid #e5e7eb;
+  background: #fff;
+}
+
+.candidate-list__pager-btn {
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #374151;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.candidate-list__pager-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.candidate-list__pager-label {
+  font-size: 0.72rem;
+  color: #6b7280;
+  min-width: 40px;
+  text-align: center;
+}

@@ -46,6 +46,7 @@ class MessageResponse(BaseModel):
     dst_se_nm: str | None
     reg_ymd: date | None
     mdfcn_ymd: date | None
+    case_status: str | None = None  # 1:대기, 2:진행중, 3:완료 — missing_person_case.status
 
     class Config:
         from_attributes = True
@@ -63,3 +64,17 @@ class MessageCollectResponse(BaseModel):
     filtered_out_count: int
     saved_count: int
     skipped_duplicate_count: int
+
+
+class AlertParseRequest(BaseModel):
+    msg_cn: str = Field(description="안내문자 본문 원문")
+
+
+class AlertParseResponse(BaseModel):
+    """LLM이 안내문자 본문에서 뽑아낸 실종자 정보 — 검색 요청(SearchCreate)에
+    그대로 흘려넣을 수 있는 필드만 담는다."""
+
+    missing_name: str | None = None
+    gender: str | None = None
+    age: int | None = None
+    clothing: str | None = None

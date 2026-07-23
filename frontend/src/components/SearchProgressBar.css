@@ -1,0 +1,32 @@
+.search-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #c5d8f0;
+  border-radius: 6px;
+  background: #f0f6fc;
+}
+
+.search-progress__spinner {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border: 2.5px solid #c5d8f0;
+  border-top-color: var(--color-accent, #0066cc);
+  border-radius: 50%;
+  animation: search-progress-spin 0.75s linear infinite;
+}
+
+.search-progress__label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-primary, #003876);
+}
+
+@keyframes search-progress-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

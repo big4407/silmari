@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PageHead from '../components/PageHead';
 import EmptyState, { StatValue, TableEmptyRow } from '../components/EmptyState';
+import Pagination from '../components/Pagination';
+import { adminPinnedPaginationStyle } from '../components/adminTableUtils';
 import {
   ADMIN_ACTION_LABELS,
   deleteRegion,
@@ -13,8 +15,10 @@ import {
   fetchRegions,
   importRegionsCsv,
   fetchRetentionPolicies,
+  seedDefaultRetentionPolicies,
   updateRetentionPolicies,
   runRetentionDryRun,
+  executeRetentionPolicies,
   runDataIntegrity,
   fetchLastIntegrityRun,
   saveBlobDownload,
@@ -56,7 +60,10 @@ const REGION_ACTION_LABELS = {
 
 function regionHistorySummary(item) {
   const action = item.detail?.action;
-  const label = REGION_ACTION_LABELS[action] || ADMIN_ACTION_LABELS[item.action_type] || action;
+  const label =
+    REGION_ACTION_LABELS[action] ||
+    ADMIN_ACTION_LABELS[item.action_type] ||
+    action;
   const target = item.target_id || '—';
   if (action === 'import') {
     return `${label} · +${item.detail?.created ?? 0} / ~${item.detail?.updated ?? 0}`;
@@ -107,11 +114,15 @@ function retentionHistorySummary(item) {
     const after = c.after || {};
     const before = c.before || {};
     const fields = [];
-    if (after.retention_days != null && after.retention_days !== before.retention_days) {
+    if (
+      after.retention_days != null &&
+      after.retention_days !== before.retention_days
+    ) {
       fields.push(`보존 ${before.retention_days}→${after.retention_days}일`);
     }
     if (after.expiry_action && after.expiry_action !== before.expiry_action) {
-      const label = RETENTION_EXPIRY_LABELS[after.expiry_action] || after.expiry_action;
+      const label =
+        RETENTION_EXPIRY_LABELS[after.expiry_action] || after.expiry_action;
       fields.push(`처리 ${label}`);
     }
     if (after.is_active != null && after.is_active !== before.is_active) {
@@ -151,7 +162,11 @@ function RegionTreeNode({
   const isLoading = loadingParents.has(node.region_code);
   const children = childrenMap.get(node.region_code) ?? [];
   const levelClass =
-    depth === 0 ? 'admin-tnode--l0' : depth === 1 ? 'admin-tnode--l1' : 'admin-tnode--l2';
+    depth === 0
+      ? 'admin-tnode--l0'
+      : depth === 1
+        ? 'admin-tnode--l1'
+        : 'admin-tnode--l2';
 
   return (
     <>
@@ -294,7 +309,10 @@ export function DataCodesView() {
   const loadChildren = async (parentCode) => {
     setLoadingParents((prev) => new Set(prev).add(parentCode));
     try {
-      const data = await fetchRegions({ parent_code: parentCode, per_page: 200 });
+      const data = await fetchRegions({
+        parent_code: parentCode,
+        per_page: 200,
+      });
       setChildrenMap((prev) => new Map(prev).set(parentCode, data.items));
     } catch (err) {
       setRegionError(regionErrorMessage(err));
@@ -418,7 +436,9 @@ export function DataCodesView() {
       return;
     }
     const label = specific_name || full_name || region_code;
-    if (!window.confirm(`「${label}」(${region_code}) 행정구역을 삭제할까요?`)) {
+    if (
+      !window.confirm(`「${label}」(${region_code}) 행정구역을 삭제할까요?`)
+    ) {
       return;
     }
     setDeleteBusy(true);
@@ -581,17 +601,29 @@ export function DataCodesView() {
       />
 
       {csvBusy && csvBusyMode === 'import' && (
-        <div className="admin-csv-busy-banner admin-mb" role="status" aria-live="polite">
+        <div
+          className="admin-csv-busy-banner admin-mb"
+          role="status"
+          aria-live="polite"
+        >
           CSV를 분석·적재하는 중입니다. 대용량 파일은 수십 초 걸릴 수 있습니다.
         </div>
       )}
       {csvBusy && csvBusyMode === 'export' && (
-        <div className="admin-csv-busy-banner admin-mb" role="status" aria-live="polite">
+        <div
+          className="admin-csv-busy-banner admin-mb"
+          role="status"
+          aria-live="polite"
+        >
           CSV 파일을 생성하는 중입니다.
         </div>
       )}
       {clearBusy && (
-        <div className="admin-csv-busy-banner admin-mb" role="status" aria-live="polite">
+        <div
+          className="admin-csv-busy-banner admin-mb"
+          role="status"
+          aria-live="polite"
+        >
           행정구역 데이터를 비우는 중입니다.
         </div>
       )}
@@ -679,24 +711,26 @@ export function DataCodesView() {
       />
 
       <div className="admin-card admin-card--region-full">
-          <div className="admin-card-h">
-            <div>
-              행정구역 (region)
-              <span className="admin-card-hint">영상·CCTV 폴더가 참조하는 계층</span>
-            </div>
-            {!isSearchMode && roots.length > 0 && (
-              <button
-                type="button"
-                className="admin-btn admin-btn--sm"
-                onClick={handleRegionListRefresh}
-                disabled={regionLoading || csvBusy || clearBusy}
-              >
-                목록 새로고침
-              </button>
-            )}
+        <div className="admin-card-h">
+          <div>
+            행정구역 (region)
+            <span className="admin-card-hint">
+              영상·CCTV 폴더가 참조하는 계층
+            </span>
           </div>
-          <div className="admin-card-b admin-region-layout">
-            <div className="admin-region-layout__tree">
+          {!isSearchMode && roots.length > 0 && (
+            <button
+              type="button"
+              className="admin-btn admin-btn--sm"
+              onClick={handleRegionListRefresh}
+              disabled={regionLoading || csvBusy || clearBusy}
+            >
+              목록 새로고침
+            </button>
+          )}
+        </div>
+        <div className="admin-card-b admin-region-layout">
+          <div className="admin-region-layout__tree">
             {regionLoading && (
               <p className="admin-inline-status">행정구역 불러오는 중…</p>
             )}
@@ -714,99 +748,111 @@ export function DataCodesView() {
               </div>
             )}
 
-            {!regionLoading && !regionError && isSearchMode && searchRows.length === 0 && (
-              <EmptyState message={`「${keyword.trim()}」에 맞는 행정구역이 없습니다.`} />
-            )}
+            {!regionLoading &&
+              !regionError &&
+              isSearchMode &&
+              searchRows.length === 0 && (
+                <EmptyState
+                  message={`「${keyword.trim()}」에 맞는 행정구역이 없습니다.`}
+                />
+              )}
 
-            {!regionLoading && !regionError && !isSearchMode && roots.length === 0 && (
-              <div className="admin-empty admin-empty--cta">
-                <p>등록된 행정구역이 없습니다.</p>
-                <p className="admin-empty__sub">
-                  서버 기동 시 administrative_dong.csv 가 있으면 자동 적재됩니다.
-                  없으면 CSV 가져오기로 등록하세요.
-                </p>
-                <button
-                  type="button"
-                  className="admin-btn admin-btn--primary admin-btn--sm"
-                  onClick={handleRegionListRefresh}
-                >
-                  목록 새로고침
-                </button>
-              </div>
-            )}
-
-            {!regionLoading && !regionError && isSearchMode && searchRows.length > 0 && (
-              <div className="admin-tree">
-                {searchRows.map((row) => (
-                  <div
-                    key={row.region_code}
-                    className={`admin-tnode admin-tnode--l0 ${
-                      selected?.region_code === row.region_code
-                        ? 'admin-tnode--active'
-                        : ''
-                    }`}
+            {!regionLoading &&
+              !regionError &&
+              !isSearchMode &&
+              roots.length === 0 && (
+                <div className="admin-empty admin-empty--cta">
+                  <p>등록된 행정구역이 없습니다.</p>
+                  <p className="admin-empty__sub">
+                    서버 기동 시 administrative_dong.csv 가 있으면 자동
+                    적재됩니다. 없으면 CSV 가져오기로 등록하세요.
+                  </p>
+                  <button
+                    type="button"
+                    className="admin-btn admin-btn--primary admin-btn--sm"
+                    onClick={handleRegionListRefresh}
                   >
-                    <button
-                      type="button"
-                      className="admin-tnode__main"
-                      onClick={() => handleSelect(row)}
-                    >
-                      <span className="admin-tnode__label">
-                        {row.full_name || row.specific_name}
-                      </span>
-                      <span className="admin-tcode">{row.region_code}</span>
-                    </button>
-                  </div>
-                ))}
-                {searchTotal > 30 && (
-                  <div className="admin-pager">
-                    <button
-                      type="button"
-                      className="admin-btn admin-btn--sm"
-                      disabled={searchPage <= 1}
-                      onClick={() => setSearchPage((p) => p - 1)}
-                    >
-                      이전
-                    </button>
-                    <span>
-                      {searchPage} / {searchPages} ({searchTotal}건)
-                    </span>
-                    <button
-                      type="button"
-                      className="admin-btn admin-btn--sm"
-                      disabled={searchPage >= searchPages}
-                      onClick={() => setSearchPage((p) => p + 1)}
-                    >
-                      다음
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
+                    목록 새로고침
+                  </button>
+                </div>
+              )}
 
-            {!regionLoading && !regionError && !isSearchMode && roots.length > 0 && (
-              <div className="admin-tree">
-                {roots.map((node) => (
-                  <RegionTreeNode
-                    key={node.region_code}
-                    node={node}
-                    depth={0}
-                    expanded={expanded}
-                    childrenMap={childrenMap}
-                    loadingParents={loadingParents}
-                    selectedCode={selected?.region_code}
-                    onToggle={handleToggle}
-                    onActivate={handleActivate}
-                  />
-                ))}
-                {rootsTotal > roots.length && (
-                  <p className="admin-footnote">상위 {roots.length} / {rootsTotal}건 표시</p>
-                )}
-              </div>
-            )}
-            </div>
+            {!regionLoading &&
+              !regionError &&
+              isSearchMode &&
+              searchRows.length > 0 && (
+                <div
+                  style={{
+                    minHeight: 32 * 30,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <div className="admin-tree">
+                    {searchRows.map((row) => (
+                      <div
+                        key={row.region_code}
+                        className={`admin-tnode admin-tnode--l0 ${
+                          selected?.region_code === row.region_code
+                            ? 'admin-tnode--active'
+                            : ''
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          className="admin-tnode__main"
+                          onClick={() => handleSelect(row)}
+                        >
+                          <span className="admin-tnode__label">
+                            {row.full_name || row.specific_name}
+                          </span>
+                          <span className="admin-tcode">
+                            {row.region_code}
+                          </span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  {searchTotal > 30 && (
+                    <Pagination
+                      page={searchPage}
+                      totalPages={searchPages}
+                      total={searchTotal}
+                      onPageChange={setSearchPage}
+                    />
+                  )}
+                </div>
+              )}
 
-            <aside className="admin-region-layout__side">
+            {!regionLoading &&
+              !regionError &&
+              !isSearchMode &&
+              roots.length > 0 && (
+                <div className="admin-tree">
+                  {roots.map((node) => (
+                    <RegionTreeNode
+                      key={node.region_code}
+                      node={node}
+                      depth={0}
+                      expanded={expanded}
+                      childrenMap={childrenMap}
+                      loadingParents={loadingParents}
+                      selectedCode={selected?.region_code}
+                      onToggle={handleToggle}
+                      onActivate={handleActivate}
+                    />
+                  ))}
+                  {rootsTotal > roots.length && (
+                    <p className="admin-footnote">
+                      상위 {roots.length} / {rootsTotal}건 표시
+                    </p>
+                  )}
+                </div>
+              )}
+          </div>
+
+          <aside className="admin-region-layout__side">
             {selected ? (
               <div className="admin-region-detail admin-region-detail--panel">
                 <div className="admin-region-detail__head">
@@ -873,13 +919,16 @@ export function DataCodesView() {
             ) : (
               <div className="admin-region-detail admin-region-detail--panel admin-region-detail--empty">
                 <p className="admin-region-detail__placeholder">
-                  왼쪽 목록에서 행정구역을 선택하면 상세 정보와 작업 버튼이 표시됩니다.
+                  왼쪽 목록에서 행정구역을 선택하면 상세 정보와 작업 버튼이
+                  표시됩니다.
                 </p>
               </div>
             )}
 
             <p className="admin-footnote">
-              parent_code 기반 계층(self-FK). 항목을 클릭하면 하위 지역이 펼쳐지고, ▸ 아이콘으로 접을 수 있습니다. 목록 새로고침 시 시·도만 보이는 초기 상태로 돌아갑니다.
+              parent_code 기반 계층(self-FK). 항목을 클릭하면 하위 지역이
+              펼쳐지고, ▸ 아이콘으로 접을 수 있습니다. 목록 새로고침 시 시·도만
+              보이는 초기 상태로 돌아갑니다.
             </p>
 
             {regionHistory.length > 0 && (
@@ -898,8 +947,8 @@ export function DataCodesView() {
                 </ul>
               </div>
             )}
-            </aside>
-          </div>
+          </aside>
+        </div>
       </div>
     </>
   );
@@ -915,21 +964,40 @@ export function DataValidateView() {
   const [reportBusy, setReportBusy] = useState(false);
   const [targetFilter, setTargetFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  // 검사 항목(displayedChecks)은 result.checks 전체를 한 번에 받아와 클라이언트
+  // 에서 필터링·페이지네이션한다. 요청대로 10줄.
+  const CHECKS_PER_PAGE = 10;
+  const [checksPage, setChecksPage] = useState(1);
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  // 일시·변경내용·실행자 3개 열짜리 단순 텍스트 행이라 20줄로도 무난하다.
+  const HISTORY_PER_PAGE = 5; // 요청대로 5줄
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyTotal, setHistoryTotal] = useState(0);
   const [detailCheck, setDetailCheck] = useState(null);
 
+  // historyLoading은 "과거 검사 결과 불러오기(행 클릭)" 전용 플래그라 재사용하지
+  // 않는다 — 페이지 이동 중에도 historyLoading이 true가 되면 엉뚱한 행에 "…"
+  // 표시가 깜빡인다. 목록 자체를 새로 받아오는 동안엔 별도 플래그를 쓴다.
+  const [historyListLoading, setHistoryListLoading] = useState(false);
+
   const loadHistory = useCallback(async () => {
+    setHistoryListLoading(true);
     try {
       const data = await fetchAdminHistory({
         target_type: 'integrity_check',
-        per_page: 10,
+        page: historyPage,
+        per_page: HISTORY_PER_PAGE,
       });
       setHistory(data.items ?? []);
+      setHistoryTotal(data.total ?? 0);
     } catch {
       setHistory([]);
+      setHistoryTotal(0);
+    } finally {
+      setHistoryListLoading(false);
     }
-  }, []);
+  }, [historyPage]);
 
   const loadLastRun = useCallback(async () => {
     try {
@@ -977,6 +1045,19 @@ export function DataValidateView() {
     });
   }, [result, targetFilter, statusFilter]);
 
+  useEffect(() => {
+    setChecksPage(1);
+  }, [result, targetFilter, statusFilter]);
+
+  const checksTotalPages = Math.max(
+    1,
+    Math.ceil(displayedChecks.length / CHECKS_PER_PAGE),
+  );
+  const pagedChecks = displayedChecks.slice(
+    (checksPage - 1) * CHECKS_PER_PAGE,
+    checksPage * CHECKS_PER_PAGE,
+  );
+
   const runCheck = async () => {
     setLoading(true);
     setError('');
@@ -990,13 +1071,8 @@ export function DataValidateView() {
           ? `정합성 검사를 완료했습니다. 이슈 ${data.total_issues}건이 발견되었습니다.`
           : '정합성 검사를 완료했습니다. 이슈가 없습니다.',
       );
+      setHistoryPage(1);
       await loadHistory();
-    } catch (err) {
-      setError(
-        err?.response?.status === 403
-          ? '관리자 권한이 필요합니다.'
-          : '정합성 검사를 실행하지 못했습니다.',
-      );
     } finally {
       setLoading(false);
     }
@@ -1129,7 +1205,11 @@ export function DataValidateView() {
       {error && (
         <div className="admin-inline-error admin-mb">
           <p>{error}</p>
-          <button type="button" className="admin-btn admin-btn--sm" onClick={runCheck}>
+          <button
+            type="button"
+            className="admin-btn admin-btn--sm"
+            onClick={runCheck}
+          >
             다시 시도
           </button>
         </div>
@@ -1162,7 +1242,8 @@ export function DataValidateView() {
         </div>
       )}
 
-      <div className="admin-card admin-table-wrap">
+      <div style={adminPinnedPaginationStyle(CHECKS_PER_PAGE)}>
+        <div className="admin-card admin-table-wrap">
         <table>
           <thead>
             <tr>
@@ -1172,7 +1253,7 @@ export function DataValidateView() {
               <th>결과</th>
               <th>이슈</th>
               <th>샘플</th>
-              <th />
+              <th style={{ width: 120 }} />
             </tr>
           </thead>
           <tbody>
@@ -1191,7 +1272,7 @@ export function DataValidateView() {
                 message="필터 조건에 맞는 검사 항목이 없습니다."
               />
             ) : (
-              displayedChecks.map((row) => {
+              pagedChecks.map((row) => {
                 const fixLink = integrityFixLink(row);
                 return (
                   <tr
@@ -1236,8 +1317,17 @@ export function DataValidateView() {
           </p>
         )}
       </div>
+      <Pagination
+        page={checksPage}
+        totalPages={checksTotalPages}
+        total={displayedChecks.length}
+        onPageChange={setChecksPage}
+        loading={loading}
+      />
+      </div>
 
-      <div className="admin-card admin-table-wrap">
+      <div style={adminPinnedPaginationStyle(HISTORY_PER_PAGE)}>
+        <div className="admin-card admin-table-wrap">
         <div className="admin-card-h">최근 검사 이력 (감사 로그)</div>
         <table>
           <thead>
@@ -1274,6 +1364,14 @@ export function DataValidateView() {
           이력 행을 클릭하면 해당 시점의 검사 결과를 다시 불러옵니다.
         </p>
       </div>
+      <Pagination
+        page={historyPage}
+        totalPages={Math.max(1, Math.ceil(historyTotal / HISTORY_PER_PAGE))}
+        total={historyTotal}
+        onPageChange={setHistoryPage}
+        loading={historyListLoading}
+      />
+      </div>
 
       <IntegrityCheckDetailModal
         open={!!detailCheck}
@@ -1284,93 +1382,55 @@ export function DataValidateView() {
   );
 }
 
-export function DataExportView() {
-  return (
-    <>
-      <PageHead
-        viewId="data-export"
-        desc="조회·검색·통계 데이터를 표준 형식으로 일괄보냅니다.보내기 이력은 감사 로그에 기록됩니다."
-      />
-      <div className="admin-card admin-mb">
-        <div className="admin-card-h">새보내기</div>
-        <div className="admin-card-b">
-          <div className="admin-form-row">
-            <div className="admin-fld">
-              <label>데이터 종류</label>
-              <select disabled>
-                <option>데이터 종류를 선택하세요</option>
-              </select>
-            </div>
-            <div className="admin-fld">
-              <label>기간</label>
-              <input type="date" disabled />
-            </div>
-            <div className="admin-fld">
-              <label>형식</label>
-              <select disabled>
-                <option>CSV</option>
-              </select>
-            </div>
-            <div className="admin-fld" style={{ flex: '0 0 auto' }}>
-              <label>&nbsp;</label>
-              <button
-                type="button"
-                className="admin-btn admin-btn--primary"
-                disabled
-              >
-                보내기
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="admin-card admin-table-wrap">
-        <div className="admin-card-h">최근보내기</div>
-        <table>
-          <thead>
-            <tr>
-              <th>일시</th>
-              <th>데이터</th>
-              <th>기간</th>
-              <th>형식</th>
-              <th>행 수</th>
-              <th>요청자</th>
-              <th style={{ textAlign: 'right' }} />
-            </tr>
-          </thead>
-          <tbody>
-            <TableEmptyRow colSpan={7} />
-          </tbody>
-        </table>
-      </div>
-    </>
-  );
-}
-
 export function DataRetentionView() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
+  // 보존 정책 자체는 데이터 유형별로 고정된 소수 행이지만, 요청대로 페이징
+  // UI를 통일해서 5줄로 넣는다(전체를 한 번에 받아와 클라이언트에서 자름).
+  const POLICY_PER_PAGE = 5;
+  const [policyPage, setPolicyPage] = useState(1);
   const [history, setHistory] = useState([]);
+  // 일시·변경내용·실행자 3개 열짜리 단순 텍스트 행. 요청대로 5줄.
+  const HISTORY_PER_PAGE = 5;
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [dryRunOpen, setDryRunOpen] = useState(false);
   const [dryRunItems, setDryRunItems] = useState([]);
   const [dryRunTitle, setDryRunTitle] = useState('');
   const [dryRunLoading, setDryRunLoading] = useState(false);
   const [dryRunError, setDryRunError] = useState('');
+  const [dryRunPolicyId, setDryRunPolicyId] = useState(null);
+  const [executing, setExecuting] = useState(false);
+  const [executeResult, setExecuteResult] = useState(null);
+  const [executeError, setExecuteError] = useState('');
+  const [seeding, setSeeding] = useState(false);
+  const [seedError, setSeedError] = useState('');
 
   const loadHistory = useCallback(async () => {
+    setHistoryLoading(true);
     try {
       const data = await fetchAdminHistory({
         target_type: 'retention_policy',
-        per_page: 10,
+        page: historyPage,
+        per_page: HISTORY_PER_PAGE,
       });
       setHistory(data.items ?? []);
+      setHistoryTotal(data.total ?? 0);
     } catch {
       setHistory([]);
+      setHistoryTotal(0);
+    } finally {
+      setHistoryLoading(false);
     }
-  }, []);
+  }, [historyPage]);
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1378,18 +1438,38 @@ export function DataRetentionView() {
     try {
       const data = await fetchRetentionPolicies();
       setRows(data.items ?? []);
-      await loadHistory();
     } catch {
       setError('보존 정책을 불러오지 못했습니다.');
       setRows([]);
     } finally {
       setLoading(false);
     }
-  }, [loadHistory]);
+  }, []);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  const handleSeedDefaults = async () => {
+    setSeeding(true);
+    setSeedError('');
+    try {
+      await seedDefaultRetentionPolicies();
+      await load();
+      setHistoryPage(1);
+      await loadHistory();
+    } catch {
+      setSeedError('기본 정책 생성에 실패했습니다.');
+    } finally {
+      setSeeding(false);
+    }
+  };
+
+  const policyTotalPages = Math.max(1, Math.ceil(rows.length / POLICY_PER_PAGE));
+  const pagedRows = rows.slice(
+    (policyPage - 1) * POLICY_PER_PAGE,
+    policyPage * POLICY_PER_PAGE,
+  );
 
   const patchRow = (id, field, value) => {
     setRows((prev) =>
@@ -1413,6 +1493,7 @@ export function DataRetentionView() {
       );
       setRows(data.items ?? []);
       setMessage('보존 정책을 저장했습니다.');
+      setHistoryPage(1);
       await loadHistory();
     } catch {
       setError('정책 저장에 실패했습니다.');
@@ -1427,6 +1508,9 @@ export function DataRetentionView() {
     setDryRunItems([]);
     setDryRunError('');
     setDryRunLoading(true);
+    setDryRunPolicyId(policyId);
+    setExecuteResult(null);
+    setExecuteError('');
     try {
       const data = await runRetentionDryRun({
         policyId,
@@ -1437,6 +1521,23 @@ export function DataRetentionView() {
       setDryRunError('드라이런 미리보기에 실패했습니다.');
     } finally {
       setDryRunLoading(false);
+    }
+  };
+
+  const handleExecute = async () => {
+    setExecuting(true);
+    setExecuteError('');
+    setExecuteResult(null);
+    try {
+      const data = await executeRetentionPolicies({ policyId: dryRunPolicyId });
+      setExecuteResult(data);
+      await load(); // 목록·건수 다시 불러오기
+      setHistoryPage(1);
+      await loadHistory(); // 이력 다시 불러오기
+    } catch {
+      setExecuteError('삭제 실행에 실패했습니다.');
+    } finally {
+      setExecuting(false);
     }
   };
 
@@ -1461,7 +1562,12 @@ export function DataRetentionView() {
         >
           {saving ? '저장 중…' : '정책 저장'}
         </button>
-        <button type="button" className="admin-btn" onClick={load} disabled={loading}>
+        <button
+          type="button"
+          className="admin-btn"
+          onClick={load}
+          disabled={loading}
+        >
           새로고침
         </button>
         <button
@@ -1483,13 +1589,36 @@ export function DataRetentionView() {
       {error && (
         <div className="admin-inline-error admin-mb">
           <p>{error}</p>
-          <button type="button" className="admin-btn admin-btn--sm" onClick={load}>
+          <button
+            type="button"
+            className="admin-btn admin-btn--sm"
+            onClick={load}
+          >
             다시 시도
           </button>
         </div>
       )}
 
-      <div className="admin-card admin-table-wrap">
+      {!loading && !error && rows.length === 0 && (
+        <div className="admin-inline-error admin-mb">
+          <p>
+            아직 등록된 보존 정책이 없습니다 — 데이터 유형별 기본 정책을 먼저
+            생성해야 저장·드라이런을 사용할 수 있습니다.
+          </p>
+          {seedError && <p className="admin-cell-sub">{seedError}</p>}
+          <button
+            type="button"
+            className="admin-btn admin-btn--primary admin-btn--sm"
+            onClick={handleSeedDefaults}
+            disabled={seeding}
+          >
+            {seeding ? '생성 중…' : '기본 정책 생성'}
+          </button>
+        </div>
+      )}
+
+      <div style={adminPinnedPaginationStyle(POLICY_PER_PAGE)}>
+        <div className="admin-card admin-table-wrap">
         <div className="admin-card-h">보존 정책</div>
         <table>
           <thead>
@@ -1501,7 +1630,7 @@ export function DataRetentionView() {
               <th style={{ textAlign: 'right' }}>현재 보관량</th>
               <th style={{ textAlign: 'right' }}>만료 예정</th>
               <th>상태</th>
-              <th />
+              <th style={{ width: 100 }} />
             </tr>
           </thead>
           <tbody>
@@ -1510,8 +1639,11 @@ export function DataRetentionView() {
             ) : rows.length === 0 ? (
               <TableEmptyRow colSpan={8} message="보존 정책이 없습니다." />
             ) : (
-              rows.map((row) => (
-                <tr key={row.id} className={!row.is_active ? 'admin-row--muted' : undefined}>
+              pagedRows.map((row) => (
+                <tr
+                  key={row.id}
+                  className={!row.is_active ? 'admin-row--muted' : undefined}
+                >
                   <td>
                     <strong>{row.data_label}</strong>
                     {row.notes && (
@@ -1527,7 +1659,11 @@ export function DataRetentionView() {
                       max={3650}
                       value={row.retention_days}
                       onChange={(e) =>
-                        patchRow(row.id, 'retention_days', Number(e.target.value))
+                        patchRow(
+                          row.id,
+                          'retention_days',
+                          Number(e.target.value),
+                        )
                       }
                     />
                     <span className="admin-cell-unit">일</span>
@@ -1544,7 +1680,9 @@ export function DataRetentionView() {
                       <option value="archive">보관</option>
                       <option value="anonymize">익명화</option>
                     </select>
-                    <span className="admin-cell-sub">{expiryLabel(row.expiry_action)}</span>
+                    <span className="admin-cell-sub">
+                      {expiryLabel(row.expiry_action)}
+                    </span>
                   </td>
                   <td style={{ textAlign: 'right' }}>
                     {(row.current_count ?? 0).toLocaleString()}
@@ -1552,7 +1690,9 @@ export function DataRetentionView() {
                   <td
                     style={{ textAlign: 'right' }}
                     className={
-                      (row.expired_count ?? 0) > 0 ? 'admin-cell-warn' : undefined
+                      (row.expired_count ?? 0) > 0
+                        ? 'admin-cell-warn'
+                        : undefined
                     }
                   >
                     {(row.expired_count ?? 0).toLocaleString()}
@@ -1586,8 +1726,17 @@ export function DataRetentionView() {
           </tbody>
         </table>
       </div>
+      <Pagination
+        page={policyPage}
+        totalPages={policyTotalPages}
+        total={rows.length}
+        onPageChange={setPolicyPage}
+        loading={loading}
+      />
+      </div>
 
-      <div className="admin-card admin-table-wrap admin-mt">
+      <div style={adminPinnedPaginationStyle(HISTORY_PER_PAGE)}>
+        <div className="admin-card admin-table-wrap admin-mt">
         <div className="admin-card-h">정책 변경 이력 (감사 로그)</div>
         <table>
           <thead>
@@ -1612,6 +1761,14 @@ export function DataRetentionView() {
           </tbody>
         </table>
       </div>
+      <Pagination
+        page={historyPage}
+        totalPages={Math.max(1, Math.ceil(historyTotal / HISTORY_PER_PAGE))}
+        total={historyTotal}
+        onPageChange={setHistoryPage}
+        loading={historyLoading}
+      />
+      </div>
 
       <p className="admin-footnote">
         ※ 드라이런은 화면에 입력한 보존 기간·상태를 반영한 미리보기입니다. 실제
@@ -1626,6 +1783,10 @@ export function DataRetentionView() {
         loading={dryRunLoading}
         error={dryRunError}
         onClose={() => setDryRunOpen(false)}
+        onExecute={handleExecute}
+        executing={executing}
+        executeResult={executeResult}
+        executeError={executeError}
       />
     </>
   );

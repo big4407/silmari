@@ -63,6 +63,15 @@ class SearchType(str, enum.Enum):
     AUTO = "3"  # 자동검색
 
 
+class LlmCallType(str, enum.Enum):
+    """LLM 호출 유형. value 는 기존 CHAR(1) 코드값을 유지(DB 호환)."""
+
+    CLOTHING_TRANSLATE = "1"  # 인상착의 한영변환
+    CHATBOT = "2"  # 챗봇
+    ALERT_PARSE = "3"  # 안내문자 파싱
+
+
+
 class AnalysisStatus(str, enum.Enum):
     """분석(실행) 상태. value 는 기존 CHAR(1) 코드값을 유지(DB 호환)."""
 
@@ -101,6 +110,18 @@ class AdminAction(str, enum.Enum):
     REACTIVATE = "4"  # 정지·반려 해제(재승인)
     DELETE = "5"  # 데이터 삭제 (안내문자 등, 향후 확장)
     UPDATE = "6"  # 데이터 수정 (향후 확장)
+
+
+class MissingPersonCaseStatus(str, enum.Enum):
+    """실종자 관리 케이스 상태. value 는 DB 저장용 코드값(숫자).
+
+    완료(RESOLVED)는 되돌릴 수 없다 — services/stats_service.py 통계가
+    조회 시점마다 달라지는 걸 막기 위한 정책 결정.
+    """
+
+    PENDING = "1"  # 대기 — 담당자 미배정
+    IN_PROGRESS = "2"  # 진행중 — 담당자 배정됨
+    RESOLVED = "3"  # 완료
 
 
 class User(Base):
@@ -441,6 +462,15 @@ class VideoDetail(Base):
     position: Mapped[str] = mapped_column(
         String(100), nullable=False, comment="bbox (x,y,width,height)"
     )
+    top_color: Mapped[list[float] | None] = mapped_column(
+        JSON, nullable=True, comment="상의 우세 색상 CIE Lab [L,a,b] (색상 추출 실패 시 NULL)"
+    )
+    bottom_color: Mapped[list[float] | None] = mapped_column(
+        JSON, nullable=True, comment="하의 우세 색상 CIE Lab [L,a,b] (색상 추출 실패 시 NULL)"
+    )
+    shoes_color: Mapped[list[float] | None] = mapped_column(
+        JSON, nullable=True, comment="신발 우세 색상 CIE Lab [L,a,b] (색상 추출 실패 시 NULL)"
+    )
 
     video: Mapped["Video"] = relationship(back_populates="details")
 
@@ -517,6 +547,17 @@ class Search(Base):
         back_populates="search", cascade="all, delete-orphan"
     )
 
+    @property
+    def result_count(self) -> int:
+        """이 검색으로 나온 매칭 후보(analysis_detail) 총 개수.
+
+        검색 이력 화면에서 "결과 없음"을 표시하려고 추가 — 검색 1건당
+        보통 analysis 1건이지만, 혹시 여러 건이어도 전부 합산한다.
+        find_all()에서 selectinload(Search.analyses)
+        .selectinload(Analysis.details)로 미리 불러와야 N+1 없이 동작한다.
+        """
+        return sum(len(a.details) for a in self.analyses)
+
 
 class Analysis(Base):
     """검색 요청에 대한 분석(실행) 상태."""
@@ -577,7 +618,15 @@ class AnalysisDetail(Base):
         String(260), nullable=True, comment="매칭된 인물 crop 이미지 경로(썸네일)"
     )
     matching_rate: Mapped[float] = mapped_column(
-        Float, nullable=False, default=0, comment="매칭 정확도"
+        Float, nullable=False, default=0, comment="매칭 정확도(FashionCLIP 코사인 유사도)"
+    )
+    color_match_rate: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+        comment="인상착의 텍스트 색상과 크롭 실제 색상의 매칭 점수(0~1, "
+        "core/search/color_matching.py). 비교 불가 시 NULL — matching_rate와 "
+        "합산해 최종 정렬 점수를 만들 때는 조회 시점에 계산한다(가중치 튜닝을 "
+        "위해 원값을 따로 저장).",
     )
 
     analysis: Mapped["Analysis"] = relationship(back_populates="details")
@@ -614,10 +663,15 @@ class LlmCall(Base):
         comment="자동 증분 ID",
     )
 
-    call_type: Mapped[str] = mapped_column(
-        String(100),
+    call_type: Mapped[LlmCallType] = mapped_column(
+        Enum(
+            LlmCallType,
+            native_enum=False,
+            length=1,
+            values_callable=lambda e: [m.value for m in e],
+        ),
         nullable=False,
-        comment="호출 유형 (1: 인상착의 한영변환, 2: 챗봇)",
+        comment="호출 유형 (1: 인상착의 한영변환, 2: 챗봇, 3: 안내문자 파싱)",
     )
 
     search_id: Mapped[int | None] = mapped_column(
@@ -699,4 +753,121 @@ class LlmCall(Base):
         nullable=False,
         server_default=func.current_timestamp(),
         comment="호출 일시",
+    )
+
+
+class MissingPersonCase(Base):
+    """실종자 관리 케이스 — 안내문자 1건(sn) 또는 챗봇 상담 1건마다 하나씩 생성된다.
+
+    sn은 실제 Message.sn 값(안내문자 기반) 또는 "C"+6자리 증가값(챗봇 기반)이다.
+    챗봇 케이스는 message 테이블에 대응하는 행이 없어서 FK로 강제하지 않는다
+    (services/missing_person_case_service.py에서 message.sn과 조인해 안내문자
+    본문을 보여줄 때는 매칭 안 되면 그냥 없는 것으로 처리).
+
+    이름/성별/나이/인상착의 채우는 방식이 케이스 출처에 따라 다르다:
+      - 챗봇 기반: 상담 중 이미 얻은 값이라 바로 채움(추가 비용 없음)
+      - 안내문자 기반: 생성 시점엔 안 채운다. LLM 파싱(parse_alert)이 문자
+        1건당 1번 호출인데, 안내문자는 스케줄러가 여러 건을 한 번에
+        수집하므로 그때마다 다 돌리면 비용이 커진다. 대신 msg_cn(원문)만
+        저장해두고, 담당자가 케이스를 열 때 필요하면 그 1건만 파싱한다.
+
+    상태 전이: 대기 →(담당하기) 진행중 →(완료 처리, 되돌리기 불가) 완료
+                              ↳(담당 취소) 대기로 복귀
+    완료는 취소할 수 없다 — 조회 시점마다 통계값이 달라지는 걸 막기 위함
+    (services/stats_service.py 참고).
+    """
+
+    __tablename__ = "missing_person_case"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    sn: Mapped[str] = mapped_column(
+        String(22),
+        unique=True,
+        nullable=False,
+        index=True,
+        comment="케이스 식별값 — 안내문자 기반은 message.sn 값 그대로, 챗봇 기반은 C+6자리",
+    )
+
+    missing_name: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    gender: Mapped[Gender | None] = mapped_column(
+        Enum(
+            Gender,
+            native_enum=False,
+            length=1,
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        nullable=True,
+    )
+    age: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    clothing: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    missing_location: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    missing_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    msg_cn: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "안내문자 원문(안내문자 기반 케이스만). 수집 시점엔 LLM으로 이름/성별/"
+            "나이/인상착의를 안 뽑는다(문자 여러 건을 한 번에 수집하는 배치라 비용이"
+            " 커짐) — 원문만 저장해두고, 담당자가 케이스를 열 때 필요하면 그때 1건만"
+            " parse_alert()로 채운다(services/missing_person_case_service.py)."
+        ),
+    )
+
+    status: Mapped[MissingPersonCaseStatus] = mapped_column(
+        Enum(
+            MissingPersonCaseStatus,
+            native_enum=False,
+            length=1,
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        nullable=False,
+        default=MissingPersonCaseStatus.PENDING,
+        index=True,
+        comment="1: 대기, 2: 진행중, 3: 완료",
+    )
+
+    assigned_investigator_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("user.id"), nullable=True, comment="담당 수사관"
+    )
+    assigned_investigator: Mapped["User | None"] = relationship()
+    assigned_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=kst_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=kst_now, onupdate=kst_now
+    )
+
+
+class StatsExportLog(Base):
+    """통계 CSV 내보내기 이력."""
+
+    __tablename__ = "stats_export_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    stat_type: Mapped[str] = mapped_column(
+        String(30), nullable=False, index=True, comment="cctv | search | demographic | outcomes"
+    )
+    # from_date/to_date 대신 from_dt/to_dt로 명명 — to_date가 MariaDB 12.2+에서
+    # 예약어(TO_DATE)로 추가돼 CREATE TABLE 문법 오류를 유발한다(팀원 환경에서
+    # 재현됨). 컬럼명 우회 대신 속성명 자체를 바꿔서 Python 속성명 = DB
+    # 컬럼명이 항상 일치하게 유지한다. API 응답 필드명(ExportLogItem.from_date/
+    # to_date)은 StatsService.list_exports()에서 명시적으로 매핑한다.
+    from_dt: Mapped[date] = mapped_column(Date, nullable=False)
+    to_dt: Mapped[date] = mapped_column(Date, nullable=False)
+    file_format: Mapped[str] = mapped_column(String(10), nullable=False, default="CSV")
+    file_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    row_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    requested_by_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("user.id"), nullable=True
+    )
+    requested_by_name: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=kst_now
     )

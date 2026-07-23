@@ -1,28 +1,134 @@
-/** 검색 운영 뷰 — CCTV 소스·검색 요청·작업·매칭 검수 (목 UI) */
-import { useState } from 'react';
+/** 검색 운영 뷰 — CCTV 소스(지역별 현황·일자별 이력 연동) · 검색 요청 이력(연동) */
+import { useCallback, useEffect, useState } from 'react';
 import PageHead from '../components/PageHead';
 import { StatValue, TableEmptyRow } from '../components/EmptyState';
+import Pagination from '../components/Pagination';
+import { adminPinnedPaginationStyle } from '../components/adminTableUtils';
+import {
+  fetchAdminSearchRequests,
+  fetchCctvCoverage,
+  fetchVideoDailySummary,
+  retryVideoIndexJob,
+  SEARCH_TYPE_LABELS,
+} from '../../../api/client';
 
 export function CctvSourceView() {
   const [tab, setTab] = useState('region');
+  const [coverage, setCoverage] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  // fetchCctvCoverage()가 페이지 파라미터 없이 전체를 한 번에 내려줘서
+  // 클라이언트에서 자른다. 요청대로 10줄.
+  const REGION_PER_PAGE = 10;
+  const [regionPage, setRegionPage] = useState(1);
+
+  const [days, setDays] = useState([]);
+  const [daysLoading, setDaysLoading] = useState(true);
+  const [daysError, setDaysError] = useState('');
+  // 촬영일자·영상수·지역수·등록시각 5개 열짜리 단순 텍스트 행이라 20줄로도
+  // 화면이 헐렁하지 않다.
+  const DAYS_PER_PAGE = 20;
+  const [daysPage, setDaysPage] = useState(1);
+  const [daysTotal, setDaysTotal] = useState(0);
+  const [retryDate, setRetryDate] = useState('');
+  const [retrying, setRetrying] = useState(false);
+  const [retryMessage, setRetryMessage] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError('');
+    fetchCctvCoverage()
+      .then((data) => {
+        if (!cancelled) setCoverage(data);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(
+          err?.response?.status === 403
+            ? '관리자 권한이 필요합니다.'
+            : 'CCTV 수집 현황을 불러오지 못했습니다.',
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const loadDays = useCallback(async () => {
+    setDaysLoading(true);
+    setDaysError('');
+    try {
+      const data = await fetchVideoDailySummary({
+        page: daysPage,
+        per_page: DAYS_PER_PAGE,
+      });
+      setDays(data.items ?? []);
+      setDaysTotal(data.total ?? 0);
+    } catch (err) {
+      setDaysError(
+        err?.response?.status === 403
+          ? '관리자 권한이 필요합니다.'
+          : '일자별 영상 현황을 불러오지 못했습니다.',
+      );
+    } finally {
+      setDaysLoading(false);
+    }
+  }, [daysPage]);
+
+  useEffect(() => {
+    if (tab === 'daily') loadDays();
+  }, [tab, loadDays]);
+
+  const handleRetry = async () => {
+    if (!retryDate) {
+      setRetryMessage('재시도할 날짜를 먼저 선택하세요.');
+      return;
+    }
+    setRetrying(true);
+    setRetryMessage('');
+    try {
+      const result = await retryVideoIndexJob(retryDate);
+      setRetryMessage(
+        `${result.target_date} 재인덱싱 완료 — 대상 ${result.total}건 중 ` +
+          `처리 ${result.processed} · 건너뜀 ${result.skipped} · 실패 ${result.failed}`,
+      );
+      await loadDays();
+    } catch (err) {
+      setRetryMessage(
+        err?.response?.status === 403
+          ? '관리자 권한이 필요합니다.'
+          : '재인덱싱 요청에 실패했습니다.',
+      );
+    } finally {
+      setRetrying(false);
+    }
+  };
+
+  const items = coverage?.items ?? [];
+  const summaryData = coverage?.summary;
+  const regionTotalPages = Math.max(1, Math.ceil(items.length / REGION_PER_PAGE));
+  const pagedRegionItems = items.slice(
+    (regionPage - 1) * REGION_PER_PAGE,
+    regionPage * REGION_PER_PAGE,
+  );
 
   const summary = (
     <div className="admin-stat-grid">
       <div className="admin-stat">
         <div className="admin-label">수집 지역</div>
-        <StatValue unit="구" />
+        <StatValue value={summaryData?.collected_region_count} unit="구" />
       </div>
       <div className="admin-stat admin-stat--green">
         <div className="admin-label">영상 파일</div>
-        <StatValue unit="개" />
-      </div>
-      <div className="admin-stat">
-        <div className="admin-label">총 용량</div>
-        <StatValue unit="GB" />
+        <StatValue value={summaryData?.video_file_count} unit="개" />
       </div>
       <div className="admin-stat admin-stat--amber">
         <div className="admin-label">⚠ 수집 실패·누락</div>
-        <StatValue unit="구" />
+        <StatValue value={summaryData?.missing_region_count} unit="구" />
       </div>
     </div>
   );
@@ -36,40 +142,84 @@ export function CctvSourceView() {
             <th>지역</th>
             <th>CCTV 대수</th>
             <th>영상 파일</th>
-            <th>시간대 커버리지</th>
-            <th>용량</th>
             <th>상태</th>
           </tr>
         </thead>
         <tbody>
-          <TableEmptyRow colSpan={6} />
+          {loading ? (
+            <TableEmptyRow colSpan={4} message="불러오는 중…" />
+          ) : error ? (
+            <TableEmptyRow colSpan={4} message={error} />
+          ) : items.length === 0 ? (
+            <TableEmptyRow colSpan={4} message="수집된 영상이 없습니다." />
+          ) : (
+            pagedRegionItems.map((item) => (
+              <tr key={item.region_code}>
+                <td>{item.region_name ?? item.region_code}</td>
+                <td>{item.cctv_count}</td>
+                <td>{item.video_count}</td>
+                <td>
+                  <span className="admin-pill admin-pill--ok">
+                    {item.status}
+                  </span>
+                </td>
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
+      <p className="admin-footnote">
+        ※ 용량·시간대 커버리지는 아직 저장하는 데이터가 없어 표시하지 않습니다.
+      </p>
     </div>
   );
+
+  const fmtDateTime = (s) =>
+    s
+      ? new Date(s).toLocaleString('ko-KR', {
+          dateStyle: 'short',
+          timeStyle: 'medium',
+        })
+      : '-';
+
+  const daysTotalPages = Math.max(1, Math.ceil(daysTotal / DAYS_PER_PAGE));
 
   const dailyTable = (
     <div className="admin-card admin-table-wrap">
       <div className="admin-card-h">
-        일자별 인덱싱 작업 이력{' '}
+        일자별 영상 현황{' '}
         <span className="admin-pill admin-pill--muted">
-          영상 적재 + 인물 탐지(video · video_detail)
+          촬영일자(recorded_at) 기준, Video 테이블 집계
         </span>
       </div>
       <table>
         <thead>
           <tr>
-            <th>작업 일자</th>
-            <th>대상 지역</th>
-            <th>영상 적재</th>
-            <th>인물 인덱싱</th>
-            <th>소요</th>
-            <th>상태</th>
-            <th style={{ textAlign: 'right' }} />
+            <th>촬영 일자</th>
+            <th>영상 파일</th>
+            <th>대상 지역 수</th>
+            <th>최초 등록</th>
+            <th>최종 등록</th>
           </tr>
         </thead>
         <tbody>
-          <TableEmptyRow colSpan={7} />
+          {daysLoading ? (
+            <TableEmptyRow colSpan={5} message="불러오는 중…" />
+          ) : daysError ? (
+            <TableEmptyRow colSpan={5} message={daysError} />
+          ) : days.length === 0 ? (
+            <TableEmptyRow colSpan={5} message="등록된 영상이 없습니다." />
+          ) : (
+            days.map((day) => (
+              <tr key={day.target_date}>
+                <td>{day.target_date}</td>
+                <td>{day.video_count}</td>
+                <td>{day.region_count}</td>
+                <td>{fmtDateTime(day.first_indexed_at)}</td>
+                <td>{fmtDateTime(day.last_indexed_at)}</td>
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
     </div>
@@ -99,29 +249,53 @@ export function CctvSourceView() {
         </button>
       </div>
       {tab === 'region' ? (
-        <>
-          <div className="admin-toolbar">
-            <select disabled>
-              <option>전체 시·도</option>
-            </select>
-            <input type="date" disabled />
-            <div className="admin-spacer" />
-          </div>
+        <div style={adminPinnedPaginationStyle(REGION_PER_PAGE)}>
           {regionTable}
-        </>
+          <Pagination
+            page={regionPage}
+            totalPages={regionTotalPages}
+            total={items.length}
+            onPageChange={setRegionPage}
+            loading={loading}
+          />
+        </div>
       ) : (
         <>
           <div className="admin-toolbar">
-            <input type="date" disabled />
-            <select disabled>
-              <option>전체 상태</option>
-            </select>
             <div className="admin-spacer" />
-            <button type="button" className="admin-btn" disabled>
-              인덱싱 재시도
+            <input
+              type="date"
+              value={retryDate}
+              onChange={(e) => setRetryDate(e.target.value)}
+              title="재인덱싱할 촬영일자"
+            />
+            <button
+              type="button"
+              className="admin-btn"
+              onClick={handleRetry}
+              disabled={retrying}
+            >
+              {retrying ? '인덱싱 중…' : '인덱싱 재시도'}
             </button>
           </div>
-          {dailyTable}
+          {retryMessage && <p className="admin-footnote">{retryMessage}</p>}
+          <div style={adminPinnedPaginationStyle(DAYS_PER_PAGE)}>
+            {dailyTable}
+            <Pagination
+              page={daysPage}
+              totalPages={daysTotalPages}
+              total={daysTotal}
+              onPageChange={setDaysPage}
+              loading={daysLoading}
+            />
+          </div>
+          <p className="admin-footnote">
+            ※ 별도 작업 기록 테이블 없이 Video 테이블을 촬영일자 기준으로 집계한
+            표라, 그 날 시도했지만 전부 실패했거나 건너뛴 영상은 여기 안
+            잡힙니다 — 실제로 등록에 성공한 영상만 보입니다. "인덱싱 재시도"는
+            YOLO·FashionCLIP 처리라 시간이 걸릴 수 있고, 완료될 때까지 응답을
+            기다립니다(결과는 저장되지 않는 1회성 응답).
+          </p>
         </>
       )}
     </>
@@ -129,6 +303,61 @@ export function CctvSourceView() {
 }
 
 export function SearchRequestsView() {
+  const [rows, setRows] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [keyword, setKeyword] = useState('');
+  const [searchType, setSearchType] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const PER_PAGE = 10;
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const params = { page, per_page: PER_PAGE };
+      if (keyword.trim()) params.keyword = keyword.trim();
+      if (searchType) params.search_type = searchType;
+      if (startDate) params.start_date = startDate;
+      if (endDate) params.end_date = endDate;
+      const data = await fetchAdminSearchRequests(params);
+      setRows(data.items ?? []);
+      setTotal(data.page_info?.total ?? 0);
+      setSummary(data.summary ?? null);
+    } catch (err) {
+      setError(
+        err?.response?.status === 403
+          ? '관리자 권한이 필요합니다.'
+          : '검색 요청 이력을 불러오지 못했습니다.',
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [page, keyword, searchType, startDate, endDate]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
+  const fmt = (s) =>
+    s
+      ? new Date(s).toLocaleString('ko-KR', {
+          dateStyle: 'short',
+          timeStyle: 'short',
+        })
+      : '-';
+
+  const onSearch = () => {
+    setPage(1);
+    load();
+  };
+
   return (
     <>
       <PageHead
@@ -138,36 +367,58 @@ export function SearchRequestsView() {
       <div className="admin-stat-grid">
         <div className="admin-stat">
           <div className="admin-label">오늘 검색 요청</div>
-          <StatValue unit="건" />
+          <StatValue value={summary?.today_total} unit="건" />
         </div>
         <div className="admin-stat">
-          <div className="admin-label">안내문자 파싱</div>
-          <StatValue unit="건" />
+          <div className="admin-label">안내문자 파싱 (전체)</div>
+          <StatValue value={summary?.total_sms} unit="건" />
         </div>
         <div className="admin-stat">
-          <div className="admin-label">챗봇 검색</div>
-          <StatValue unit="건" />
+          <div className="admin-label">챗봇 검색 (전체)</div>
+          <StatValue value={summary?.total_chatbot} unit="건" />
         </div>
         <div className="admin-stat">
-          <div className="admin-label">자동 검색</div>
-          <StatValue unit="건" />
+          <div className="admin-label">자동 검색 (전체)</div>
+          <StatValue value={summary?.total_auto} unit="건" />
         </div>
       </div>
       <div className="admin-toolbar">
-        <input placeholder="이름·인상착의·지역 검색" disabled />
-        <select disabled>
-          <option>전체 유형</option>
+        <input
+          placeholder="이름·인상착의·지역 검색"
+          value={keyword}
+          onChange={(e) => setKeyword(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && onSearch()}
+        />
+        <select
+          value={searchType}
+          onChange={(e) => setSearchType(e.target.value)}
+        >
+          <option value="">전체 유형</option>
+          {Object.entries(SEARCH_TYPE_LABELS).map(([code, label]) => (
+            <option key={code} value={code}>
+              {label}
+            </option>
+          ))}
         </select>
-        <select disabled>
-          <option>전체 요청자</option>
-        </select>
-        <input type="date" disabled />
+        <input
+          type="date"
+          value={startDate}
+          onChange={(e) => setStartDate(e.target.value)}
+          title="시작일"
+        />
+        <input
+          type="date"
+          value={endDate}
+          onChange={(e) => setEndDate(e.target.value)}
+          title="종료일"
+        />
         <div className="admin-spacer" />
-        <button type="button" className="admin-btn" disabled>
-          CSV보내기
+        <button type="button" className="admin-btn" onClick={onSearch}>
+          검색
         </button>
       </div>
-      <div className="admin-card admin-table-wrap">
+      <div style={adminPinnedPaginationStyle(PER_PAGE)}>
+        <div className="admin-card admin-table-wrap">
         <table>
           <thead>
             <tr>
@@ -179,177 +430,62 @@ export function SearchRequestsView() {
               <th>인상착의</th>
               <th>실종 지역·시각</th>
               <th>검색 일시</th>
-              <th style={{ textAlign: 'right' }} />
             </tr>
           </thead>
           <tbody>
-            <TableEmptyRow colSpan={9} />
+            {loading ? (
+              <TableEmptyRow colSpan={8} message="불러오는 중…" />
+            ) : error ? (
+              <TableEmptyRow colSpan={8} message={error} />
+            ) : rows.length === 0 ? (
+              <TableEmptyRow colSpan={8} message="검색 요청 이력이 없습니다." />
+            ) : (
+              rows.map((r) => (
+                <tr key={r.id}>
+                  <td>{r.id}</td>
+                  <td>
+                    <span className="admin-pill admin-pill--muted">
+                      {SEARCH_TYPE_LABELS[r.search_type] ?? r.search_type}
+                    </span>
+                  </td>
+                  <td>{r.requester_name ?? r.requester_username ?? '-'}</td>
+                  <td title={r.message_preview ?? undefined}>
+                    {r.message_preview ?? '-'}
+                  </td>
+                  <td>
+                    {r.missing_name ?? '-'}
+                    {r.gender ? ` (${r.gender === 'M' ? '남' : '여'}` : ''}
+                    {r.age
+                      ? `${r.gender ? ', ' : ' ('}${r.age}세)`
+                      : r.gender
+                        ? ')'
+                        : ''}
+                  </td>
+                  <td title={r.clothing ?? undefined}>{r.clothing ?? '-'}</td>
+                  <td>
+                    {r.missing_location ?? '-'}
+                    {r.missing_time ? ` · ${fmt(r.missing_time)}` : ''}
+                  </td>
+                  <td>{fmt(r.searched_at)}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        onPageChange={setPage}
+        loading={loading}
+      />
+      </div>
+
       <p className="admin-footnote">
         ※ <code>search</code> 테이블의 요청 이력입니다.
       </p>
-    </>
-  );
-}
-
-export function SearchJobsView() {
-  return (
-    <>
-      <PageHead
-        viewId="search-jobs"
-        desc="저장된 안내문자와 수집된 CCTV 영상으로 검색 작업을 실행하고 진행 상황을 모니터링합니다."
-      />
-      <div className="admin-card admin-mb">
-        <div className="admin-card-h">새 검색 시작</div>
-        <div className="admin-card-b">
-          <div className="admin-form-row">
-            <div className="admin-fld">
-              <label>안내문자(신고)</label>
-              <select disabled>
-                <option>안내문자를 선택하세요</option>
-              </select>
-            </div>
-            <div className="admin-fld">
-              <label>대상 지역</label>
-              <select disabled>
-                <option>지역을 선택하세요</option>
-              </select>
-            </div>
-            <div className="admin-fld">
-              <label>수집 일자</label>
-              <input type="date" disabled />
-            </div>
-            <div className="admin-fld">
-              <label>시간대</label>
-              <select disabled>
-                <option>시간대를 선택하세요</option>
-              </select>
-            </div>
-          </div>
-          <div className="admin-form-row" style={{ alignItems: 'flex-end' }}>
-            <div className="admin-fld">
-              <label>매칭 모델</label>
-              <select disabled>
-                <option>모델을 선택하세요</option>
-              </select>
-            </div>
-            <div className="admin-fld">
-              <label>참조사진(선택)</label>
-              <input
-                type="text"
-                placeholder="첨부 시 얼굴 기반 보강"
-                disabled
-              />
-            </div>
-            <div className="admin-fld" style={{ flex: '0 0 auto' }}>
-              <label>&nbsp;</label>
-              <div
-                style={{
-                  fontSize: '12.5px',
-                  color: 'var(--admin-ink-2)',
-                  padding: '8px 0',
-                }}
-              >
-                대상 영상 <b>—</b>개 · 예상 시간 <b>—</b>
-              </div>
-            </div>
-            <div className="admin-spacer" />
-            <button
-              type="button"
-              className="admin-btn admin-btn--primary"
-              style={{ flex: '0 0 auto' }}
-              disabled
-            >
-              검색 작업 실행
-            </button>
-          </div>
-        </div>
-      </div>
-      <div className="admin-stat-grid">
-        <div className="admin-stat">
-          <div className="admin-label">진행 중</div>
-          <StatValue />
-        </div>
-        <div className="admin-stat admin-stat--green">
-          <div className="admin-label">오늘 완료</div>
-          <StatValue />
-        </div>
-        <div className="admin-stat admin-stat--amber">
-          <div className="admin-label">대기열</div>
-          <StatValue />
-        </div>
-        <div className="admin-stat admin-stat--red">
-          <div className="admin-label">실패 (24h)</div>
-          <StatValue />
-        </div>
-      </div>
-      <div className="admin-card admin-table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>작업 ID</th>
-              <th>안내문자</th>
-              <th>대상 영상 풀</th>
-              <th>모델</th>
-              <th>진행</th>
-              <th>상태</th>
-              <th>시작</th>
-            </tr>
-          </thead>
-          <tbody>
-            <TableEmptyRow colSpan={7} />
-          </tbody>
-        </table>
-      </div>
-    </>
-  );
-}
-
-export function MatchReviewView() {
-  return (
-    <>
-      <PageHead
-        viewId="match-review"
-        desc="검색이 찾은 후보(탐지된 인물 이미지)를 검토합니다. YOLO 오탐(마네킹·포스터 등)은 선택해 일괄 제외하고, 확정은 행을 클릭해 상세에서 진행합니다."
-      />
-      <div className="admin-toolbar">
-        <select disabled>
-          <option>검색 작업을 선택하세요</option>
-        </select>
-        <select disabled>
-          <option>유사도 높은 순</option>
-        </select>
-        <div className="admin-spacer" />
-        <span className="admin-pill admin-pill--muted">
-          후보 — · 확정 — · 제외 —
-        </span>
-      </div>
-      <div className="admin-card admin-table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th style={{ width: 34 }}>
-                <input type="checkbox" aria-label="전체 선택" disabled />
-              </th>
-              <th>순위</th>
-              <th>썸네일</th>
-              <th>CCTV / 위치</th>
-              <th>발견 시각</th>
-              <th>유사도</th>
-              <th>인상착의 일치</th>
-              <th style={{ textAlign: 'right' }}>제외</th>
-            </tr>
-          </thead>
-          <tbody>
-            <TableEmptyRow
-              colSpan={8}
-              message="검색 작업을 선택하면 후보 목록이 표시됩니다."
-            />
-          </tbody>
-        </table>
-      </div>
     </>
   );
 }

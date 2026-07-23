@@ -22,8 +22,11 @@
 }
 
 .search-history__count {
+  display: inline-block;
+  min-width: 5.5rem;
   font-size: 0.85rem;
   color: #6b7280;
+  font-variant-numeric: tabular-nums;
 }
 
 .search-history__refresh {
@@ -65,20 +68,24 @@
 .search-history__toolbar {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 12px;
+  min-height: 58px;
   padding: 12px 14px;
   border-bottom: 1px solid #e5e7eb;
   background: #f9fafb;
+  flex-shrink: 0;
 }
 
 .search-history__summary {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: 10px;
+  min-height: 72px;
   padding: 12px 14px;
   border-bottom: 1px solid #e5e7eb;
   background: #fff;
+  flex-shrink: 0;
 }
 
 .search-history__stat-card {
@@ -89,6 +96,7 @@
   border: 1px solid #e5e7eb;
   border-radius: 6px;
   background: #f8fafc;
+  min-width: 0;
 }
 
 .search-history__stat-label {
@@ -105,9 +113,11 @@
   display: flex;
   gap: 6px;
   margin-left: auto;
+  flex-shrink: 0;
 }
 
 .search-history__period-btn {
+  min-width: 52px;
   padding: 6px 12px;
   border: 1px solid #d1d5db;
   border-radius: 4px;
@@ -116,6 +126,7 @@
   font-size: 0.78rem;
   font-family: inherit;
   cursor: pointer;
+  text-align: center;
 }
 
 .search-history__period-btn--on {
@@ -186,9 +197,20 @@
 }
 
 .search-history__error {
-  margin: 12px 14px 0;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 10px 14px;
   color: #ef4444;
   font-size: 0.9rem;
+  border-bottom: 1px solid #fee2e2;
+  background: #fef2f2;
+}
+
+.search-history__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .search-history__empty {
@@ -215,8 +237,38 @@
 
 .search-history__table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 0.85rem;
+}
+
+.search-history__table th:nth-child(1),
+.search-history__table td:nth-child(1) {
+  width: 18%;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.search-history__table th:nth-child(2),
+.search-history__table td:nth-child(2) {
+  width: 11%;
+}
+
+.search-history__table th:nth-child(3),
+.search-history__table td:nth-child(3) {
+  width: 14%;
+  text-align: center;
+}
+
+.search-history__table th:nth-child(4),
+.search-history__table td:nth-child(4) {
+  width: 18%;
+  text-align: center;
+}
+
+.search-history__table th:nth-child(6),
+.search-history__table td:nth-child(6) {
+  width: 108px;
 }
 
 .search-history__table thead {
@@ -232,6 +284,19 @@
   border-bottom: 1px solid #e5e7eb;
   text-align: left;
   vertical-align: middle;
+}
+
+.search-history__table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 결과 보기 버튼 칸은 말줄임(...) 적용하지 않음 — 버튼 옆에 ...가 보이던 원인 */
+.search-history__table td.search-history__col-action {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
 .search-history__table th {
@@ -256,6 +321,42 @@
   min-width: 0;
 }
 
+.search-history__table th.search-history__col-type,
+.search-history__table td.search-history__col-type {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.search-history__type-badge {
+  display: inline-block;
+  min-width: 58px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.search-history__type-badge--message {
+  background: #e8f0fe;
+  color: #003876;
+}
+
+.search-history__type-badge--chatbot {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.search-history__type-badge--auto {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.search-history__type-badge--unknown {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
 .search-history__thumb {
   width: 40px;
   height: 40px;
@@ -265,8 +366,9 @@
   flex-shrink: 0;
 }
 
-.search-history__col-action {
-  text-align: right;
+.search-history__table th.search-history__col-action,
+.search-history__table td.search-history__col-action {
+  text-align: center;
   white-space: nowrap;
 }
 
@@ -289,7 +391,28 @@
   color: #fff;
 }
 
+/* 결과 0건 — 파란 강조 대신 회색 톤으로 눈에 덜 띄게, 클릭은 그대로 가능
+   (검색 조건 자체는 확인할 수 있어야 하니 버튼 자체를 없애진 않는다) */
+.search-history__view-btn--empty {
+  border-color: #cbd5e1;
+  color: #64748b;
+}
+
+.search-history__view-btn--empty:hover {
+  background: #64748b;
+  color: #fff;
+}
+
 @media (max-width: 960px) {
+  .search-history__toolbar {
+    flex-wrap: wrap;
+    min-height: 0;
+  }
+
+  .search-history__period {
+    margin-left: 0;
+  }
+
   .search-history__table th:nth-child(5),
   .search-history__table td:nth-child(5) {
     display: none;
